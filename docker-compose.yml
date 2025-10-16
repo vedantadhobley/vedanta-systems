@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - VITE_API_BASE_URL=http://localhost:8080
+      - VITE_ENVIRONMENT=development
+    restart: unless-stopped
+    # Uncomment to use volumes for live development
+    # volumes:
+    #   - .:/app
+    #   - /app/node_modules
+
+# Example: Add your backend services here when ready
+# backend-service-1:
+#   build:
+#     context: ../path-to-service-1
+#     dockerfile: Dockerfile
+#   ports:
+#     - "8080:8080"
+#   environment:
+#     - ENV=development
+#   restart: unless-stopped
