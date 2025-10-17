@@ -14,6 +14,7 @@ export default defineConfig({
     port: 3000,
     strictPort: false,
     open: true,
+    host: '0.0.0.0',  // Bind to all interfaces so Tailscale can reach it
   },
   build: {
     outDir: 'dist',

@@ -4,56 +4,91 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 0 0% 3.6%;
-    --card: 0 0% 100%;
-    --card-foreground: 0 0% 3.6%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 3.6%;
-    --muted: 0 0% 96.1%;
-    --muted-foreground: 0 0% 45.1%;
-    --accent: 0 0% 9.0%;
-    --accent-foreground: 0 0% 100%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 100%;
-    --border: 0 0% 89.8%;
-    --input: 0 0% 89.8%;
-    --primary: 0 0% 9.0%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 0 0% 96.1%;
-    --secondary-foreground: 0 0% 9.0%;
-    --ring: 0 0% 3.6%;
-    --radius: 0.5rem;
-  }
-
-  .dark {
-    --background: 0 0% 3.6%;
-    --foreground: 0 0% 98.2%;
-    --card: 0 0% 3.6%;
-    --card-foreground: 0 0% 98.2%;
-    --popover: 0 0% 3.6%;
-    --popover-foreground: 0 0% 98.2%;
-    --muted: 0 0% 14.9%;
-    --muted-foreground: 0 0% 63.9%;
-    --accent: 0 0% 98.2%;
-    --accent-foreground: 0 0% 9.0%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 9.0%;
-    --border: 0 0% 14.9%;
-    --input: 0 0% 14.9%;
-    --primary: 0 0% 98.2%;
-    --primary-foreground: 0 0% 9.0%;
-    --secondary: 0 0% 14.9%;
-    --secondary-foreground: 0 0% 98.2%;
-    --ring: 0 0% 83.1%;
+    /* Corporate Monochrome - Cold, industrial, lifeless */
+    --background: 220 8% 6%;           /* Near black, slight cool tint */
+    --foreground: 220 4% 88%;          /* Cool gray white */
+    
+    /* Your personal touch - Lavender ash, used SPARINGLY */
+    --lavender: 260 35% 68%;           /* Calm lavender purple - your signature */
+    --lavender-dim: 260 20% 45%;       /* Dimmed for subtle use */
+    --lavender-ghost: 260 15% 25%;     /* Barely visible, background accents */
+    
+    /* Corporate grays - the only colors that matter here */
+    --corpo-black: 220 10% 8%;         /* Pure corporate void */
+    --corpo-dark: 220 8% 12%;          /* Dark panels */
+    --corpo-mid: 220 6% 18%;           /* Mid-tone surfaces */
+    --corpo-panel: 220 5% 22%;         /* Panel backgrounds */
+    --corpo-border: 220 4% 28%;        /* Borders, dividers */
+    --corpo-text: 220 3% 65%;          /* Muted text */
+    --corpo-light: 220 2% 75%;         /* Light text */
+    
+    /* UI Elements - mostly grays */
+    --border: 220 4% 28%;
+    --input: 220 8% 12%;
+    --ring: 260 35% 68%;               /* Focus ring - your lavender */
+    
+    --primary: 260 35% 68%;            /* Lavender - your accent */
+    --primary-foreground: 220 8% 6%;
+    
+    --secondary: 220 8% 12%;
+    --secondary-foreground: 220 4% 88%;
+    
+    --destructive: 0 0% 45%;           /* Even errors are gray */
+    --destructive-foreground: 220 4% 88%;
+    
+    --muted: 220 8% 12%;
+    --muted-foreground: 220 3% 55%;
+    
+    --accent: 260 20% 45%;             /* Dimmed lavender */
+    --accent-foreground: 220 4% 88%;
   }
 }
 
 @layer base {
   * {
     @apply border-border;
+    border-radius: 0 !important;
   }
+  
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-mono;
+    /* Subtle monitor grain */
+    background-image: 
+      repeating-linear-gradient(
+        0deg,
+        rgba(0, 0, 0, 0.03),
+        rgba(0, 0, 0, 0.03) 1px,
+        transparent 1px,
+        transparent 2px
+      );
+  }
+  
+  button, input, textarea, select, div {
+    border-radius: 0 !important;
+  }
+}
+
+@layer utilities {
+  /* Linear snap - corporate precision */
+  .animate-snap {
+    animation-timing-function: linear;
+    transition-timing-function: linear;
+  }
+  
+  /* Lavender glow - your personal signature */
+  .lavender-glow {
+    text-shadow: 
+      0 0 8px hsl(var(--lavender)),
+      0 0 16px hsl(var(--lavender));
+  }
+  
+  /* Subtle cursor */
+  .cursor-blink {
+    animation: blink 1.2s linear infinite;
+  }
+  
+  @keyframes blink {
+    0%, 49% { opacity: 1; }
+    50%, 100% { opacity: 0; }
   }
 }
