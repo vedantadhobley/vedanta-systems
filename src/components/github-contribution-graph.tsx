@@ -158,6 +158,7 @@ export function GitHubContributionGraph({ username }: { username: string }) {
     if (!loading || !startWave) return // Don't animate until wave should start
     
     let frame = 0
+    let isWaiting = false
     const frameRate = 60
     const columnsPerSecond = 20 // Speed: 20 columns per second (adjust this for faster/slower)
     const totalColumns = weeksToShow + 10 // Width of graph + buffer
@@ -166,6 +167,8 @@ export function GitHubContributionGraph({ username }: { username: string }) {
     const distancePerFrame = totalColumns / framesPerWave
     
     const interval = setInterval(() => {
+      if (isWaiting) return // Skip frames during wait period
+      
       frame++
       const currentPosition = (frame * distancePerFrame) - 5 // Start at -5
       
@@ -178,8 +181,13 @@ export function GitHubContributionGraph({ username }: { username: string }) {
           clearInterval(interval)
           setLoading(false)
         } else {
-          // Data not ready yet - reset for another cycle
-          frame = 0
+          // Data not ready yet - wait 1 second before resetting
+          isWaiting = true
+          setTimeout(() => {
+            frame = 0
+            setWavePosition(-5)
+            isWaiting = false
+          }, 1000)
         }
       }
     }, 1000 / frameRate)
@@ -190,7 +198,7 @@ export function GitHubContributionGraph({ username }: { username: string }) {
   const getColor = (level: string) => {
     switch (level) {
       case 'NONE':
-        return 'bg-corpo-black'
+        return 'bg-[#1a1a1a]' // Very dark gray for no contributions (darker than level 1)
       case 'FIRST_QUARTILE':
         return 'bg-[#3d2d5c]' // Dark lavender
       case 'SECOND_QUARTILE':
@@ -200,23 +208,23 @@ export function GitHubContributionGraph({ username }: { username: string }) {
       case 'FOURTH_QUARTILE':
         return 'bg-[#a57fd8]' // Bright lavender
       default:
-        return 'bg-corpo-black'
+        return 'bg-[#1a1a1a]'
     }
   }
 
   // Generate wave pattern colors - bright leading edge (right) fading to dark trailing edge (left)
   const getWaveColor = (weekIdx: number, _dayIdx: number) => {
     // Don't show wave if it hasn't started
-    if (!startWave) return 'bg-corpo-black'
+    if (!startWave) return ''
     
     // Distance from wave position (positive = ahead of wave, negative = behind wave)
     const distanceFromWave = weekIdx - wavePosition
     
-    // Ahead of wave - stay black (wave hasn't reached yet)
-    if (distanceFromWave > 1) return 'bg-corpo-black'
+    // Ahead of wave - no color yet
+    if (distanceFromWave > 1) return ''
     
-    // Far behind wave - stay black (wave has passed)
-    if (distanceFromWave < -5) return 'bg-corpo-black'
+    // Far behind wave - no color (data will be revealed)
+    if (distanceFromWave < -5) return ''
     
     // Inside the wave - bright at RIGHT (front), fading to dark at LEFT (back)
     // Wave spans about 6 columns
@@ -224,11 +232,9 @@ export function GitHubContributionGraph({ username }: { username: string }) {
     
     if (distanceFromWave > 0) {
       // Right side (leading edge): brightest
-      // 0 to 1 is the front, ramp from 0 to peak brightness
-      intensity = 1 - distanceFromWave // 1 to 0 becomes 1 to 0
+      intensity = 1 - distanceFromWave
     } else if (distanceFromWave > -5) {
       // Left side (trailing edge): fading from bright to dark
-      // 0 to -5 fades out
       intensity = 1 + (distanceFromWave / 5) // 0 to -5 becomes 1 to 0
     } else {
       intensity = 0
@@ -237,11 +243,13 @@ export function GitHubContributionGraph({ username }: { username: string }) {
     intensity = Math.max(0, Math.min(1, intensity))
     
     // Map intensity: 1.0 = brightest (RIGHT/front), 0.0 = darkest (LEFT/back)
-    if (intensity > 0.8) return 'bg-[#a57fd8]' // Brightest lavender - RIGHT side
+    // Wave goes: Bright → Medium-bright → Medium → Dark → Very dark gray
+    if (intensity > 0.8) return 'bg-[#a57fd8]' // Brightest lavender
     if (intensity > 0.6) return 'bg-[#7a5aaf]' // Medium-bright lavender
     if (intensity > 0.4) return 'bg-[#5a4080]' // Medium lavender
     if (intensity > 0.2) return 'bg-[#3d2d5c]' // Dark lavender
-    return 'bg-corpo-black' // Black - LEFT side trailing edge
+    if (intensity > 0) return 'bg-[#1a1a1a]'   // Very dark gray (like level 0)
+    return '' // After wave passes completely
   }
 
   if (loading) {
@@ -260,28 +268,18 @@ export function GitHubContributionGraph({ username }: { username: string }) {
               {Array.from({ length: 7 }).map((_, dayIdx) => {
                 const hasData = displayWeeks[weekIdx]?.[dayIdx]
                 const distanceFromWave = weekIdx - wavePosition
-                
-                // If no data and wave has completely passed, remove the box
-                if (!hasData && dataReady && distanceFromWave < -5) {
-                  return (
-                    <div
-                      key={`${weekIdx}-${dayIdx}`}
-                      className="w-3 h-3"
-                    />
-                  )
-                }
+                const waveColor = getWaveColor(weekIdx, dayIdx)
                 
                 // Determine the color
-                let colorClass: string
+                let colorClass: string = ''
                 
                 if (hasData && dataReady) {
                   // We have real data - show wave until matching color passes
                   const targetLevel = hasData.level
-                  const waveColor = getWaveColor(weekIdx, dayIdx)
                   
                   // Map levels to intensity thresholds
                   const levelToIntensity: Record<string, number> = {
-                    'NONE': 0,
+                    'NONE': 0.1,  // Gray - locks when wave fades to gray
                     'FIRST_QUARTILE': 0.25,
                     'SECOND_QUARTILE': 0.5,
                     'THIRD_QUARTILE': 0.75,
@@ -294,24 +292,40 @@ export function GitHubContributionGraph({ username }: { username: string }) {
                     if (color.includes('#7a5aaf')) return 0.75
                     if (color.includes('#5a4080')) return 0.5
                     if (color.includes('#3d2d5c')) return 0.25
+                    if (color.includes('#1a1a1a')) return 0.1
                     return 0
                   }
                   
                   const currentWaveIntensity = getWaveIntensity(waveColor)
                   const targetIntensity = levelToIntensity[targetLevel]
                   
-                  // Lock to target color when wave's matching color has passed
-                  // Wave goes: 0 -> 1.0 -> 0.75 -> 0.5 -> 0.25 -> 0
                   // Lock when wave intensity drops to or below target intensity
                   if (distanceFromWave < 0 && currentWaveIntensity <= targetIntensity) {
                     colorClass = getColor(targetLevel)
                   } else {
-                    // Show wave
                     colorClass = waveColor
                   }
-                } else {
-                  // No data yet - show wave pattern on all squares
-                  colorClass = getWaveColor(weekIdx, dayIdx)
+                } else if (!dataReady) {
+                  // No data yet - NO SQUARES AT ALL (stay black background)
+                  colorClass = ''
+                } else if (!hasData) {
+                  // Data ready but no data for this square (future) - don't render
+                  return (
+                    <div
+                      key={`${weekIdx}-${dayIdx}`}
+                      className="w-3 h-3"
+                    />
+                  )
+                }
+                
+                // Don't render empty squares (before wave or after wave with no data)
+                if (!colorClass) {
+                  return (
+                    <div
+                      key={`${weekIdx}-${dayIdx}`}
+                      className="w-3 h-3"
+                    />
+                  )
                 }
                 
                 return (
