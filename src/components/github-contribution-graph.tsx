@@ -1,4 +1,6 @@
 import { useEffect, useState, useRef, useMemo, useCallback } from 'react'
+import { Switch } from '@/components/ui/switch'
+import { StatusIndicator } from '@/components/ui/shadcn-io/status'
 
 /**
  * GitHub Contribution Graph - Standalone Component
@@ -81,11 +83,13 @@ export function GitHubContributionGraph({
   const [error, setError] = useState<string | null>(null)
   const [weeksToShow, setWeeksToShow] = useState(52) // Start with max, will adjust
   const [unlockedSquares, setUnlockedSquares] = useState<Set<string>>(new Set()) // Track unlocked squares during erasure
+  const [animationEnabled, setAnimationEnabled] = useState(true) // User toggle for animation
   const containerRef = useRef<HTMLDivElement>(null)
   const waveIntervalRef = useRef<number | null>(null) // Track wave animation interval
   const autoRefreshTimerRef = useRef<number | null>(null) // Track auto-refresh timer
   const dataReadyRef = useRef(dataReady) // Track current dataReady value for wave completion
   const hasBeenRevealedRef = useRef(hasBeenRevealed) // Track current hasBeenRevealed value
+  const animationEnabledRef = useRef(animationEnabled) // Track animation toggle
 
   // Memoize intensity mappings (calculated once, reused for all squares)
   const levelToIntensityMap = useMemo(() => ({
@@ -113,6 +117,10 @@ export function GitHubContributionGraph({
   useEffect(() => {
     hasBeenRevealedRef.current = hasBeenRevealed
   }, [hasBeenRevealed])
+
+  useEffect(() => {
+    animationEnabledRef.current = animationEnabled
+  }, [animationEnabled])
 
   // Calculate weeks to show based on available width
   useEffect(() => {
@@ -154,6 +162,15 @@ export function GitHubContributionGraph({
 
   // Fetch contributions - called every time a wave starts
   const fetchContributions = async () => {
+    // Check if animation is enabled before fetching
+    if (!animationEnabledRef.current) {
+      // Animation disabled - mark as not ready but don't show error
+      if (dataReady) {
+        setDataReady(false)
+      }
+      return
+    }
+
     try {
       const token = import.meta.env.VITE_GITHUB_TOKEN
       
@@ -377,8 +394,11 @@ export function GitHubContributionGraph({
   const displayWeeks = weeks.slice(-weeksToShow)
   
   return (
-    <div ref={containerRef} className="flex justify-center w-full">
-      <div className="inline-flex gap-1">
+    <div ref={containerRef} className="flex flex-col items-center w-full gap-4 p-4">
+      {/* Graph container with fixed width */}
+      <div className="flex flex-col" style={{ width: `${weeksToShow * 16 - 4}px`, gap: '12px' }}>
+        {/* Contribution graph */}
+        <div className="inline-flex gap-1">
           {Array.from({ length: weeksToShow }).map((_, weekIdx) => (
             <div key={weekIdx} className="flex flex-col gap-1">
               {Array.from({ length: 7 }).map((_, dayIdx) => {
@@ -533,7 +553,37 @@ export function GitHubContributionGraph({
               })}
             </div>
           ))}
+      </div>
+      
+      {/* Controls row - all elements centered on same line */}
+      <div className="flex items-start justify-between">
+        {/* Status indicator - bottom left */}
+        <div className="flex items-start gap-2">
+          <div className="mt-[4px]">
+            <StatusIndicator 
+              color={dataReady ? '#a57fd8' : '#1a1a1a'}
+              className={!dataReady ? '[&>span:first-child]:animate-none' : ''}
+            />
+          </div>
+          <span className="text-sm font-normal text-gray-200 leading-tight uppercase">STATUS</span>
+        </div>
+
+        {/* Animation toggle - bottom right */}
+        <div 
+          className="flex items-start gap-2 cursor-pointer select-none"
+          onClick={() => setAnimationEnabled(!animationEnabled)}
+        >
+          <span className="text-sm font-normal text-gray-200 leading-tight uppercase">REMOTE</span>
+          <div className="-mt-[5px] pointer-events-none">
+            <Switch
+              checked={animationEnabled}
+              onCheckedChange={setAnimationEnabled}
+              className="h-3 w-5 data-[state=checked]:bg-[#a57fd8] data-[state=unchecked]:bg-[#1a1a1a] [&>span]:h-2 [&>span]:w-2 [&>span]:bg-gray-200 [&>span]:data-[state=checked]:translate-x-2 shrink-0 transition-none [&>span]:transition-transform [&>span]:duration-150"
+            />
+          </div>
         </div>
       </div>
-    )
+    </div>
+    </div>
+  )
 }
