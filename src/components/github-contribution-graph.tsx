@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useMemo, useCallback } from 'react'
 
 /**
  * GitHub Contribution Graph - Standalone Component
@@ -84,6 +84,35 @@ export function GitHubContributionGraph({
   const containerRef = useRef<HTMLDivElement>(null)
   const waveIntervalRef = useRef<number | null>(null) // Track wave animation interval
   const autoRefreshTimerRef = useRef<number | null>(null) // Track auto-refresh timer
+  const dataReadyRef = useRef(dataReady) // Track current dataReady value for wave completion
+  const hasBeenRevealedRef = useRef(hasBeenRevealed) // Track current hasBeenRevealed value
+
+  // Memoize intensity mappings (calculated once, reused for all squares)
+  const levelToIntensityMap = useMemo(() => ({
+    'NONE': 0.1,
+    'FIRST_QUARTILE': 0.25,
+    'SECOND_QUARTILE': 0.5,
+    'THIRD_QUARTILE': 0.75,
+    'FOURTH_QUARTILE': 1.0
+  }), [])
+
+  const getWaveIntensity = useCallback((color: string): number => {
+    if (color === colors.level4) return 1.0
+    if (color === colors.level3) return 0.75
+    if (color === colors.level2) return 0.5
+    if (color === colors.level1) return 0.25
+    if (color === colors.level0) return 0.1
+    return 0
+  }, [colors.level0, colors.level1, colors.level2, colors.level3, colors.level4])
+
+  // Keep refs in sync with state
+  useEffect(() => {
+    dataReadyRef.current = dataReady
+  }, [dataReady])
+
+  useEffect(() => {
+    hasBeenRevealedRef.current = hasBeenRevealed
+  }, [hasBeenRevealed])
 
   // Calculate weeks to show based on available width
   useEffect(() => {
@@ -239,17 +268,21 @@ export function GitHubContributionGraph({
       if (currentPosition >= weeksToShow + 5) {
         if (waveIntervalRef.current) clearInterval(waveIntervalRef.current)
         
+        // Read current values from refs (not stale closure values)
+        const currentDataReady = dataReadyRef.current
+        const currentHasBeenRevealed = hasBeenRevealedRef.current
+        
         // Update revealed state based on data availability
-        if (dataReady && !hasBeenRevealed) {
+        if (currentDataReady && !currentHasBeenRevealed) {
           // Data is ready and this is first reveal - mark as revealed
           setHasBeenRevealed(true)
-        } else if (!dataReady && hasBeenRevealed) {
+        } else if (!currentDataReady && currentHasBeenRevealed) {
           // Data was lost and erasure wave just completed - reset revealed state
           setHasBeenRevealed(false)
         }
         
         // Wave completed - schedule next wave based on data availability
-        const delayMs = dataReady ? 10000 : 1000 // 10 seconds if data ready, 1 second if not
+        const delayMs = currentDataReady ? 10000 : 1000 // 10 seconds if data ready, 1 second if not
         
         autoRefreshTimerRef.current = setTimeout(() => {
           setWavePosition(-5) // Reset to start
@@ -263,7 +296,9 @@ export function GitHubContributionGraph({
       if (waveIntervalRef.current) clearInterval(waveIntervalRef.current)
       if (autoRefreshTimerRef.current) clearTimeout(autoRefreshTimerRef.current)
     }
-  }, [waveActive, dataReady, weeksToShow])
+    // Only re-run when wave restarts or weeks change, NOT when dataReady changes mid-wave
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [waveActive, weeksToShow])
 
   const getColor = (level: string) => {
     switch (level) {
@@ -380,25 +415,7 @@ export function GitHubContributionGraph({
                     
                     const squareKey = `${weekIdx}-${dayIdx}`
                     const isUnlocked = unlockedSquares.has(squareKey)
-                    
-                    const levelToIntensity: Record<string, number> = {
-                      'NONE': 0.1,
-                      'FIRST_QUARTILE': 0.25,
-                      'SECOND_QUARTILE': 0.5,
-                      'THIRD_QUARTILE': 0.75,
-                      'FOURTH_QUARTILE': 1.0
-                    }
-                    
-                    const getWaveIntensity = (color: string): number => {
-                      if (color === colors.level4) return 1.0
-                      if (color === colors.level3) return 0.75
-                      if (color === colors.level2) return 0.5
-                      if (color === colors.level1) return 0.25
-                      if (color === colors.level0) return 0.1
-                      return 0
-                    }
-                    
-                    const targetIntensity = levelToIntensity[targetLevel]
+                    const targetIntensity = levelToIntensityMap[targetLevel]
                     
                     if (isUnlocked) {
                       // Already unlocked - show wave gradient or disappear after wave passes
@@ -438,25 +455,8 @@ export function GitHubContributionGraph({
                     // Data has been revealed before - wave just refreshes over visible data
                     if (waveColor) {
                       // Wave is passing - show wave gradient
-                      const levelToIntensity: Record<string, number> = {
-                        'NONE': 0.1,
-                        'FIRST_QUARTILE': 0.25,
-                        'SECOND_QUARTILE': 0.5,
-                        'THIRD_QUARTILE': 0.75,
-                        'FOURTH_QUARTILE': 1.0
-                      }
-                      
-                      const getWaveIntensity = (color: string): number => {
-                        if (color === colors.level4) return 1.0
-                        if (color === colors.level3) return 0.75
-                        if (color === colors.level2) return 0.5
-                        if (color === colors.level1) return 0.25
-                        if (color === colors.level0) return 0.1
-                        return 0
-                      }
-                      
                       const currentWaveIntensity = getWaveIntensity(waveColor)
-                      const targetIntensity = levelToIntensity[targetLevel]
+                      const targetIntensity = levelToIntensityMap[targetLevel]
                       
                       // Show wave gradient until it passes, then lock to target color
                       if (distanceFromWave < 0 && currentWaveIntensity <= targetIntensity) {
@@ -471,27 +471,8 @@ export function GitHubContributionGraph({
                   } else if (waveColor) {
                     // First reveal in progress - wave is passing
                     // Data is ready AND wave is passing over this square
-                    // Map levels to intensity thresholds
-                    const levelToIntensity: Record<string, number> = {
-                      'NONE': 0.1,
-                      'FIRST_QUARTILE': 0.25,
-                      'SECOND_QUARTILE': 0.5,
-                      'THIRD_QUARTILE': 0.75,
-                      'FOURTH_QUARTILE': 1.0
-                    }
-                    
-                    // Get wave's current intensity at this position
-                    const getWaveIntensity = (color: string): number => {
-                      if (color === colors.level4) return 1.0
-                      if (color === colors.level3) return 0.75
-                      if (color === colors.level2) return 0.5
-                      if (color === colors.level1) return 0.25
-                      if (color === colors.level0) return 0.1
-                      return 0
-                    }
-                    
                     const currentWaveIntensity = getWaveIntensity(waveColor)
-                    const targetIntensity = levelToIntensity[targetLevel]
+                    const targetIntensity = levelToIntensityMap[targetLevel]
                     
                     // Show wave gradient until it passes, then lock to target color
                     if (distanceFromWave < 0 && currentWaveIntensity <= targetIntensity) {
