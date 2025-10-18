@@ -1,12 +1,17 @@
-# Vite + React + shadcn/ui Frontend
+# Vedanta Systems
 
-A modern, Dockerized frontend application built with:
-- **Vite** - Next generation frontend tooling
-- **React 18** - UI library
-- **TypeScript** - Type safety
-- **Tailwind CSS** - Utility-first CSS framework
-- **shadcn/ui** - Component library (ready to use)
-- **Docker** - Containerization for AWS deployment
+A modern, Dockerized frontend application featuring a cyberpunk corporate terminal aesthetic.
+
+**Live Site:** https://vedanta.systems
+
+## Tech Stack
+
+- **Vite** - Lightning-fast build tool
+- **React 18** - UI library with TypeScript
+- **Tailwind CSS** - Utility-first CSS
+- **shadcn/ui** - High-quality component library
+- **Docker** - Containerized deployment
+- **AWS Lightsail** - Production hosting ($10/month)
 
 ## Project Structure
 
@@ -91,101 +96,167 @@ Visit `http://localhost:3000`
 - **Health check:** Built-in health check endpoint
 - **Port:** 3000 (configurable via environment)
 
-## AWS Deployment
+---
 
-### Prerequisites
-- AWS account with ECR and ECS access
-- AWS CLI configured
+## 🚀 Deployment
 
-### Steps
+### Production (AWS Lightsail)
 
-1. **Create ECR repository:**
-   ```bash
-   aws ecr create-repository --repository-name vedanta-systems-frontend --region us-east-1
-   ```
+**Full guide:** See [DEPLOYMENT.md](./DEPLOYMENT.md)
 
-2. **Build and push to ECR:**
-   ```bash
-   # Get login token
-   aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin <YOUR_ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com
-   
-   # Build image
-   docker build -t vedanta-systems-frontend:latest .
-   
-   # Tag for ECR
-   docker tag vedanta-systems-frontend:latest <YOUR_ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com/vedanta-systems-frontend:latest
-   
-   # Push to ECR
-   docker push <YOUR_ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com/vedanta-systems-frontend:latest
-   ```
+#### Quick Setup
 
-3. **Deploy to ECS or EC2:**
-   - Use CloudFormation, Terraform, or AWS Console to deploy
-   - Configure your domain (vedanta.systems) with Route 53
-   - Set up CloudFront for CDN (optional but recommended)
+```bash
+# 1. Create Lightsail instance ($10/mo, Ubuntu 22.04, 2GB RAM)
+# 2. Install Docker & Docker Compose
+# 3. Clone repo and deploy
+cd ~/vedanta-systems
+docker-compose -f docker-compose.prod.yml up -d --build
 
-## Environment Variables
+# 4. Setup Nginx + SSL
+sudo apt-get install nginx certbot python3-certbot-nginx -y
+sudo certbot --nginx -d vedanta.systems
 
-Create a `.env` file in the project root for local development:
-
-```env
-VITE_API_BASE_URL=http://your-backend-service:8080
-VITE_ENVIRONMENT=development
+# 5. Point DNS to instance IP in Route 53
 ```
 
-Environment variables must be prefixed with `VITE_` to be exposed to the client.
+#### Auto-Deploy with GitHub Actions
 
-## Adding shadcn/ui Components
+Every push to `main` automatically deploys:
 
-This project is set up for shadcn/ui. To add components:
+1. Add GitHub secrets:
+   - `LIGHTSAIL_HOST` - Your instance IP
+   - `LIGHTSAIL_USER` - `ubuntu`
+   - `LIGHTSAIL_SSH_KEY` - Your private key content
 
-The component library is configured and ready to use. Just import and customize!
+2. Push to main → Live in 2-3 minutes! ✨
 
-## Customization
+---
 
-### Tailwind CSS
-- Edit `tailwind.config.js` to customize colors, fonts, and themes
-- The project includes CSS variables for a cohesive design system
-- Light and dark mode support built-in
+## ⚙️ Configuration
+
+### Environment Variables
+
+Create `.env` for local development:
+
+```env
+VITE_GITHUB_TOKEN=your_github_personal_access_token
+```
+
+Variables must be prefixed with `VITE_` to be exposed to the client.
+
+### Tailwind Customization
+
+Edit `tailwind.config.js`:
+- Custom colors (lavender #a57fd8, dark theme)
+- Typography (monospace fonts)
+- Responsive breakpoints
 
 ### TypeScript
-- All files use TypeScript for type safety
-- Configure paths in `tsconfig.json` (path aliases like `@/*` are set up)
 
-## Build Output
+- Full type safety with strict mode
+- Path aliases configured (`@/*` → `src/*`)
+- Type definitions for all dependencies
 
-The production build creates optimized files in `dist/`:
-- Minified JavaScript
-- Optimized CSS
-- Source maps for debugging
-- Ready for deployment to CDN or static host
+---
 
-## Scripts Reference
+## 📜 Scripts
 
-| Script | Purpose |
-|--------|---------|
-| `npm run dev` | Start dev server with HMR |
-| `npm run build` | Build for production |
+| Command | Purpose |
+|---------|---------|
+| `npm run dev` | Start dev server (port 5173) |
+| `npm run build` | Build for production → `dist/` |
 | `npm run preview` | Preview production build |
 | `npm run lint` | Run ESLint |
-| `npm run type-check` | Run TypeScript type checking |
+| `npm run type-check` | TypeScript type checking |
 
-## Next Steps
+---
 
-1. ✅ Project structure initialized
-2. ⬜ Install dependencies: `npm install`
-3. ⬜ Start development: `npm run dev`
-4. ⬜ Build Docker image and test locally
-5. ⬜ Set up AWS infrastructure
-6. ⬜ Deploy to AWS
+## 🐳 Docker
 
-## Support
+### Local Development with Docker
 
-For questions about:
-- **Vite:** https://vitejs.dev
-- **React:** https://react.dev
-- **Tailwind CSS:** https://tailwindcss.com
-- **shadcn/ui:** https://ui.shadcn.com
-- **TypeScript:** https://www.typescriptlang.org
+```bash
+# Build image
+docker build -t vedanta-systems:latest .
 
-Happy coding! 🚀
+# Run container
+docker run -p 3000:3000 vedanta-systems:latest
+
+# Or use docker-compose
+docker-compose up
+```
+
+### Production
+
+```bash
+docker-compose -f docker-compose.prod.yml up -d --build
+```
+
+---
+
+## 📦 Project Structure
+
+```
+vedanta-systems/
+├── src/
+│   ├── components/
+│   │   ├── github-contribution-graph.tsx
+│   │   └── ui/                      # shadcn components
+│   ├── lib/
+│   │   └── utils.ts                 # Utilities
+│   ├── App.tsx                      # Main component
+│   ├── main.tsx                     # Entry point
+│   └── index.css                    # Global styles
+├── public/                          # Static assets
+├── .github/workflows/
+│   └── deploy.yml                   # Auto-deploy
+├── docker-compose.prod.yml          # Production config
+├── Dockerfile                       # Multi-stage build
+├── DEPLOYMENT.md                    # Deployment guide
+└── package.json                     # Dependencies
+```
+
+---
+
+## 🎯 Features
+
+- ✨ **Animated GitHub Contribution Graph** - Real-time data with wave reveal
+- 🎨 **Cyberpunk Aesthetic** - Dark theme with lavender accents
+- 🔄 **Auto-refresh** - Live connection status monitoring
+- 🌊 **Wave Animation** - Smooth 60fps reveal/erase effects
+- 📱 **Responsive** - Works on all screen sizes
+- ⚡ **Fast** - Vite HMR, optimized builds
+- 🔒 **Type-safe** - Full TypeScript coverage
+- 🐳 **Containerized** - Production-ready Docker setup
+
+---
+
+## 💰 Costs
+
+**Local Development:** Free  
+**Production (Lightsail):** ~$10-12/month
+- Lightsail instance (2GB RAM): $10/mo
+- Route 53 hosted zone: $0.50/mo
+- SSL Certificate: Free (Let's Encrypt)
+
+---
+
+## 📚 Resources
+
+- [Vite Documentation](https://vitejs.dev)
+- [React Documentation](https://react.dev)
+- [Tailwind CSS](https://tailwindcss.com)
+- [shadcn/ui](https://ui.shadcn.com)
+- [TypeScript](https://www.typescriptlang.org)
+- [AWS Lightsail](https://aws.amazon.com/lightsail/)
+
+---
+
+## 🤝 Contributing
+
+This is a personal project, but feel free to open issues or submit PRs!
+
+---
+
+**Built with ❤️ for the cyberpunk corpo terminal aesthetic**
