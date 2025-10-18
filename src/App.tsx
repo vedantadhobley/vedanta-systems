@@ -3,7 +3,7 @@ import './App.css'
 
 function App() {
   return (
-    <div className="w-full min-h-screen bg-black flex items-start justify-center">
+    <div className="w-full h-screen bg-black flex items-start justify-center overflow-hidden">
       <GitHubContributionGraph username="vedantadhobley" />
     </div>
   )
