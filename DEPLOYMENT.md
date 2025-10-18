@@ -21,9 +21,9 @@ This guide will walk you through deploying the vedanta-systems frontend to AWS L
 3. Select:
    - **Instance location**: Choose closest to you (e.g., `us-east-1`)
    - **Platform**: Linux/Unix
-   - **Blueprint**: OS Only → **Ubuntu 22.04 LTS**
+   - **Blueprint**: OS Only → **Ubuntu 24.04 LTS**
    - **Instance plan**: **$10/month** (2GB RAM, 1 vCPU, 60GB SSD)
-   - **Instance name**: `vedanta-systems-prod`
+   - **Instance name**: `vedanta-systems-lightsail`
 4. Click **Create instance**
 5. Wait ~2 minutes for instance to start
 
@@ -31,8 +31,8 @@ This guide will walk you through deploying the vedanta-systems frontend to AWS L
 
 1. In Lightsail, go to **Networking** tab
 2. Click **Create static IP**
-3. Select your instance: `vedanta-systems-prod`
-4. Name it: `vedanta-systems-static-ip`
+3. Select your instance: `vedanta-systems-lightsail`
+4. Name it: `vedanta-systems-ip`
 5. Click **Create**
 6. **Note down the IP address** (e.g., `52.12.34.56`)
 
@@ -48,20 +48,29 @@ This guide will walk you through deploying the vedanta-systems frontend to AWS L
 
 ## 🔑 Phase 2: SSH Key Setup
 
-### Step 1: Download Default SSH Key
+### Step 1: Create SSH Key in Lightsail UI
 
-1. In Lightsail, go to **Account** → **SSH keys**
-2. Download the default key for your region (e.g., `LightsailDefaultKey-us-east-1.pem`)
-3. Save it locally (e.g., `~/Downloads/LightsailDefaultKey-us-east-1.pem`)
+1. Go to [Lightsail Console](https://lightsail.aws.amazon.com/)
+2. Go to **Account** → **SSH keys**
+3. Click **Create key pair**
+4. **Important**: Select **Custom key** (not default)
+   - Custom key: Unique to this instance, more secure
+   - Default key: Shared across instances, less secure
+5. Name it: `vedanta-systems-ssh`
+6. Download the `.pem` file (save it somewhere safe, e.g., `~/.ssh/vedanta-systems-ssh.pem`)
 
-### Step 2: Connect to Instance
+### Step 2: Set Proper Permissions
 
 ```bash
-# Make key private
-chmod 400 ~/Downloads/LightsailDefaultKey-us-east-1.pem
+# Make the key secure (Linux/Mac)
+chmod 600 ~/.ssh/vedanta-systems-ssh.pem
+```
 
-# Connect via SSH (replace IP with your static IP)
-ssh -i ~/Downloads/LightsailDefaultKey-us-east-1.pem ubuntu@YOUR_STATIC_IP
+### Step 3: Connect to Instance
+
+```bash
+# Connect with your key (replace IP with your static IP)
+ssh -i ~/.ssh/vedanta-systems-ssh.pem ubuntu@YOUR_STATIC_IP
 ```
 
 You should now be connected to your Lightsail instance!
@@ -102,7 +111,7 @@ exit
 This network allows containers from different projects to communicate:
 
 ```bash
-docker network create vedanta-network
+docker network create vedanta-systems-network
 ```
 
 ---
@@ -111,18 +120,23 @@ docker network create vedanta-network
 
 ### Step 1: Clone Repository
 
+First, we need to generate a **second SSH key** on the instance itself (different from your admin key). This key is for the instance to pull code from GitHub:
+
 ```bash
-# Generate SSH key for GitHub (no passphrase)
-ssh-keygen -t ed25519 -C "vedanta-systems-lightsail" -f ~/.ssh/github_deploy
-cat ~/.ssh/github_deploy.pub
+# On the Lightsail instance (after SSH in)
+# Generate GitHub deploy key (no passphrase)
+ssh-keygen -t ed25519 -C "vedanta-systems-deploy" -f ~/.ssh/vedanta-systems-deploy -N ""
+
+# View the public key
+cat ~/.ssh/vedanta-systems-deploy.pub
 ```
 
 **Copy the output**, then:
 
 1. Go to your GitHub repo: `github.com/vedantadhobley/vedanta-systems`
 2. Settings → Deploy keys → Add deploy key
-3. Title: `Lightsail Production`
-4. Paste the key
+3. Title: `vedanta-systems-deploy`
+4. Paste the key from the instance
 5. **Check** "Allow write access" (optional, for auto-updates)
 6. Click **Add key**
 
@@ -134,7 +148,7 @@ cat >> ~/.ssh/config << 'EOF'
 Host github.com
   HostName github.com
   User git
-  IdentityFile ~/.ssh/github_deploy
+  IdentityFile ~/.ssh/vedanta-systems-deploy
   StrictHostKeyChecking no
 EOF
 
@@ -169,7 +183,7 @@ Save with `Ctrl+O`, `Enter`, `Ctrl+X`
 
 ```bash
 # Build and start the container
-docker-compose -f docker-compose.prod.yml up -d --build
+docker compose -f docker-compose.prod.yml up -d --build
 
 # Check status
 docker ps
@@ -350,13 +364,13 @@ docker logs -f vedanta-frontend  # Follow logs
 
 # Restart container
 cd ~/vedanta-systems
-docker-compose -f docker-compose.prod.yml restart
+docker compose -f docker-compose.prod.yml restart
 
 # Rebuild and restart
-docker-compose -f docker-compose.prod.yml up -d --build
+docker compose -f docker-compose.prod.yml up -d --build
 
 # Stop container
-docker-compose -f docker-compose.prod.yml down
+docker compose -f docker-compose.prod.yml down
 
 # Check Nginx logs
 sudo tail -f /var/log/nginx/access.log

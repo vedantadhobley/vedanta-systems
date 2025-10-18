@@ -10,7 +10,7 @@ services:
     ports:
       - "3000:3000"
     networks:
-      - vedanta-network
+      - vedanta-systems-network
     environment:
       - NODE_ENV=production
     healthcheck:
@@ -21,6 +21,6 @@ services:
       start_period: 40s
 
 networks:
-  vedanta-network:
+  vedanta-systems-network:
     external: true
-    name: vedanta-network
+    name: vedanta-systems-network
