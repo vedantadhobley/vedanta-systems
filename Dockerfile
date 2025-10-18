@@ -1,6 +1,8 @@
 # Build stage
 FROM node:18-alpine AS builder
 
+ARG VITE_GITHUB_TOKEN
+
 WORKDIR /app
 
 # Copy package files
@@ -9,13 +11,10 @@ COPY package.json package-lock.json* yarn.lock* ./
 # Install dependencies
 RUN npm ci || npm install
 
-# Copy .env file for build-time variables
-COPY .env* ./
-
 # Copy source code
 COPY . .
 
-# Build the application
+# Build the application (build arg is available here)
 RUN npm run build
 
 # Production stage

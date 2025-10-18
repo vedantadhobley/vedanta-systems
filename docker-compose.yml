@@ -3,6 +3,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        VITE_GITHUB_TOKEN: ${VITE_GITHUB_TOKEN}
     ports:
       - "3000:3000"
     environment:

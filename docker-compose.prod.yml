@@ -3,6 +3,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        VITE_GITHUB_TOKEN: ${VITE_GITHUB_TOKEN}
     container_name: vedanta-frontend
     restart: unless-stopped
     ports:
