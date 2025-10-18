@@ -9,6 +9,9 @@ COPY package.json package-lock.json* yarn.lock* ./
 # Install dependencies
 RUN npm ci || npm install
 
+# Copy .env file for build-time variables
+COPY .env* ./
+
 # Copy source code
 COPY . .
 
