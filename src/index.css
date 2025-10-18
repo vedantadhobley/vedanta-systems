@@ -8,14 +8,13 @@
     width: 100%;
     margin: 0;
     padding: 0;
-    overflow: hidden;
     background-color: #000000;
   }
 
   :root {
     /* Corporate Monochrome - Cold, industrial, lifeless */
-    --background: 0 0% 100%;           /* Near black, slight cool tint */
-    --foreground: 0 0% 3.9%;          /* Cool gray white */
+    --background: 0 0% 0%;           /* Pure black background */
+    --foreground: 0 0% 98%;          /* Near white text */
     
     /* Your personal touch - Lavender ash, used SPARINGLY */
     --lavender: 260 35% 68%;           /* Calm lavender purple - your signature */
