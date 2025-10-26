@@ -83,12 +83,12 @@ export default {
   		},
   		fontFamily: {
   			mono: [
-  				'PT Mono',
+  				'IBM Plex Mono',
   				'Consolas',
   				'monospace'
   			],
   			corpo: [
-  				'PT Mono',
+  				'IBM Plex Mono',
   				'Consolas',
   				'monospace'
   			]

@@ -1,6 +1,4 @@
 import { useEffect, useState, useRef, useMemo, useCallback } from 'react'
-import { Switch } from '@/components/ui/switch'
-import { StatusIndicator } from '@/components/ui/shadcn-io/status'
 
 /**
  * GitHub Contribution Graph - Standalone Component
@@ -78,18 +76,18 @@ export function GitHubContributionGraph({
   const [contributions, setContributions] = useState<ContributionDay[]>([])
   const [dataReady, setDataReady] = useState(false) // Track if data is fetched
   const [hasBeenRevealed, setHasBeenRevealed] = useState(false) // Track if data has been revealed once
-  const [waveActive, setWaveActive] = useState(true) // Track if wave is currently running
   const [wavePosition, setWavePosition] = useState(-5) // Start off-screen left
+  const [waveCycle, setWaveCycle] = useState(0) // Trigger for new wave cycles
   const [error, setError] = useState<string | null>(null)
   const [weeksToShow, setWeeksToShow] = useState(52) // Start with max, will adjust
-  const [unlockedSquares, setUnlockedSquares] = useState<Set<string>>(new Set()) // Track unlocked squares during erasure
-  const [animationEnabled, setAnimationEnabled] = useState(true) // User toggle for animation
+  const [revealTimes, setRevealTimes] = useState<Map<string, number>>(new Map()) // When each square was revealed
+  const [, setRenderTick] = useState(0) // Force re-renders for fade updates
   const containerRef = useRef<HTMLDivElement>(null)
   const waveIntervalRef = useRef<number | null>(null) // Track wave animation interval
+  const fadeAnimationRef = useRef<number | null>(null) // Track continuous fade animation
   const autoRefreshTimerRef = useRef<number | null>(null) // Track auto-refresh timer
   const dataReadyRef = useRef(dataReady) // Track current dataReady value for wave completion
   const hasBeenRevealedRef = useRef(hasBeenRevealed) // Track current hasBeenRevealed value
-  const animationEnabledRef = useRef(animationEnabled) // Track animation toggle
 
   // Memoize intensity mappings (calculated once, reused for all squares)
   const levelToIntensityMap = useMemo(() => ({
@@ -118,9 +116,18 @@ export function GitHubContributionGraph({
     hasBeenRevealedRef.current = hasBeenRevealed
   }, [hasBeenRevealed])
 
+  // Continuous fade animation - runs independently of wave movement
   useEffect(() => {
-    animationEnabledRef.current = animationEnabled
-  }, [animationEnabled])
+    const frameRate = 60 // 60fps for smooth fade updates
+    
+    fadeAnimationRef.current = setInterval(() => {
+      setRenderTick(tick => tick + 1) // Force re-render to update fade calculations
+    }, 1000 / frameRate) as unknown as number
+    
+    return () => {
+      if (fadeAnimationRef.current) clearInterval(fadeAnimationRef.current)
+    }
+  }, []) // Run once on mount, never stop
 
   // Calculate weeks to show based on available width
   useEffect(() => {
@@ -162,15 +169,6 @@ export function GitHubContributionGraph({
 
   // Fetch contributions - called every time a wave starts
   const fetchContributions = async () => {
-    // Check if animation is enabled before fetching
-    if (!animationEnabledRef.current) {
-      // Animation disabled - mark as not ready but don't show error
-      if (dataReady) {
-        setDataReady(false)
-      }
-      return
-    }
-
     try {
       const token = import.meta.env.VITE_GITHUB_TOKEN
       
@@ -256,14 +254,12 @@ export function GitHubContributionGraph({
 
   // Wave animation effect - fetches data and animates continuously
   useEffect(() => {
-    if (!waveActive) return
-    
     // Clear any existing intervals/timers
     if (waveIntervalRef.current) clearInterval(waveIntervalRef.current)
     if (autoRefreshTimerRef.current) clearTimeout(autoRefreshTimerRef.current)
     
-    // Reset unlocked squares at start of each wave
-    setUnlockedSquares(new Set())
+    // DO NOT clear reveal times - they persist across waves
+    // This ensures squares continue their natural fade until repainted
     
     // Fetch data at start of each wave
     fetchContributions()
@@ -271,15 +267,34 @@ export function GitHubContributionGraph({
     let frame = 0
     const frameRate = 60
     const columnsPerSecond = 20
-    const totalColumns = weeksToShow + 10
+    const totalColumns = weeksToShow + 30 // Extended to account for fade wave starting earlier
     const waveDuration = (totalColumns / columnsPerSecond) * 1000
     const framesPerWave = (waveDuration / 1000) * frameRate
     const distancePerFrame = totalColumns / framesPerWave
+    
+    // Reset wave position - start from left edge
+    setWavePosition(-5)
     
     waveIntervalRef.current = setInterval(() => {
       frame++
       const currentPosition = (frame * distancePerFrame) - 5
       setWavePosition(currentPosition)
+      
+      // Track when squares are revealed by the wave (for all waves, including first)
+      // Set timestamp when wave front passes - this is when the square gets "painted"
+      const now = Date.now()
+      
+      for (let weekIdx = 0; weekIdx < weeksToShow; weekIdx++) {
+        const distanceFromWave = weekIdx - currentPosition
+        // Update reveal time when wave is RIGHT at this column (narrow window)
+        if (distanceFromWave >= -0.5 && distanceFromWave <= 0.5) {
+          for (let dayIdx = 0; dayIdx < 7; dayIdx++) {
+            const key = `${weekIdx}-${dayIdx}`
+            // ALWAYS update - this resets the fade when wave repaints
+            setRevealTimes(prev => new Map(prev).set(key, now))
+          }
+        }
+      }
       
       // When wave reaches the end
       if (currentPosition >= weeksToShow + 5) {
@@ -299,12 +314,10 @@ export function GitHubContributionGraph({
         }
         
         // Wave completed - schedule next wave based on data availability
-        const delayMs = currentDataReady ? 10000 : 1000 // 10 seconds if data ready, 1 second if not
+        const delayMs = currentDataReady ? 5000 : 1000 // 5 seconds if data ready, 1 second if not
         
         autoRefreshTimerRef.current = setTimeout(() => {
-          setWavePosition(-5) // Reset to start
-          setWaveActive(false) // Trigger useEffect re-run
-          setTimeout(() => setWaveActive(true), 0)
+          setWaveCycle(prev => prev + 1) // Increment to trigger new wave
         }, delayMs) as unknown as number
       }
     }, 1000 / frameRate) as unknown as number
@@ -313,9 +326,7 @@ export function GitHubContributionGraph({
       if (waveIntervalRef.current) clearInterval(waveIntervalRef.current)
       if (autoRefreshTimerRef.current) clearTimeout(autoRefreshTimerRef.current)
     }
-    // Only re-run when wave restarts or weeks change, NOT when dataReady changes mid-wave
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [waveActive, weeksToShow])
+  }, [waveCycle, weeksToShow])
 
   const getColor = (level: string) => {
     switch (level) {
@@ -336,9 +347,6 @@ export function GitHubContributionGraph({
 
   // Generate wave pattern colors - bright leading edge (right) fading to dark trailing edge (left)
   const getWaveColor = (weekIdx: number, _dayIdx: number) => {
-    // Only show wave when active
-    if (!waveActive) return ''
-    
     // Distance from wave position (positive = ahead of wave, negative = behind wave)
     const distanceFromWave = weekIdx - wavePosition
     
@@ -374,6 +382,22 @@ export function GitHubContributionGraph({
     return '' // After wave passes completely
   }
 
+  // Calculate radar-style fade for a specific square
+  const getRadarFade = (squareKey: string): number => {
+    const revealTime = revealTimes.get(squareKey)
+    if (revealTime === undefined) {
+      // Square has never been painted yet - show at minimum opacity
+      return 0.3
+    }
+    
+    const elapsed = Date.now() - revealTime
+    const fadeProgress = Math.min(elapsed / 10000, 1) // 10 second fade for slower phosphor decay
+    const opacity = 1 - (fadeProgress * 0.7) // Fade from 100% to 30%
+    
+    // Clamp to minimum 30% - squares that finished fading stay at 30% until repainted
+    return Math.max(opacity, 0.3)
+  }
+
   // Only show error if we have never loaded data and have an error
   // Otherwise, keep showing the graph (even if empty/pulsing)
   if (error && !hasBeenRevealed && contributions.length === 0) {
@@ -405,140 +429,54 @@ export function GitHubContributionGraph({
                 const hasData = displayWeeks[weekIdx]?.[dayIdx]
                 const distanceFromWave = weekIdx - wavePosition
                 const waveColor = getWaveColor(weekIdx, dayIdx)
+                const squareKey = `${weekIdx}-${dayIdx}`
                 
-                // Determine the color
+                // Determine the color and opacity
                 let colorClass: string = ''
+                let opacity: number = 1
                 
                 if (hasData) {
-                  // We have contribution data in the array
                   const targetLevel = hasData.level
                   const targetColor = getColor(targetLevel)
+                  const squareKey = `${weekIdx}-${dayIdx}`
                   
-                  // Check if this is initial load (never revealed) vs connection lost (was revealed)
-                  if (!dataReady && !hasBeenRevealed) {
-                    // Initial load - data not ready yet, never been revealed
-                    // Show wave gradient, then leave transparency AFTER wave fully passes
-                    if (waveColor) {
-                      // Wave is at this position - show gradient
-                      colorClass = waveColor
-                    } else if (distanceFromWave < -5) {
-                      // Wave has FULLY passed (more than 5 columns behind) - leave transparency
-                      colorClass = ''
-                    } else {
-                      // Wave hasn't reached yet OR is still within trailing edge - stay transparent
-                      colorClass = ''
-                    }
-                  } else if (!dataReady && hasBeenRevealed) {
-                    // Connection lost - had data before, but lost it
-                    // Reverse reveal: unset each square when its matching color passes over it,
-                    // then let the rest of the wave continue to darken it until it disappears
-                    
-                    const squareKey = `${weekIdx}-${dayIdx}`
-                    const isUnlocked = unlockedSquares.has(squareKey)
-                    const targetIntensity = levelToIntensityMap[targetLevel]
-                    
-                    if (isUnlocked) {
-                      // Already unlocked - show wave gradient or disappear after wave passes
-                      if (waveColor) {
-                        colorClass = waveColor
-                      } else if (distanceFromWave < -5) {
-                        // Wave has FULLY passed - disappear
-                        colorClass = ''
-                      } else {
-                        // Between wave colors - keep showing last wave color or black
-                        colorClass = colors.level0
-                      }
-                    } else if (waveColor) {
-                      const currentWaveIntensity = getWaveIntensity(waveColor)
-                      
-                      // Check if this square should be unlocked now
-                      if (distanceFromWave < 0 && currentWaveIntensity <= targetIntensity) {
-                        // Unlock this square!
-                        setUnlockedSquares(prev => new Set(prev).add(squareKey))
-                        colorClass = waveColor
-                      } else if (currentWaveIntensity > targetIntensity) {
-                        // Wave is passing but hasn't unlocked this square yet
-                        // Show wave gradient OVER the original data
-                        colorClass = waveColor
-                      } else {
-                        // Wave approaching but not here yet
-                        colorClass = targetColor
-                      }
-                    } else if (distanceFromWave < -5) {
-                      // Wave has FULLY passed - disappear (transparent)
-                      colorClass = ''
-                    } else {
-                      // Wave hasn't reached yet - keep showing old data
-                      colorClass = targetColor
-                    }
-                  } else if (hasBeenRevealed) {
-                    // Data has been revealed before - wave just refreshes over visible data
-                    if (waveColor) {
-                      // Wave is passing - show wave gradient
-                      const currentWaveIntensity = getWaveIntensity(waveColor)
-                      const targetIntensity = levelToIntensityMap[targetLevel]
-                      
-                      // Show wave gradient until it passes, then lock to target color
-                      if (distanceFromWave < 0 && currentWaveIntensity <= targetIntensity) {
-                        colorClass = targetColor
-                      } else {
-                        colorClass = waveColor
-                      }
-                    } else {
-                      // Wave not here - always show data (already revealed)
-                      colorClass = targetColor
-                    }
-                  } else if (waveColor) {
-                    // First reveal in progress - wave is passing
-                    // Data is ready AND wave is passing over this square
+                  // Check if wave is currently painting this square
+                  if (waveColor) {
                     const currentWaveIntensity = getWaveIntensity(waveColor)
                     const targetIntensity = levelToIntensityMap[targetLevel]
                     
-                    // Show wave gradient until it passes, then lock to target color
                     if (distanceFromWave < 0 && currentWaveIntensity <= targetIntensity) {
+                      // Wave front has passed - show data color at full brightness
                       colorClass = targetColor
+                      opacity = 1
                     } else {
+                      // Still in wave gradient
                       colorClass = waveColor
+                      opacity = 1
                     }
+                  } else if (distanceFromWave < 0 || hasBeenRevealed) {
+                    // Wave has passed OR data was previously revealed - show with fade
+                    colorClass = targetColor
+                    opacity = getRadarFade(squareKey)
                   } else {
-                    // Wave not at this position
-                    // Only show data if wave has already passed (distanceFromWave < 0)
-                    if (distanceFromWave < 0) {
-                      // Wave has passed - show the actual data color
-                      colorClass = targetColor
-                    } else {
-                      // Wave hasn't reached yet - stay transparent
-                      colorClass = ''
-                    }
-                  }
-                } else if (!dataReady) {
-                  // No data available and no contribution data in array for this square
-                  // Show wave gradient as it passes, leave transparency after
-                  if (waveColor) {
-                    // Wave is at this position - show gradient
-                    colorClass = waveColor
-                  } else if (distanceFromWave < -5) {
-                    // Wave has FULLY passed - leave transparency
-                    colorClass = ''
-                  } else {
-                    // Before wave arrives or still in trailing zone - stay transparent
+                    // First wave hasn't reached this square yet - invisible
                     colorClass = ''
                   }
                 } else if (!hasData) {
-                  // Data ready but no data for this square (future) - don't render
+                  // No data for this square
                   return (
                     <div
-                      key={`${weekIdx}-${dayIdx}`}
+                      key={squareKey}
                       className="w-3 h-3"
                     />
                   )
                 }
                 
-                // Don't render empty squares (before wave or after wave with no data)
+                // Don't render empty squares
                 if (!colorClass) {
                   return (
                     <div
-                      key={`${weekIdx}-${dayIdx}`}
+                      key={squareKey}
                       className="w-3 h-3"
                     />
                   )
@@ -546,42 +484,14 @@ export function GitHubContributionGraph({
                 
                 return (
                   <div
-                    key={`${weekIdx}-${dayIdx}`}
+                    key={squareKey}
                     className={`w-3 h-3 ${colorClass}`}
+                    style={opacity < 1 ? { opacity } : undefined}
                   />
                 )
               })}
             </div>
           ))}
-      </div>
-      
-      {/* Controls row - all elements centered on same line */}
-      <div className="flex items-start justify-between">
-        {/* Status indicator - bottom left */}
-        <div className="flex items-start gap-2">
-          <div className="mt-[4px]">
-            <StatusIndicator 
-              color={dataReady ? '#a57fd8' : '#1a1a1a'}
-              className={!dataReady ? '[&>span:first-child]:animate-none' : ''}
-            />
-          </div>
-          <span className="text-sm font-normal text-gray-200 leading-tight uppercase">STATUS</span>
-        </div>
-
-        {/* Animation toggle - bottom right */}
-        <div 
-          className="flex items-start gap-2 cursor-pointer select-none"
-          onClick={() => setAnimationEnabled(!animationEnabled)}
-        >
-          <span className="text-sm font-normal text-gray-200 leading-tight uppercase">REMOTE</span>
-          <div className="-mt-[5px] pointer-events-none">
-            <Switch
-              checked={animationEnabled}
-              onCheckedChange={setAnimationEnabled}
-              className="h-3 w-5 data-[state=checked]:bg-[#a57fd8] data-[state=unchecked]:bg-[#1a1a1a] [&>span]:h-2 [&>span]:w-2 [&>span]:bg-gray-200 [&>span]:data-[state=checked]:translate-x-2 shrink-0 transition-none [&>span]:transition-transform [&>span]:duration-150"
-            />
-          </div>
-        </div>
       </div>
     </div>
     </div>
