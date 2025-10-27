@@ -1,6 +1,12 @@
 import { useEffect, useState } from 'react'
+import { FileSystemNav, PathSegment } from './filesystem-nav'
 
-export function Header() {
+interface HeaderProps {
+  currentPath: PathSegment[]
+  onNavigate: (path: string) => void
+}
+
+export function Header({ currentPath, onNavigate }: HeaderProps) {
   const [time, setTime] = useState(new Date())
 
   useEffect(() => {
@@ -20,18 +26,20 @@ export function Header() {
 
   return (
     <header className="w-full border-b border-corpo-border">
-      <div className="max-w-[1400px] mx-auto px-8 py-6 flex items-center justify-between">
-        <div className="flex-1" />
-        
-        <h1 className="text-corpo-light text-xl font-mono tracking-tight">
-          vedanta.systems
-        </h1>
-        
-        <div className="flex-1 flex justify-end">
-          <time className="text-corpo-text text-sm font-mono tabular-nums">
-            {formatUTC(time)}
-          </time>
+      <div className="max-w-[1400px] mx-auto px-8 py-4 flex items-center justify-between gap-8">
+        <div className="flex items-center gap-8 flex-1 min-w-0">
+          <h1 className="text-corpo-light text-lg font-mono tracking-tight whitespace-nowrap">
+            vedanta.systems
+          </h1>
+          
+          <div className="flex-1 min-w-0">
+            <FileSystemNav currentPath={currentPath} onNavigate={onNavigate} />
+          </div>
         </div>
+        
+        <time className="text-corpo-text text-sm font-mono tabular-nums whitespace-nowrap">
+          {formatUTC(time)}
+        </time>
       </div>
     </header>
   )

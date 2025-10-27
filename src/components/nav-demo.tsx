@@ -1,8 +1,5 @@
 import { useState } from 'react'
-import { GitHubContributionGraph } from '@/components/github-contribution-graph'
-import { Header } from '@/components/header'
-import { PathSegment } from '@/components/filesystem-nav'
-import './App.css'
+import { FileSystemNav, PathSegment } from './filesystem-nav'
 
 interface FolderContent {
   name: string
@@ -24,7 +21,7 @@ const folderContents: Record<string, FolderContent[]> = {
   ],
 }
 
-function App() {
+export function NavDemo() {
   const [currentPath, setCurrentPath] = useState<PathSegment[]>([
     { name: '~', path: '~', icon: 'home' },
   ])
@@ -74,37 +71,31 @@ function App() {
   }
 
   return (
-    <div className="w-full min-h-screen bg-black flex flex-col">
-      <Header currentPath={currentPath} onNavigate={handleNavigate} />
-      <div className="flex-1 flex flex-col">
-        <div className="max-w-[1400px] w-full mx-auto px-8 py-8">
-          {/* Folder Contents */}
-          {folderContents[currentPath[currentPath.length - 1].path] && (
-            <div className="space-y-4 mb-8">
-              <h2 className="text-corpo-text font-mono text-sm">
-                Contents:
-              </h2>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-                {folderContents[currentPath[currentPath.length - 1].path].map((item) => (
-                  <button
-                    key={item.path}
-                    onClick={() => handleNavigate(item.path)}
-                    className="px-4 py-3 border border-corpo-border text-corpo-text hover:text-lavender hover:border-lavender font-mono text-sm text-left transition-none"
-                  >
-                    {item.name}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-        
-        <div className="flex items-start justify-center pt-8">
-          <GitHubContributionGraph username="vedantadhobley" />
-        </div>
+    <div className="w-full max-w-[1400px] mx-auto px-8 py-8 space-y-6">
+      {/* Primary Navigation */}
+      <div className="border border-corpo-border p-6">
+        <FileSystemNav currentPath={currentPath} onNavigate={handleNavigate} />
       </div>
+
+      {/* Folder Contents */}
+      {folderContents[currentPath[currentPath.length - 1].path] && (
+        <div className="space-y-4">
+          <h2 className="text-corpo-text font-mono text-sm">
+            Contents:
+          </h2>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+            {folderContents[currentPath[currentPath.length - 1].path].map((item) => (
+              <button
+                key={item.path}
+                onClick={() => handleNavigate(item.path)}
+                className="px-4 py-3 border border-corpo-border text-corpo-text hover:text-lavender hover:border-lavender font-mono text-sm text-left transition-none"
+              >
+                {item.name}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
-
-export default App
