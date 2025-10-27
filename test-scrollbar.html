@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+body {
+  height: 200vh;
+  background: black;
+  color: white;
+  font-family: monospace;
+  padding: 20px;
+}
+
+::-webkit-scrollbar {
+  width: 6px !important;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent !important;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: hsl(220, 4%, 28%) !important;
+  border-radius: 0px !important;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: hsl(220, 3%, 65%) !important;
+}
+
+::-webkit-scrollbar-thumb:active {
+  background-color: hsl(260, 35%, 68%) !important;
+}
+
+::-webkit-scrollbar-button {
+  display: none !important;
+}
+</style>
+</head>
+<body>
+<h1>Scrollbar Test</h1>
+<p>If this page shows a custom scrollbar (thin, square, no arrows, lavender on drag), then Chrome supports it.</p>
+<p>Scroll down to see the scrollbar...</p>
+<div style="height: 2000px;"></div>
+</body>
+</html>

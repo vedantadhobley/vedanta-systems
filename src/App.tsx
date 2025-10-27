@@ -129,26 +129,32 @@ function DirectoryListing() {
   }
 
   return (
-    <div className="w-full bg-black">
-      <Header currentPath={currentPath} onNavigate={handleNavigate} />
-      
-      {/* GitHub Contribution Graph - Only on root/home */}
-      {currentPath.length === 1 && currentPath[0].path === '~' && (
-        <div className="w-full border-b border-corpo-border py-8">
-          <div className="flex items-center justify-center">
-            <GitHubContributionGraph username="vedantadhobley" />
-          </div>
-        </div>
-      )}
-      
-      {/* Content area */}
+    <>
       <div 
         className="content-scroll" 
         style={{ 
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: '48px',
+          overflowY: 'auto',
+          overflowX: 'hidden',
           touchAction: 'pan-y',
-          paddingBottom: '48px'
+          WebkitOverflowScrolling: 'touch'
         }}
       >
+        <Header currentPath={currentPath} onNavigate={handleNavigate} />
+        
+        {/* GitHub Contribution Graph - Only on root/home */}
+        {currentPath.length === 1 && currentPath[0].path === '~' && (
+          <div className="w-full border-b border-corpo-border py-8">
+            <div className="flex items-center justify-center">
+              <GitHubContributionGraph username="vedantadhobley" />
+            </div>
+          </div>
+        )}
+        
         <div className="max-w-[1400px] w-full mx-auto px-8 pt-8 pb-8">
           {/* Photo Gallery - if current path is a photo album */}
           {photoAlbums[fsPath] && (
@@ -207,7 +213,7 @@ function DirectoryListing() {
       </div>
       
       <BottomNav currentPath={currentPath} onNavigate={handleNavigate} />
-    </div>
+    </>
   )
 }
 
