@@ -1,1 +1,34 @@
 /* App specific styles */
+
+/* Custom scrollbar for content areas */
+.content-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.content-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.content-scroll::-webkit-scrollbar-thumb {
+  background: hsl(220, 4%, 28%);
+  border-radius: 0 !important;
+}
+
+.content-scroll::-webkit-scrollbar-thumb:hover {
+  background: hsl(220, 3%, 65%);
+}
+
+.content-scroll::-webkit-scrollbar-thumb:active {
+  background: hsl(260, 35%, 68%);
+}
+
+/* Remove scrollbar buttons (arrows) */
+.content-scroll::-webkit-scrollbar-button {
+  display: none;
+  height: 0;
+  width: 0;
+}
+
+.content-scroll::-webkit-scrollbar-corner {
+  background: transparent;
+}

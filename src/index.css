@@ -3,12 +3,76 @@
 @tailwind utilities;
 
 @layer base {
-  html, body, #root {
-    height: 100%;
+  html {
+    min-height: 100%;
     width: 100%;
     margin: 0;
     padding: 0;
     background-color: #000000;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: none;
+    -webkit-overflow-scrolling: touch;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    touch-action: pan-y;
+    /* Custom scrollbar */
+    scrollbar-width: thin;
+    scrollbar-color: hsl(220, 4%, 28%) transparent;
+  }
+  
+  /* Webkit scrollbar styling */
+  html::-webkit-scrollbar {
+    width: 6px;
+  }
+  
+  html::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  
+  html::-webkit-scrollbar-thumb {
+    background: hsl(220, 4%, 28%);
+    border-radius: 0 !important;
+  }
+  
+  html::-webkit-scrollbar-thumb:hover {
+    background: hsl(220, 3%, 65%);
+  }
+  
+  html::-webkit-scrollbar-thumb:active {
+    background: hsl(260, 35%, 68%);
+  }
+  
+  /* Remove scrollbar buttons (arrows) */
+  html::-webkit-scrollbar-button {
+    display: none;
+    height: 0;
+    width: 0;
+  }
+  
+  html::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+  
+  body {
+    min-height: 100%;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    background-color: #000000;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: none;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    touch-action: pan-y;
+  }
+  
+  #root {
+    min-height: 100vh;
+    width: 100%;
+    background-color: #000000;
+    touch-action: pan-y;
   }
 
   :root {

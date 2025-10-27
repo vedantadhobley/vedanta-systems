@@ -1,4 +1,4 @@
-import { RiHome5Line, RiHome5Fill, RiFolderLine, RiFolderFill } from '@remixicon/react'
+import { RiHome6Line, RiHome6Fill, RiFolderLine, RiFolderFill } from '@remixicon/react'
 import {
   Breadcrumb,
   BreadcrumbList,
@@ -22,27 +22,30 @@ interface FileSystemNavProps {
 
 export function FileSystemNav({ currentPath, onNavigate }: FileSystemNavProps) {
   const [hoveredPath, setHoveredPath] = useState<string | null>(null)
+  const [activePath, setActivePath] = useState<string | null>(null)
 
   // Clear hover state when path changes
   useEffect(() => {
     setHoveredPath(null)
+    setActivePath(null)
   }, [currentPath])
 
   return (
-    <Breadcrumb>
+    <Breadcrumb key={currentPath.map(s => s.path).join('/')}>
       <BreadcrumbList className="text-sm font-mono">
         {currentPath.map((segment, index) => {
           const isLast = index === currentPath.length - 1
           const isHovered = hoveredPath === segment.path
+          const isActive = activePath === segment.path
           const isHome = segment.icon === 'home'
           const isFolder = segment.icon === 'folder'
 
           return (
-            <div key={`${segment.path}-${isLast}`} className="contents">
+            <div key={`${segment.path}-${isLast}-${index}`} className="contents">
               <BreadcrumbItem>
                 {isLast ? (
                   <BreadcrumbPage className="flex items-center gap-1.5 text-lavender">
-                    {isHome && <RiHome5Fill size={14} className="text-lavender" />}
+                    {isHome && <RiHome6Fill size={14} className="text-lavender" />}
                     {isFolder && <RiFolderFill size={14} className="text-lavender" />}
                     <span>{segment.name}</span>
                   </BreadcrumbPage>
@@ -50,18 +53,40 @@ export function FileSystemNav({ currentPath, onNavigate }: FileSystemNavProps) {
                   <BreadcrumbLink
                     onClick={() => onNavigate(segment.path)}
                     onMouseEnter={() => setHoveredPath(segment.path)}
-                    onMouseLeave={() => setHoveredPath(null)}
-                    className="flex items-center gap-1.5 text-corpo-text cursor-pointer transition-none group"
+                    onMouseLeave={() => {
+                      setHoveredPath(null)
+                      setActivePath(null)
+                    }}
+                    onMouseDown={() => setActivePath(segment.path)}
+                    onMouseUp={() => setActivePath(null)}
+                    onTouchStart={() => setActivePath(segment.path)}
+                    onTouchEnd={() => setActivePath(null)}
+                    onTouchCancel={() => setActivePath(null)}
+                    className={`flex items-center gap-1.5 cursor-pointer transition-none ${
+                      isActive 
+                        ? 'text-lavender' 
+                        : isHovered 
+                          ? 'text-corpo-light' 
+                          : 'text-corpo-text'
+                    }`}
                   >
                     {isHome && (
-                      isHovered 
-                        ? <RiHome5Fill size={14} className="text-corpo-text" />
-                        : <RiHome5Line size={14} className="text-corpo-text" />
+                      isActive ? (
+                        <RiHome6Fill size={14} className="text-lavender" />
+                      ) : isHovered ? (
+                        <RiHome6Fill size={14} className="text-corpo-light" />
+                      ) : (
+                        <RiHome6Line size={14} className="text-corpo-text" />
+                      )
                     )}
                     {isFolder && (
-                      isHovered 
-                        ? <RiFolderFill size={14} className="text-corpo-text" />
-                        : <RiFolderLine size={14} className="text-corpo-text" />
+                      isActive ? (
+                        <RiFolderFill size={14} className="text-lavender" />
+                      ) : isHovered ? (
+                        <RiFolderFill size={14} className="text-corpo-light" />
+                      ) : (
+                        <RiFolderLine size={14} className="text-corpo-text" />
+                      )
                     )}
                     <span>{segment.name}</span>
                   </BreadcrumbLink>
