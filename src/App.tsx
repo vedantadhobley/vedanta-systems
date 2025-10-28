@@ -138,6 +138,7 @@ function DirectoryListing() {
           left: 0,
           right: 0,
           bottom: '48px',
+          height: 'calc(100dvh - 48px)',
           overflowY: 'auto',
           overflowX: 'hidden',
           touchAction: 'pan-y',
@@ -145,7 +146,7 @@ function DirectoryListing() {
         }}
       >
         <Header currentPath={currentPath} onNavigate={handleNavigate} />
-        
+      
         {/* GitHub Contribution Graph - Only on root/home */}
         {currentPath.length === 1 && currentPath[0].path === '~' && (
           <div className="w-full border-b border-corpo-border py-8">
@@ -154,8 +155,8 @@ function DirectoryListing() {
             </div>
           </div>
         )}
-        
-        <div className="max-w-[1400px] w-full mx-auto px-8 pt-8 pb-8">
+      
+        <div className="max-w-[1400px] w-full mx-auto px-8 pt-8" style={{ paddingBottom: '64px' }}>
           {/* Photo Gallery - if current path is a photo album */}
           {photoAlbums[fsPath] && (
             <PhotoGallery

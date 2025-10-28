@@ -31,7 +31,8 @@ export function Header({ currentPath, onNavigate }: HeaderProps) {
         height: '48px', 
         minHeight: '48px', 
         maxHeight: '48px',
-        flexShrink: 0
+        flexShrink: 0,
+        backgroundColor: '#000000'
       }}
     >
       <div className="max-w-[1400px] mx-auto px-8 h-full flex items-center justify-between">
