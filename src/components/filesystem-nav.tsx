@@ -23,12 +23,14 @@ interface FileSystemNavProps {
 export function FileSystemNav({ currentPath, onNavigate }: FileSystemNavProps) {
   const [hoveredPath, setHoveredPath] = useState<string | null>(null)
   const [activePath, setActivePath] = useState<string | null>(null)
-  const [iconSize, setIconSize] = useState(window.innerWidth >= 768 ? 18 : 14)
+  const [hoveredText, setHoveredText] = useState<string | null>(null)
+  const [activeText, setActiveText] = useState<string | null>(null)
+  const [iconSize, setIconSize] = useState(window.innerWidth >= 768 ? 20 : 16)
 
   // Update icon size on resize
   useEffect(() => {
     const handleResize = () => {
-      setIconSize(window.innerWidth >= 768 ? 18 : 14)
+      setIconSize(window.innerWidth >= 768 ? 20 : 16)
     }
     window.addEventListener('resize', handleResize)
     return () => window.removeEventListener('resize', handleResize)
@@ -38,6 +40,8 @@ export function FileSystemNav({ currentPath, onNavigate }: FileSystemNavProps) {
   useEffect(() => {
     setHoveredPath(null)
     setActivePath(null)
+    setHoveredText(null)
+    setActiveText(null)
   }, [currentPath])
 
   return (
@@ -62,23 +66,37 @@ export function FileSystemNav({ currentPath, onNavigate }: FileSystemNavProps) {
                 ) : (
                   <BreadcrumbLink
                     onClick={() => onNavigate(segment.path)}
-                    onMouseEnter={() => setHoveredPath(segment.path)}
+                    onMouseEnter={() => {
+                      setHoveredPath(segment.path)
+                      setHoveredText(segment.path)
+                    }}
                     onMouseLeave={() => {
                       setHoveredPath(null)
                       setActivePath(null)
+                      setHoveredText(null)
+                      setActiveText(null)
                     }}
-                    onMouseDown={() => setActivePath(segment.path)}
-                    onMouseUp={() => setActivePath(null)}
-                    onTouchStart={() => setActivePath(segment.path)}
-                    onTouchEnd={() => setActivePath(null)}
-                    onTouchCancel={() => setActivePath(null)}
-                    className={`flex items-center gap-1.5 cursor-pointer transition-none ${
-                      isActive 
-                        ? 'text-lavender' 
-                        : isHovered 
-                          ? 'text-corpo-light' 
-                          : 'text-corpo-text'
-                    }`}
+                    onMouseDown={() => {
+                      setActivePath(segment.path)
+                      setActiveText(segment.path)
+                    }}
+                    onMouseUp={() => {
+                      setActivePath(null)
+                      setActiveText(null)
+                    }}
+                    onTouchStart={() => {
+                      setActivePath(segment.path)
+                      setActiveText(segment.path)
+                    }}
+                    onTouchEnd={() => {
+                      setActivePath(null)
+                      setActiveText(null)
+                    }}
+                    onTouchCancel={() => {
+                      setActivePath(null)
+                      setActiveText(null)
+                    }}
+                    className="flex items-center gap-1.5 cursor-pointer transition-none"
                   >
                     {isHome && (
                       isActive ? (
@@ -98,7 +116,17 @@ export function FileSystemNav({ currentPath, onNavigate }: FileSystemNavProps) {
                         <RiFolderLine size={iconSize} className="text-corpo-text" />
                       )
                     )}
-                    <span>{segment.name}</span>
+                    <span 
+                      className={`transition-none ${
+                        activeText === segment.path 
+                          ? 'text-lavender' 
+                          : hoveredText === segment.path 
+                            ? 'text-corpo-light' 
+                            : 'text-corpo-text'
+                      }`}
+                    >
+                      {segment.name}
+                    </span>
                   </BreadcrumbLink>
                 )}
               </BreadcrumbItem>

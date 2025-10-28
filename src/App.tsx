@@ -155,16 +155,12 @@ function DirectoryListing() {
       >
         <Header currentPath={currentPath} onNavigate={handleNavigate} />
       
-        {/* GitHub Contribution Graph - Only on root/home */}
-        {currentPath.length === 1 && currentPath[0].path === '~' && (
-          <div className="w-full bg-black">
-            <div className="flex items-center justify-center">
-              <GitHubContributionGraph username="vedantadhobley" />
-            </div>
-          </div>
-        )}
+        {/* GitHub Contribution Graph - shows on all pages */}
+        <div className="w-full bg-black">
+          <GitHubContributionGraph username="vedantadhobley" />
+        </div>
         
-        <div className="max-w-[1400px] w-full mx-auto px-8 pt-2 pb-8">
+        <div className="w-full max-w-[1140px] mx-auto px-4 md:px-8 pt-4 pb-8">
           {/* Photo Gallery - if current path is a photo album */}
           {photoAlbums[fsPath] && (
             <PhotoGallery
@@ -197,7 +193,7 @@ function DirectoryListing() {
                     onTouchStart={() => setActiveItem(item.path)}
                     onTouchEnd={() => setActiveItem(null)}
                     onTouchCancel={() => setActiveItem(null)}
-                    className={`flex items-center gap-2 w-full text-left px-4 py-2 font-mono transition-none ${
+                    className={`flex items-center gap-2 w-full text-left py-2 font-mono transition-none ${
                       isActive 
                         ? 'text-lavender' 
                         : isHovered 

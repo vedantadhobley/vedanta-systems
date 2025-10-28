@@ -71,7 +71,7 @@ interface GitHubContributionGraphProps {
 
 export function GitHubContributionGraph({ 
   username, 
-  colors = DEFAULT_COLORS 
+  colors = DEFAULT_COLORS
 }: GitHubContributionGraphProps) {
   const [contributions, setContributions] = useState<ContributionDay[]>([])
   const [dataReady, setDataReady] = useState(false) // Track if data is fetched
@@ -134,17 +134,13 @@ export function GitHubContributionGraph({
     const calculateWeeks = () => {
       if (!containerRef.current?.parentElement) return
       
-      // Get the full viewport width
-      const viewportWidth = window.innerWidth
-      // On mobile (< 640px), use px-4 (32px total horizontal padding)
-      // On desktop (>= 640px), use px-8 (64px total horizontal padding)
-      const horizontalPadding = viewportWidth < 640 ? 32 : 64
-      const availableWidth = viewportWidth - horizontalPadding
+      // Get the container's actual width (respects max-width)
+      const containerWidth = containerRef.current.parentElement.offsetWidth
       
       // Bigger squares on desktop (768px+)
-      const weekWidth = viewportWidth >= 768 ? 22 : 16 // 18px square + 4px gap on desktop, 12px + 4px on mobile
-      // Be more aggressive - fill the full width
-      const calculatedWeeks = Math.min(Math.floor(availableWidth / weekWidth), 52)
+      const weekWidth = window.innerWidth >= 768 ? 22 : 16 // 18px square + 4px gap on desktop, 12px + 4px on mobile
+      // Calculate weeks to show based on container width
+      const calculatedWeeks = Math.min(Math.floor(containerWidth / weekWidth), 52)
       
       setWeeksToShow(Math.max(calculatedWeeks, 10))
     }
@@ -388,15 +384,15 @@ export function GitHubContributionGraph({
     const revealTime = revealTimes.get(squareKey)
     if (revealTime === undefined) {
       // Square has never been painted yet - show at minimum opacity
-      return 0.3
+      return 0.25
     }
     
     const elapsed = Date.now() - revealTime
-    const fadeProgress = Math.min(elapsed / 10000, 1) // 10 second fade for slower phosphor decay
-    const opacity = 1 - (fadeProgress * 0.7) // Fade from 100% to 30%
+    const fadeProgress = Math.min(elapsed / 7500, 1) // 7.5 second fade (2.5s wave + 5s delay)
+    const opacity = 1 - (fadeProgress * 0.75) // Fade from 100% to 25%
     
-    // Clamp to minimum 30% - squares that finished fading stay at 30% until repainted
-    return Math.max(opacity, 0.3)
+    // Clamp to minimum 25% - squares that finished fading stay at 25% until repainted
+    return Math.max(opacity, 0.25)
   }
 
   // Only show error if we have never loaded data and have an error
@@ -419,17 +415,18 @@ export function GitHubContributionGraph({
   const displayWeeks = weeks.slice(-weeksToShow)
   
   return (
-    <div ref={containerRef} className="flex flex-col items-center w-full gap-4 pt-4 pb-0 px-4 h-[140px] md:h-[190px]" style={{ backgroundColor: '#000000' }}>
-      {/* Graph container - responsive width */}
-      <div 
-        className="flex flex-col gap-3 max-w-full overflow-x-auto"
-        style={{
-          opacity: displayWeeks.length > 0 ? 1 : 0,
-          transition: 'opacity 0.3s ease-in'
-        }}
-      >
-        {/* Contribution graph */}
-        <div className="inline-flex gap-1">
+    <div ref={containerRef} className="w-full" style={{ backgroundColor: '#000000' }}>
+      <div className="max-w-[1140px] mx-auto px-4 md:px-8 pt-0 pb-0 h-[148px] md:h-[198px]">
+        {/* Graph container - responsive width */}
+        <div 
+          className="flex flex-col gap-3 w-full"
+          style={{
+            opacity: displayWeeks.length > 0 ? 1 : 0,
+            transition: 'opacity 0.3s ease-in'
+          }}
+        >
+          {/* Contribution graph */}
+          <div className="inline-flex gap-1 justify-center w-full">
           {Array.from({ length: weeksToShow }).map((_, weekIdx) => (
             <div key={weekIdx} className="flex flex-col gap-1">
               {Array.from({ length: 7 }).map((_, dayIdx) => {
@@ -499,8 +496,9 @@ export function GitHubContributionGraph({
               })}
             </div>
           ))}
+        </div>
       </div>
-    </div>
+      </div>
     </div>
   )
 }
