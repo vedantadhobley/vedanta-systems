@@ -6,7 +6,7 @@ interface HeaderProps {
   onNavigate: (path: string) => void
 }
 
-export function Header({ currentPath, onNavigate }: HeaderProps) {
+export function Header(_props: HeaderProps) {
   const [time, setTime] = useState(new Date())
 
   useEffect(() => {
