@@ -6,8 +6,10 @@ interface HeaderProps {
   onNavigate: (path: string) => void
 }
 
-export function Header(_props: HeaderProps) {
+export function Header({ onNavigate }: HeaderProps) {
   const [time, setTime] = useState(new Date())
+  const [hoveredTitle, setHoveredTitle] = useState(false)
+  const [activeTitle, setActiveTitle] = useState(false)
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -28,33 +30,53 @@ export function Header(_props: HeaderProps) {
     <header 
       className="w-full border-b border-corpo-border" 
       style={{ 
-        height: '48px', 
-        minHeight: '48px', 
-        maxHeight: '48px',
         flexShrink: 0,
         backgroundColor: '#000000'
       }}
     >
-      <div className="max-w-[1400px] mx-auto px-8 h-full flex items-center justify-between">
-        <h1 
-          className="text-corpo-light font-mono tracking-tight" 
+      <div className="max-w-[1400px] mx-auto px-8 h-12 md:h-14 flex items-center justify-between">
+        <button
+          onClick={() => {
+            onNavigate('~')
+          }}
+          onMouseEnter={() => setHoveredTitle(true)}
+          onMouseLeave={() => {
+            setHoveredTitle(false)
+            setActiveTitle(false)
+          }}
+          onMouseDown={() => setActiveTitle(true)}
+          onMouseUp={() => setActiveTitle(false)}
+          onTouchStart={() => setActiveTitle(true)}
+          onTouchEnd={() => setActiveTitle(false)}
+          onTouchCancel={() => setActiveTitle(false)}
+          className="font-mono tracking-tight transition-none"
           style={{ 
-            fontSize: '14px', 
+            fontSize: 'var(--text-size-base)',
             lineHeight: '1',
             WebkitTextSizeAdjust: '100%',
-            textSizeAdjust: '100%'
+            textSizeAdjust: '100%',
+            color: activeTitle 
+              ? 'hsl(260, 35%, 68%)' 
+              : hoveredTitle 
+                ? 'hsl(220, 2%, 75%)' 
+                : 'hsl(220, 3%, 65%)',
+            background: 'none',
+            border: 'none',
+            padding: 0,
+            cursor: 'pointer'
           }}
         >
           vedanta.systems
-        </h1>
+        </button>
         
         <time 
-          className="text-corpo-text font-mono tabular-nums" 
+          className="font-mono tabular-nums" 
           style={{ 
-            fontSize: '14px', 
+            fontSize: 'var(--text-size-base)',
             lineHeight: '1',
             WebkitTextSizeAdjust: '100%',
-            textSizeAdjust: '100%'
+            textSizeAdjust: '100%',
+            color: 'hsl(220, 3%, 65%)'
           }}
         >
           {formatUTC(time)}
@@ -67,12 +89,8 @@ export function Header(_props: HeaderProps) {
 export function BottomNav({ currentPath, onNavigate }: HeaderProps) {
   return (
     <nav 
-      className="fixed bottom-0 left-0 right-0 border-t border-corpo-border bg-black"
+      className="fixed bottom-0 left-0 right-0 border-t border-corpo-border bg-black h-12 md:h-14"
       style={{ 
-        height: '48px',
-        minHeight: '48px',
-        maxHeight: '48px',
-        fontSize: '14px',
         zIndex: 9999,
         WebkitTextSizeAdjust: '100%',
         textSizeAdjust: '100%'

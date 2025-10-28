@@ -13,12 +13,60 @@
         -webkit-touch-callout: none;
         -webkit-tap-highlight-color: transparent;
       }
+      
+      /* Prevent flash of unstyled content */
+      html, body {
+        background-color: #000000 !important;
+        color: #a8a8a8;
+      }
+      
+      /* Hide content until font is loaded - prevents layout shift */
+      #root {
+        opacity: 0;
+        transition: opacity 0.05s ease-in;
+      }
+      
+      /* Show content once font is loaded */
+      html.fonts-loaded #root {
+        opacity: 1;
+      }
+      
+      /* Prevent font loading shift */
+      body {
+        font-family: 'PT Mono', ui-monospace, monospace;
+      }
+      
+      /* Match PT Mono metrics with fallback to prevent layout shift */
+      @font-face {
+        font-family: 'PT Mono Fallback';
+        src: local('Courier New'), local('monospace');
+        size-adjust: 95%;
+        ascent-override: 95%;
+        descent-override: 25%;
+        line-gap-override: 0%;
+      }
     </style>
+    <script>
+      // Wait for PT Mono font to load before showing content
+      if (document.fonts) {
+        document.fonts.ready.then(() => {
+          document.documentElement.classList.add('fonts-loaded');
+        });
+        // Failsafe - show content after 100ms even if font check hangs
+        setTimeout(() => {
+          document.documentElement.classList.add('fonts-loaded');
+        }, 100);
+      } else {
+        // Fallback for browsers without Font Loading API
+        document.documentElement.classList.add('fonts-loaded');
+      }
+    </script>
     <title>Vedanta Systems</title>
-    <!-- PT Mono Font -->
+    <!-- PT Mono Font - block display to prevent FOUT -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=PT+Mono&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=PT+Mono&display=block" rel="stylesheet">
+    <link rel="preload" href="https://fonts.googleapis.com/css2?family=PT+Mono&display=block" as="style">
   </head>
   <body>
     <div id="root"></div>

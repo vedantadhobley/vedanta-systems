@@ -23,6 +23,16 @@ interface FileSystemNavProps {
 export function FileSystemNav({ currentPath, onNavigate }: FileSystemNavProps) {
   const [hoveredPath, setHoveredPath] = useState<string | null>(null)
   const [activePath, setActivePath] = useState<string | null>(null)
+  const [iconSize, setIconSize] = useState(window.innerWidth >= 768 ? 18 : 14)
+
+  // Update icon size on resize
+  useEffect(() => {
+    const handleResize = () => {
+      setIconSize(window.innerWidth >= 768 ? 18 : 14)
+    }
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
 
   // Clear hover state when path changes
   useEffect(() => {
@@ -32,7 +42,7 @@ export function FileSystemNav({ currentPath, onNavigate }: FileSystemNavProps) {
 
   return (
     <Breadcrumb key={currentPath.map(s => s.path).join('/')}>
-      <BreadcrumbList className="text-sm font-mono">
+      <BreadcrumbList className="font-mono" style={{ fontSize: 'var(--text-size-base)' }}>
         {currentPath.map((segment, index) => {
           const isLast = index === currentPath.length - 1
           const isHovered = hoveredPath === segment.path
@@ -45,8 +55,8 @@ export function FileSystemNav({ currentPath, onNavigate }: FileSystemNavProps) {
               <BreadcrumbItem>
                 {isLast ? (
                   <BreadcrumbPage className="flex items-center gap-1.5 text-lavender">
-                    {isHome && <RiHome6Fill size={14} className="text-lavender" />}
-                    {isFolder && <RiFolderFill size={14} className="text-lavender" />}
+                    {isHome && <RiHome6Fill size={iconSize} className="text-lavender" />}
+                    {isFolder && <RiFolderFill size={iconSize} className="text-lavender" />}
                     <span>{segment.name}</span>
                   </BreadcrumbPage>
                 ) : (
@@ -72,20 +82,20 @@ export function FileSystemNav({ currentPath, onNavigate }: FileSystemNavProps) {
                   >
                     {isHome && (
                       isActive ? (
-                        <RiHome6Fill size={14} className="text-lavender" />
+                        <RiHome6Fill size={iconSize} className="text-lavender" />
                       ) : isHovered ? (
-                        <RiHome6Fill size={14} className="text-corpo-light" />
+                        <RiHome6Fill size={iconSize} className="text-corpo-light" />
                       ) : (
-                        <RiHome6Line size={14} className="text-corpo-text" />
+                        <RiHome6Line size={iconSize} className="text-corpo-text" />
                       )
                     )}
                     {isFolder && (
                       isActive ? (
-                        <RiFolderFill size={14} className="text-lavender" />
+                        <RiFolderFill size={iconSize} className="text-lavender" />
                       ) : isHovered ? (
-                        <RiFolderFill size={14} className="text-corpo-light" />
+                        <RiFolderFill size={iconSize} className="text-corpo-light" />
                       ) : (
-                        <RiFolderLine size={14} className="text-corpo-text" />
+                        <RiFolderLine size={iconSize} className="text-corpo-text" />
                       )
                     )}
                     <span>{segment.name}</span>

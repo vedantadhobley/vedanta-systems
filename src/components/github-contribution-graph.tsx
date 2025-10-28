@@ -141,7 +141,8 @@ export function GitHubContributionGraph({
       const horizontalPadding = viewportWidth < 640 ? 32 : 64
       const availableWidth = viewportWidth - horizontalPadding
       
-      const weekWidth = 16 // 12px square + 4px gap
+      // Bigger squares on desktop (768px+)
+      const weekWidth = viewportWidth >= 768 ? 22 : 16 // 18px square + 4px gap on desktop, 12px + 4px on mobile
       // Be more aggressive - fill the full width
       const calculatedWeeks = Math.min(Math.floor(availableWidth / weekWidth), 52)
       
@@ -418,9 +419,15 @@ export function GitHubContributionGraph({
   const displayWeeks = weeks.slice(-weeksToShow)
   
   return (
-    <div ref={containerRef} className="flex flex-col items-center w-full gap-4 p-4">
-      {/* Graph container with fixed width */}
-      <div className="flex flex-col" style={{ width: `${weeksToShow * 16 - 4}px`, gap: '12px' }}>
+    <div ref={containerRef} className="flex flex-col items-center w-full gap-4 pt-4 pb-0 px-4 h-[140px] md:h-[190px]" style={{ backgroundColor: '#000000' }}>
+      {/* Graph container - responsive width */}
+      <div 
+        className="flex flex-col gap-3 max-w-full overflow-x-auto"
+        style={{
+          opacity: displayWeeks.length > 0 ? 1 : 0,
+          transition: 'opacity 0.3s ease-in'
+        }}
+      >
         {/* Contribution graph */}
         <div className="inline-flex gap-1">
           {Array.from({ length: weeksToShow }).map((_, weekIdx) => (
@@ -467,7 +474,7 @@ export function GitHubContributionGraph({
                   return (
                     <div
                       key={squareKey}
-                      className="w-3 h-3"
+                      className="w-3 h-3 md:w-[18px] md:h-[18px]"
                     />
                   )
                 }
@@ -477,7 +484,7 @@ export function GitHubContributionGraph({
                   return (
                     <div
                       key={squareKey}
-                      className="w-3 h-3"
+                      className="w-3 h-3 md:w-[18px] md:h-[18px]"
                     />
                   )
                 }
@@ -485,7 +492,7 @@ export function GitHubContributionGraph({
                 return (
                   <div
                     key={squareKey}
-                    className={`w-3 h-3 ${colorClass}`}
+                    className={`w-3 h-3 md:w-[18px] md:h-[18px] ${colorClass}`}
                     style={opacity < 1 ? { opacity } : undefined}
                   />
                 )

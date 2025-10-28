@@ -3,6 +3,18 @@
 @tailwind utilities;
 
 @layer base {
+  .content-scroll {
+    bottom: 48px;
+  }
+  
+  @media (min-width: 768px) {
+    .content-scroll {
+      bottom: 56px;
+    }
+  }
+}
+
+@layer base {
   html {
     height: 100vh;
     height: 100dvh;
@@ -14,6 +26,7 @@
     overscroll-behavior: none;
     -webkit-text-size-adjust: 100%;
     text-size-adjust: 100%;
+    visibility: visible;
   }
   
   body {
@@ -28,6 +41,7 @@
     -webkit-text-size-adjust: 100%;
     text-size-adjust: 100%;
     touch-action: pan-y;
+    visibility: visible;
   }
   
   #root {
@@ -43,6 +57,11 @@
     /* Corporate Monochrome - Cold, industrial, lifeless */
     --background: 0 0% 0%;           /* Pure black background */
     --foreground: 0 0% 98%;          /* Near white text */
+    
+    /* Font sizes - mobile first */
+    --text-size-base: 14px;
+    --header-height: 48px;
+    --navbar-height: 48px;
     
     /* Your personal touch - Lavender ash, used SPARINGLY */
     --lavender: 260 35% 68%;           /* Calm lavender purple - your signature */
@@ -88,6 +107,15 @@
     --chart-5: 27 87% 67%;
     --radius: 0.5rem;
   }
+  
+  /* Desktop scaling */
+  @media (min-width: 768px) {
+    :root {
+      --text-size-base: 18px;
+      --header-height: 56px;
+      --navbar-height: 56px;
+    }
+  }
   .dark {
     --background: 0 0% 3.9%;
     --foreground: 0 0% 98%;
@@ -124,6 +152,7 @@
   
   body {
     @apply bg-background text-foreground font-mono;
+    font-family: 'PT Mono', 'PT Mono Fallback', ui-monospace, monospace;
     /* Subtle monitor grain */
     background-image: 
       repeating-linear-gradient(

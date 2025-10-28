@@ -114,9 +114,19 @@ function DirectoryListing() {
   const navigate = useNavigate()
   const [hoveredItem, setHoveredItem] = useState<string | null>(null)
   const [activeItem, setActiveItem] = useState<string | null>(null)
+  const [iconSize, setIconSize] = useState(window.innerWidth >= 768 ? 20 : 16)
 
   const currentPath = getPathSegmentsFromUrl(location.pathname)
   const fsPath = currentPath[currentPath.length - 1].path
+
+  // Update icon size on resize
+  useEffect(() => {
+    const handleResize = () => {
+      setIconSize(window.innerWidth >= 768 ? 20 : 16)
+    }
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
 
   // Clear hover and active states when path changes
   useEffect(() => {
@@ -137,7 +147,6 @@ function DirectoryListing() {
           top: 0,
           left: 0,
           right: 0,
-          bottom: '48px',
           overflowY: 'auto',
           overflowX: 'hidden',
           touchAction: 'pan-y',
@@ -148,14 +157,14 @@ function DirectoryListing() {
       
         {/* GitHub Contribution Graph - Only on root/home */}
         {currentPath.length === 1 && currentPath[0].path === '~' && (
-          <div className="w-full border-b border-corpo-border py-8">
+          <div className="w-full bg-black">
             <div className="flex items-center justify-center">
               <GitHubContributionGraph username="vedantadhobley" />
             </div>
           </div>
         )}
         
-        <div className="max-w-[1400px] w-full mx-auto px-8 pt-8 pb-8">
+        <div className="max-w-[1400px] w-full mx-auto px-8 pt-2 pb-8">
           {/* Photo Gallery - if current path is a photo album */}
           {photoAlbums[fsPath] && (
             <PhotoGallery
@@ -188,20 +197,21 @@ function DirectoryListing() {
                     onTouchStart={() => setActiveItem(item.path)}
                     onTouchEnd={() => setActiveItem(null)}
                     onTouchCancel={() => setActiveItem(null)}
-                    className={`flex items-center gap-2 w-full text-left px-4 py-2 font-mono text-sm transition-none ${
+                    className={`flex items-center gap-2 w-full text-left px-4 py-2 font-mono transition-none ${
                       isActive 
                         ? 'text-lavender' 
                         : isHovered 
                           ? 'text-corpo-light' 
                           : 'text-corpo-text'
                     }`}
+                    style={{ fontSize: 'var(--text-size-base)' }}
                   >
                     {isActive ? (
-                      <RiFolderFill size={16} className="text-lavender" />
+                      <RiFolderFill size={iconSize} className="text-lavender" />
                     ) : isHovered ? (
-                      <RiFolderFill size={16} className="text-corpo-light" />
+                      <RiFolderFill size={iconSize} className="text-corpo-light" />
                     ) : (
-                      <RiFolderLine size={16} className="text-corpo-text" />
+                      <RiFolderLine size={iconSize} className="text-corpo-text" />
                     )}
                     <span>{item.name}/</span>
                   </button>
