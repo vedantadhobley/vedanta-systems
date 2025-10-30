@@ -5,6 +5,7 @@ import { GitHubContributionGraph } from '@/components/github-contribution-graph'
 import { Header, BottomNav } from '@/components/header'
 import { PathSegment } from '@/components/filesystem-nav'
 import { PhotoGallery } from '@/components/photo-gallery'
+import { MoonBackground } from '@/components/moon-background'
 import './App.css'
 
 interface FolderContent {
@@ -150,13 +151,15 @@ function DirectoryListing() {
           overflowY: 'auto',
           overflowX: 'hidden',
           touchAction: 'pan-y',
-          WebkitOverflowScrolling: 'touch'
+          WebkitOverflowScrolling: 'touch',
+          backgroundColor: 'transparent',
+          zIndex: 10
         }}
       >
         <Header currentPath={currentPath} onNavigate={handleNavigate} />
       
         {/* GitHub Contribution Graph - shows on all pages */}
-        <div className="w-full bg-black">
+        <div className="w-full">
           <GitHubContributionGraph username="vedantadhobley" />
         </div>
         
@@ -225,9 +228,12 @@ function DirectoryListing() {
 
 function App() {
   return (
-    <Routes>
-      <Route path="*" element={<DirectoryListing />} />
-    </Routes>
+    <>
+      <MoonBackground />
+      <Routes>
+        <Route path="*" element={<DirectoryListing />} />
+      </Routes>
+    </>
   )
 }
 

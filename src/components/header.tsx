@@ -32,7 +32,7 @@ export function Header({ onNavigate }: HeaderProps) {
       className="w-full" 
       style={{ 
         flexShrink: 0,
-        backgroundColor: '#000000'
+        backgroundColor: 'transparent'
       }}
     >
       <div className="max-w-[1140px] mx-auto px-4 md:px-8 h-12 md:h-14 flex items-center justify-between">

@@ -415,7 +415,7 @@ export function GitHubContributionGraph({
   const displayWeeks = weeks.slice(-weeksToShow)
   
   return (
-    <div ref={containerRef} className="w-full" style={{ backgroundColor: '#000000' }}>
+    <div ref={containerRef} className="w-full" style={{ backgroundColor: 'transparent' }}>
       <div className="max-w-[1140px] mx-auto px-4 md:px-8 pt-0 pb-0 h-[148px] md:h-[198px]">
         {/* Graph container - responsive width */}
         <div 
