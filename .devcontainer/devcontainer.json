@@ -27,7 +27,7 @@
   },
   
   // Ensure dependencies are installed
-  "postCreateCommand": "npm install",
+  "postCreateCommand": "apk add --no-cache openssh git && npm install",
   
   // Forward ports
   "forwardPorts": [3000],
