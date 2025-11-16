@@ -1,0 +1,23 @@
+# Development Dockerfile for Dev Containers
+FROM node:18-alpine
+
+# Set working directory
+WORKDIR /app
+
+# Install git (needed for some npm packages)
+RUN apk add --no-cache git
+
+# Copy package files
+COPY package.json package-lock.json* yarn.lock* ./
+
+# Install dependencies
+RUN npm install
+
+# Copy source code
+COPY . .
+
+# Expose Vite dev server port
+EXPOSE 3000
+
+# Keep container running (Dev Containers will attach)
+CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]

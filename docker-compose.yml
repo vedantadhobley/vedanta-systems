@@ -2,7 +2,7 @@ services:
   frontend:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.dev
       args:
         VITE_GITHUB_TOKEN: ${VITE_GITHUB_TOKEN}
     ports:
@@ -10,11 +10,13 @@ services:
     environment:
       - VITE_API_BASE_URL=http://localhost:8080
       - VITE_ENVIRONMENT=development
+      - VITE_GITHUB_TOKEN=${VITE_GITHUB_TOKEN}
     restart: unless-stopped
-    # Uncomment to use volumes for live development
-    # volumes:
-    #   - .:/app
-    #   - /app/node_modules
+    # Enable volumes for live development (Dev Containers)
+    volumes:
+      - .:/app
+      - /app/node_modules
+    command: npm run dev -- --host 0.0.0.0
 
 # Example: Add your backend services here when ready
 # backend-service-1:

@@ -12,8 +12,11 @@ export default defineConfig({
   server: {
     port: 3000,
     strictPort: false,
-    open: true,
-    host: '0.0.0.0',  // Bind to all interfaces so Tailscale can reach it
+    open: false,  // Don't auto-open browser on remote server
+    host: '0.0.0.0',  // Bind to all interfaces for remote access
+    hmr: {
+      clientPort: 3000,  // Hot module reload
+    },
   },
   build: {
     outDir: 'dist',

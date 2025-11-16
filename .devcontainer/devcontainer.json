@@ -1,0 +1,40 @@
+{
+  "name": "Vedanta Systems Dev",
+  "dockerComposeFile": [
+    "../docker-compose.yml"
+  ],
+  "service": "frontend",
+  "workspaceFolder": "/app",
+  "shutdownAction": "stopCompose",
+  
+  // Extensions to install in the container
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "GitHub.copilot",
+        "GitHub.copilot-chat",
+        "bradlc.vscode-tailwindcss"
+      ],
+      "settings": {
+        "terminal.integrated.defaultProfile.linux": "sh",
+        "terminal.integrated.shellIntegration.enabled": true,
+        "editor.formatOnSave": true,
+        "eslint.validate": ["typescript", "typescriptreact"]
+      }
+    }
+  },
+  
+  // Ensure dependencies are installed
+  "postCreateCommand": "npm install",
+  
+  // Forward ports
+  "forwardPorts": [3000],
+  "portsAttributes": {
+    "3000": {
+      "label": "Vite Dev Server",
+      "onAutoForward": "notify"
+    }
+  }
+}
