@@ -18,8 +18,7 @@
         "bradlc.vscode-tailwindcss"
       ],
       "settings": {
-        "terminal.integrated.defaultProfile.linux": "sh",
-        "terminal.integrated.shellIntegration.enabled": true,
+        "terminal.integrated.defaultProfile.linux": "bash",
         "editor.formatOnSave": true,
         "eslint.validate": ["typescript", "typescriptreact"]
       }
@@ -27,7 +26,7 @@
   },
   
   // Ensure dependencies are installed
-  "postCreateCommand": "apk add --no-cache openssh git && npm install",
+  "postCreateCommand": "npm install",
   
   // Forward ports
   "forwardPorts": [3000],
