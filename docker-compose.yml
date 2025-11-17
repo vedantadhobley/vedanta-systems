@@ -2,37 +2,33 @@ services:
   frontend:
     build:
       context: .
-      dockerfile: Dockerfile.dev
+      dockerfile: Dockerfile
       args:
         VITE_GITHUB_TOKEN: ${VITE_GITHUB_TOKEN}
+    container_name: vedanta-frontend
+    restart: unless-stopped
     ports:
       - "3000:3000"
-    environment:
-      - VITE_API_BASE_URL=http://localhost:8080
-      - VITE_ENVIRONMENT=development
-      - VITE_GITHUB_TOKEN=${VITE_GITHUB_TOKEN}
-    restart: unless-stopped
-    # Enable volumes for live development (Dev Containers)
-    volumes:
-      - .:/app
-      - /app/node_modules
-      - /var/run/docker.sock:/var/run/docker.sock
-      - /home/vedanta/.ssh:/root/.ssh:ro
-    command: npm run dev -- --host 0.0.0.0
     networks:
       - vedanta-network
+    environment:
+      - NODE_ENV=production
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--quiet",
+          "--tries=1",
+          "--spider",
+          "http://localhost:3000",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
 networks:
   vedanta-network:
-    name: luv-dev
+    name: luv-prod
     driver: bridge
-# Example: Add your backend services here when ready
-# backend-service-1:
-#   build:
-#     context: ../path-to-service-1
-#     dockerfile: Dockerfile
-#   ports:
-#     - "8080:8080"
-#   environment:
-#     - ENV=development
-#   restart: unless-stopped
