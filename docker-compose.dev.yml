@@ -20,12 +20,13 @@ services:
       - /home/vedanta/.ssh:/root/.ssh:ro
     command: npm run dev -- --host 0.0.0.0
     networks:
-      - vedanta-network
+      - luv-dev
 
 networks:
-  vedanta-network:
+  luv-dev:
     name: luv-dev
-    driver: bridge
+    external: true
+
 # Example: Add your backend services here when ready
 # backend-service-1:
 #   build:

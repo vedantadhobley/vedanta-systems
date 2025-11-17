@@ -5,30 +5,28 @@ services:
       dockerfile: Dockerfile
       args:
         VITE_GITHUB_TOKEN: ${VITE_GITHUB_TOKEN}
-    container_name: vedanta-frontend
-    restart: unless-stopped
     ports:
       - "3000:3000"
-    networks:
-      - vedanta-network
     environment:
-      - NODE_ENV=production
-    healthcheck:
-      test:
-        [
-          "CMD",
-          "wget",
-          "--quiet",
-          "--tries=1",
-          "--spider",
-          "http://localhost:3000",
-        ]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
+      - VITE_GITHUB_TOKEN=${VITE_GITHUB_TOKEN}
+    restart: unless-stopped
+    networks:
+      - luv-prod
 
 networks:
-  vedanta-network:
+  luv-prod:
     name: luv-prod
-    driver: bridge
+    external: true
+
+# Example: Add your backend services here when ready
+# backend-service-1:
+#   build:
+#     context: ../path-to-service-1
+#     dockerfile: Dockerfile
+#   ports:
+#     - "8080:8080"
+#   environment:
+#     - ENV=development
+#   restart: unless-stopped
+#   networks:
+#     - luv-dev
