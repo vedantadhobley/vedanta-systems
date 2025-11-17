@@ -25,8 +25,13 @@
     }
   },
   
-  // Ensure dependencies are installed
+  // Install dependencies (tools baked into Dockerfile.dev)
   "postCreateCommand": "npm install",
+  
+  // Mount Docker socket
+  "mounts": [
+    "source=/var/run/docker.sock,target=/var/run/docker.sock,type=bind"
+  ],
   
   // Forward ports
   "forwardPorts": [3000],

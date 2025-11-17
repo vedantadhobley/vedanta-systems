@@ -16,8 +16,9 @@ services:
     volumes:
       - .:/app
       - /app/node_modules
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /home/vedanta/.ssh:/root/.ssh:ro
     command: npm run dev -- --host 0.0.0.0
-
 # Example: Add your backend services here when ready
 # backend-service-1:
 #   build:
