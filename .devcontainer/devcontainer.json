@@ -5,7 +5,7 @@
   ],
   "service": "frontend",
   "workspaceFolder": "/app",
-  "shutdownAction": "stopCompose",
+  "shutdownAction": "none",
   
   // Extensions to install in the container
   "customizations": {
