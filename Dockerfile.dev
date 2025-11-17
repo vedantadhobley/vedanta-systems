@@ -1,11 +1,11 @@
 # Development Dockerfile for Dev Containers
-FROM node:18-alpine
+FROM node:18-slim
 
 # Set working directory
 WORKDIR /app
 
-# Install git and bash (bash needed for Dev Container features)
-RUN apk add --no-cache git bash
+# Install git (needed for some npm packages and Dev Containers)
+RUN apt-get update && apt-get install -y git && rm -rf /var/lib/apt/lists/*
 
 # Copy package files
 COPY package.json package-lock.json* yarn.lock* ./
