@@ -1,39 +1,31 @@
-# Build stage
 FROM node:18-alpine AS builder
 
+# Accept build arg
 ARG VITE_GITHUB_TOKEN
+ENV VITE_GITHUB_TOKEN=${VITE_GITHUB_TOKEN}
 
 WORKDIR /app
-
-# Copy package files
-COPY package.json package-lock.json* yarn.lock* ./
-
-# Install dependencies
+COPY package.json package-lock.json* yarn.lock* pnpm-lock.yaml* ./
 RUN npm ci || npm install
-
-# Copy source code
 COPY . .
-
-# Build the application (build arg is available here)
 RUN npm run build
 
-# Production stage
 FROM node:18-alpine
 
+# Install cloudflared
+RUN apk add --no-cache wget && \
+    wget -q https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -O /usr/local/bin/cloudflared && \
+    chmod +x /usr/local/bin/cloudflared && \
+    apk del wget
+
 WORKDIR /app
-
-# Install serve to run the static files
 RUN npm install -g serve
-
-# Copy built files from builder
 COPY --from=builder /app/dist ./dist
 
-# Expose port 3000
+# Start script that runs both serve and cloudflared
+COPY start-with-tunnel.sh /start-with-tunnel.sh
+RUN chmod +x /start-with-tunnel.sh
+
 EXPOSE 3000
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD wget --quiet --tries=1 --spider http://localhost:3000 || exit 1
-
-# Start the application
-CMD ["serve", "-s", "dist", "-l", "3000"]
+CMD ["/start-with-tunnel.sh"]
