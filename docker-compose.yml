@@ -4,7 +4,7 @@ services:
   frontend:
     build:
       context: .
-      dockerfile: Dockerfile.cloudflare
+      dockerfile: Dockerfile
       args:
         - VITE_GITHUB_TOKEN=${VITE_GITHUB_TOKEN}
     container_name: vedanta-systems-prod
