@@ -1,21 +1,32 @@
 services:
   frontend:
+    container_name: vedanta-systems-prod
     build:
       context: .
       dockerfile: Dockerfile
       args:
         VITE_GITHUB_TOKEN: ${VITE_GITHUB_TOKEN}
+    # Port 3000 exposed for CloudFlare Tunnel access (localhost:3000)
+    # If using CloudFlare Tunnel, this is required for tunnel to reach the service
+    # If behind nginx/reverse proxy, expose only to internal network
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"  # Only bind to localhost, not 0.0.0.0
     environment:
       - VITE_GITHUB_TOKEN=${VITE_GITHUB_TOKEN}
     restart: unless-stopped
     networks:
+      - vedanta-systems-prod
       - luv-prod
 
 networks:
+  # Internal network - auto-created for prod environment
+  # All vedanta-systems PROD services communicate here
+  vedanta-systems-prod:
+    driver: bridge
+  
+  # Shared network - persistent, cross-project communication
+  # Only join this if you need to talk to OTHER projects in prod
   luv-prod:
-    name: luv-prod
     external: true
 
 # Example: Add your backend services here when ready

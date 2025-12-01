@@ -31,6 +31,18 @@ A modern, Dockerized frontend application featuring a cyberpunk corporate termin
 └── README.md              # This file
 ```
 
+## 🔌 Port Configuration
+
+**Port Range:** 3000-3099 (Vedanta-systems allocation)
+
+**Development Access (via SSH forwarding):**
+- **Frontend:** http://localhost:3000
+
+**Production:**
+- **Live Site:** https://vedanta.systems
+
+> See [Multi-Project Setup Guide](../MULTI_PROJECT_SETUP.md) for full port allocation details.
+
 ## Getting Started
 
 ### Prerequisites

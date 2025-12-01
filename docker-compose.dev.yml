@@ -1,12 +1,14 @@
 services:
   frontend:
+    container_name: vedanta-systems-dev
     build:
       context: .
       dockerfile: Dockerfile.dev
       args:
         VITE_GITHUB_TOKEN: ${VITE_GITHUB_TOKEN}
+    # Dev uses 4000, prod uses 3000 (both on same machine)
     ports:
-      - "3000:3000"
+      - "4000:3000"
     environment:
       - VITE_API_BASE_URL=http://localhost:8080
       - VITE_ENVIRONMENT=development
@@ -20,11 +22,18 @@ services:
       - /home/vedanta/.ssh:/root/.ssh:ro
     command: npm run dev -- --host 0.0.0.0
     networks:
+      - vedanta-systems-dev
       - luv-dev
 
 networks:
+  # Internal network - auto-created, auto-destroyed
+  # All vedanta-systems DEV services communicate here
+  vedanta-systems-dev:
+    driver: bridge
+  
+  # Shared network - persistent, cross-project communication
+  # Only join this if you need to talk to OTHER projects
   luv-dev:
-    name: luv-dev
     external: true
 
 # Example: Add your backend services here when ready
