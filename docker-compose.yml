@@ -1,3 +1,5 @@
+name: vedanta-systems
+
 services:
   frontend:
     container_name: vedanta-systems-prod
@@ -13,6 +15,8 @@ services:
       - "127.0.0.1:3000:3000"  # Only bind to localhost, not 0.0.0.0
     environment:
       - VITE_GITHUB_TOKEN=${VITE_GITHUB_TOKEN}
+    volumes:
+      - /home/vedanta/photos:/app/dist/photos:ro  # Shared photos (read-only)
     restart: unless-stopped
     networks:
       - vedanta-systems-prod
@@ -22,6 +26,7 @@ networks:
   # Internal network - auto-created for prod environment
   # All vedanta-systems PROD services communicate here
   vedanta-systems-prod:
+    name: vedanta-systems-prod
     driver: bridge
   
   # Shared network - persistent, cross-project communication

@@ -1,3 +1,5 @@
+name: vedanta-systems
+
 services:
   frontend:
     container_name: vedanta-systems-dev
@@ -20,6 +22,7 @@ services:
       - /app/node_modules
       - /var/run/docker.sock:/var/run/docker.sock
       - /home/vedanta/.ssh:/root/.ssh:ro
+      - /home/vedanta/photos:/app/public/photos:ro  # Shared photos (read-only)
     command: npm run dev -- --host 0.0.0.0
     networks:
       - vedanta-systems-dev
@@ -29,6 +32,7 @@ networks:
   # Internal network - auto-created, auto-destroyed
   # All vedanta-systems DEV services communicate here
   vedanta-systems-dev:
+    name: vedanta-systems-dev
     driver: bridge
   
   # Shared network - persistent, cross-project communication
