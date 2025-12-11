@@ -6,6 +6,8 @@ import { Header, BottomNav } from '@/components/header'
 import { PathSegment } from '@/components/filesystem-nav'
 import { PhotoGallery } from '@/components/photo-gallery'
 import { MoonBackground } from '@/components/moon-background'
+import { FoundFootyBrowser } from '@/components/found-footy-browser'
+import { useFootyStream } from '@/hooks/useFootyStream'
 import './App.css'
 
 interface FolderContent {
@@ -164,6 +166,11 @@ function DirectoryListing() {
         </div>
         
         <div className="w-full max-w-[1140px] mx-auto px-4 md:px-8 pt-4 pb-8">
+          {/* Found Footy Browser - ~/projects/found-footy */}
+          {fsPath === '~/projects/found-footy' && (
+            <FoundFootyContent />
+          )}
+
           {/* Photo Gallery - if current path is a photo album */}
           {photoAlbums[fsPath] && (
             <PhotoGallery
@@ -223,6 +230,20 @@ function DirectoryListing() {
       
       <BottomNav currentPath={currentPath} onNavigate={handleNavigate} />
     </>
+  )
+}
+
+// FoundFooty content component - rendered inside DirectoryListing
+function FoundFootyContent() {
+  const { fixtures, completedFixtures, isConnected, lastUpdate } = useFootyStream()
+  
+  return (
+    <FoundFootyBrowser 
+      fixtures={fixtures}
+      completedFixtures={completedFixtures}
+      isConnected={isConnected}
+      lastUpdate={lastUpdate}
+    />
   )
 }
 

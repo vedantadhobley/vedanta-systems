@@ -8,6 +8,8 @@ services:
       args:
         - VITE_GITHUB_TOKEN=${VITE_GITHUB_TOKEN}
     container_name: vedanta-systems-prod
+    ports:
+      - "3000:3000"
     restart: unless-stopped
     volumes:
       - /home/vedanta/photos:/app/dist/photos:ro

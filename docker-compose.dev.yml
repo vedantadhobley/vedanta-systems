@@ -1,4 +1,4 @@
-name: vedanta-systems
+name: vedanta-systems-dev
 
 services:
   frontend:
@@ -15,6 +15,8 @@ services:
       - VITE_API_BASE_URL=http://localhost:8080
       - VITE_ENVIRONMENT=development
       - VITE_GITHUB_TOKEN=${VITE_GITHUB_TOKEN}
+      # Use localhost for browser access (frontend runs in browser, not in container)
+      - VITE_FOOTY_API_URL=http://localhost:4001
     restart: unless-stopped
     # Enable volumes for live development (Dev Containers)
     volumes:
@@ -27,13 +29,30 @@ services:
     networks:
       - vedanta-systems-dev
       - luv-dev
+    depends_on:
+      - found-footy-api
+
+  # Found Footy API - connects to MongoDB for live fixture updates
+  found-footy-api:
+    container_name: vedanta-systems-dev-found-footy-api
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    ports:
+      - "4001:3001"
+    environment:
+      - MONGODB_URI=mongodb://ffuser:ffpass@found-footy-dev-mongo:27017/found_footy?authSource=admin
+      - API_PORT=3001
+    restart: unless-stopped
+    networks:
+      - vedanta-systems-dev
+      - luv-dev
 
 networks:
-  # Internal network - auto-created, auto-destroyed
-  # All vedanta-systems DEV services communicate here
+  # Internal network for vedanta-systems DEV services
   vedanta-systems-dev:
     name: vedanta-systems-dev
-    driver: bridge
+    external: true
   
   # Shared network - persistent, cross-project communication
   # Only join this if you need to talk to OTHER projects

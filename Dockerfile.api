@@ -1,0 +1,19 @@
+FROM node:18-alpine
+
+WORKDIR /app
+
+# Install dependencies for the API server
+COPY package*.json ./
+RUN npm install
+
+# Copy server code and types
+COPY src/server ./src/server
+COPY src/types ./src/types
+COPY tsconfig.json tsconfig.server.json ./
+
+# Install tsx for running TypeScript directly
+RUN npm install -g tsx
+
+EXPOSE 3001
+
+CMD ["tsx", "src/server/index.ts"]
