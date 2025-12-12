@@ -7,8 +7,16 @@ import { PathSegment } from '@/components/filesystem-nav'
 import { PhotoGallery } from '@/components/photo-gallery'
 import { MoonBackground } from '@/components/moon-background'
 import { FoundFootyBrowser } from '@/components/found-footy-browser'
+import { ProjectStatus } from '@/components/project-status'
 import { useFootyStream } from '@/hooks/useFootyStream'
 import './App.css'
+
+// Project GitHub links - maps project paths to their repos
+const projectGithubLinks: Record<string, string> = {
+  '~/projects/found-footy': 'https://github.com/vedantadhobley/found-footy',
+  '~/projects/vedanta-systems': 'https://github.com/vedantadhobley/vedanta-systems',
+  // Add more projects here as needed
+}
 
 interface FolderContent {
   name: string
@@ -171,6 +179,11 @@ function DirectoryListing() {
             <FoundFootyContent />
           )}
 
+          {/* Other project pages - just show GitHub link */}
+          {fsPath !== '~/projects/found-footy' && projectGithubLinks[fsPath] && (
+            <ProjectStatus githubUrl={projectGithubLinks[fsPath]} />
+          )}
+
           {/* Photo Gallery - if current path is a photo album */}
           {photoAlbums[fsPath] && (
             <PhotoGallery
@@ -236,14 +249,30 @@ function DirectoryListing() {
 // FoundFooty content component - rendered inside DirectoryListing
 function FoundFootyContent() {
   const { fixtures, completedFixtures, isConnected, lastUpdate } = useFootyStream()
+  const location = useLocation()
+  
+  // Parse URL params for deep linking (e.g., ?v=event_id&h=video_hash)
+  const searchParams = new URLSearchParams(location.search)
+  const eventId = searchParams.get('v')
+  const hash = searchParams.get('h')
+  
+  const initialVideo = eventId ? { eventId, hash: hash || undefined } : null
   
   return (
-    <FoundFootyBrowser 
-      fixtures={fixtures}
-      completedFixtures={completedFixtures}
-      isConnected={isConnected}
-      lastUpdate={lastUpdate}
-    />
+    <>
+      <ProjectStatus 
+        githubUrl="https://github.com/vedantadhobley/found-footy"
+        isConnected={isConnected}
+        connectionLabel="stream"
+      />
+      <FoundFootyBrowser 
+        fixtures={fixtures}
+        completedFixtures={completedFixtures}
+        isConnected={isConnected}
+        lastUpdate={lastUpdate}
+        initialVideo={initialVideo}
+      />
+    </>
   )
 }
 

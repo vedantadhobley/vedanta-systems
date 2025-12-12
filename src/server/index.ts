@@ -177,6 +177,39 @@ app.get('/video/:bucket/*', async (req, res) => {
   }
 })
 
+// GET /download/:bucket/* - download videos with Content-Disposition header (forces download on iOS/browsers)
+app.get('/download/:bucket/*', async (req, res) => {
+  try {
+    const bucket = req.params.bucket
+    const objectPath = req.params[0]
+    
+    console.log(`⬇️ Download video: ${bucket}/${objectPath}`)
+    
+    // Get object stats
+    const stat = await minioClient.statObject(bucket, objectPath)
+    
+    // Extract filename from path
+    const filename = objectPath.split('/').pop() || 'video.mp4'
+    
+    // Set headers to force download
+    res.setHeader('Content-Type', 'video/mp4')
+    res.setHeader('Content-Length', stat.size)
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`)
+    
+    // Stream the file
+    const stream = await minioClient.getObject(bucket, objectPath)
+    stream.pipe(res)
+    
+  } catch (error: any) {
+    console.error('Download error:', error.message)
+    if (error.code === 'NoSuchKey' || error.code === 'NotFound') {
+      res.status(404).json({ error: 'Video not found' })
+    } else {
+      res.status(500).json({ error: 'Failed to download video' })
+    }
+  }
+})
+
 // GET /health
 app.get('/health', (_req, res) => {
   res.json({ 
