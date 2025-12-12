@@ -3,6 +3,35 @@ import type { Fixture, FixturesResponse } from '@/types/found-footy'
 
 const API_BASE = import.meta.env.VITE_FOOTY_API_URL || 'http://localhost:4001'
 
+// Transform a single video URL to be fully qualified
+function transformUrl(url: string): string {
+  // New format: already relative, just prepend API base
+  if (url.startsWith('/video/')) {
+    return `${API_BASE}${url}`
+  }
+  // Legacy format: replace container hostname with API proxy
+  // Handles both found-footy-minio and found-footy-dev-minio
+  return url.replace(/http:\/\/found-footy(-dev)?-minio:9000\//, `${API_BASE}/video/`)
+}
+
+// Transform video URLs to be fully qualified API proxy URLs
+// Handles both _s3_urls (legacy) and _s3_videos (new ranked format)
+function transformVideoUrls(fixtures: Fixture[]): Fixture[] {
+  return fixtures.map(fixture => ({
+    ...fixture,
+    events: fixture.events?.map(event => ({
+      ...event,
+      // Transform legacy _s3_urls
+      _s3_urls: event._s3_urls?.map(transformUrl) || [],
+      // Transform new _s3_videos with ranking
+      _s3_videos: event._s3_videos?.map(video => ({
+        ...video,
+        url: transformUrl(video.url)
+      }))
+    })) || []
+  }))
+}
+
 interface SSEEvent {
   type: 'initial' | 'refresh' | 'heartbeat' | 'error'
   fixtures?: Fixture[]
@@ -24,8 +53,8 @@ export function useFootyStream() {
     try {
       const res = await fetch(`${API_BASE}/`)
       const data: FixturesResponse = await res.json()
-      setFixtures(data.active)
-      setCompletedFixtures(data.completed)
+      setFixtures(transformVideoUrls(data.active))
+      setCompletedFixtures(transformVideoUrls(data.completed))
       setLastUpdate(new Date())
       setError(null)
     } catch (err) {
@@ -38,9 +67,9 @@ export function useFootyStream() {
   const handleSSEEvent = useCallback((event: SSEEvent) => {
     switch (event.type) {
       case 'initial':
-        // Initial load from SSE
-        if (event.fixtures) setFixtures(event.fixtures)
-        if (event.completedFixtures) setCompletedFixtures(event.completedFixtures)
+        // Initial load from SSE - transform URLs
+        if (event.fixtures) setFixtures(transformVideoUrls(event.fixtures))
+        if (event.completedFixtures) setCompletedFixtures(transformVideoUrls(event.completedFixtures))
         setLastUpdate(new Date())
         break
         

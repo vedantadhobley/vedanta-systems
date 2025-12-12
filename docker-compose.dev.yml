@@ -32,7 +32,7 @@ services:
     depends_on:
       - found-footy-api
 
-  # Found Footy API - connects to MongoDB for live fixture updates
+  # Found Footy API - connects to MongoDB and MinIO for live fixture updates
   found-footy-api:
     container_name: vedanta-systems-dev-found-footy-api
     build:
@@ -41,8 +41,14 @@ services:
     ports:
       - "4001:3001"
     environment:
-      - MONGODB_URI=mongodb://ffuser:ffpass@found-footy-dev-mongo:27017/found_footy?authSource=admin
       - API_PORT=3001
+      # MongoDB
+      - MONGODB_URI=mongodb://${FOUND_FOOTY_MONGO_USER}:${FOUND_FOOTY_MONGO_PASS}@found-footy-dev-mongo:27017/found_footy?authSource=admin
+      # MinIO
+      - MINIO_ENDPOINT=found-footy-dev-minio
+      - MINIO_PORT=9000
+      - MINIO_ACCESS_KEY=${FOUND_FOOTY_S3_USER}
+      - MINIO_SECRET_KEY=${FOUND_FOOTY_S3_PASS}
     restart: unless-stopped
     networks:
       - vedanta-systems-dev

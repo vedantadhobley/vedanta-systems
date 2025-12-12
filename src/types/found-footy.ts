@@ -21,6 +21,15 @@ export interface DiscoveredVideo {
   tweet_url: string
 }
 
+// Ranked video with quality/popularity scoring
+export interface RankedVideo {
+  url: string
+  perceptual_hash: string
+  resolution_score: number  // width * height
+  popularity: number        // duplicate count
+  rank: number              // 1 = best
+}
+
 export interface GoalEvent {
   type: 'Goal'
   detail: string // 'Normal Goal', 'Penalty', 'Own Goal'
@@ -42,7 +51,8 @@ export interface GoalEvent {
   _scoring_team: 'home' | 'away'
   _twitter_search: string
   _discovered_videos: DiscoveredVideo[]
-  _s3_urls: string[]
+  _s3_urls: string[]          // Legacy: flat array of URLs
+  _s3_videos?: RankedVideo[]  // New: ranked videos with metadata
   _perceptual_hashes: string[]
   _monitor_complete: boolean
   _twitter_complete: boolean
