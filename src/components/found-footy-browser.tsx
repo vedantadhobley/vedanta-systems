@@ -663,13 +663,13 @@ function VideoModal({ url, title, subtitle, eventId, onClose }: VideoModalProps)
               className="text-corpo-text truncate"
               style={{ fontSize: 'var(--text-size-base)' }}
             >
-              {title}
+              <HighlightedText text={title} />
             </div>
             {/* Subtitle: goal details */}
             <div 
               className="text-corpo-text/50 truncate text-sm"
             >
-              {subtitle}
+              <HighlightedText text={subtitle} />
             </div>
           </div>
           {/* Action buttons - aligned with title */}
