@@ -21,7 +21,7 @@ const foundFootyConfig = {
     port: parseInt(process.env.MINIO_PORT || '9000'),
     accessKey: process.env.MINIO_ACCESS_KEY || '',
     secretKey: process.env.MINIO_SECRET_KEY || '',
-    useSSL: !isDev // Use SSL in production
+    useSSL: process.env.MINIO_USE_SSL === 'true' // Default to false (most internal MinIO setups use HTTP)
   },
   temporal: {
     address: process.env.TEMPORAL_ADDRESS || 'temporal:7233'

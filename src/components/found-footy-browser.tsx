@@ -433,7 +433,11 @@ function FixtureItem({
           "text-corpo-text/60 flex-shrink-0",
           isLive && "text-lavender"
         )}>
-          {isLive ? `${fixtureInfo.status.elapsed}'` : fixtureInfo.status.short}
+          {isLive 
+            ? (fixtureInfo.status.extra 
+                ? `${fixtureInfo.status.elapsed}+${fixtureInfo.status.extra}'`
+                : `${fixtureInfo.status.elapsed}'`)
+            : fixtureInfo.status.short}
         </span>
       </button>
 

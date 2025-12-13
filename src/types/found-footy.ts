@@ -65,6 +65,7 @@ export interface FixtureStatus {
   long: string   // 'Match Finished', 'First Half', etc.
   short: string  // 'FT', '1H', '2H', 'HT', 'NS', etc.
   elapsed: number | null
+  extra: number | null  // Added time (e.g., 90+5 has extra=5)
 }
 
 export interface Fixture {
