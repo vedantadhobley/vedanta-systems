@@ -265,12 +265,6 @@ function FixtureItem({
   const hasValidating = sortedEvents.some(e => !e._monitor_complete)
   const hasExtracting = sortedEvents.some(e => e._monitor_complete && !e._twitter_complete)
 
-  const fixtureDate = new Date(fixtureInfo.date)
-  const _dateStr = fixtureDate.toLocaleDateString('en-GB', { 
-    day: '2-digit', 
-    month: 'short'
-  })
-
   return (
     <div className="border border-corpo-border">
       {/* Fixture header */}
