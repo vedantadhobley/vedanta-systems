@@ -47,7 +47,7 @@ interface FoundFootyBrowserProps {
 export function FoundFootyBrowser({ 
   fixtures, 
   completedFixtures, 
-  isConnected,
+  isConnected: _isConnected,
   initialVideo
 }: FoundFootyBrowserProps) {
   const [expandedFixture, setExpandedFixture] = useState<number | null>(null)
@@ -266,7 +266,7 @@ function FixtureItem({
   const hasExtracting = sortedEvents.some(e => e._monitor_complete && !e._twitter_complete)
 
   const fixtureDate = new Date(fixtureInfo.date)
-  const dateStr = fixtureDate.toLocaleDateString('en-GB', { 
+  const _dateStr = fixtureDate.toLocaleDateString('en-GB', { 
     day: '2-digit', 
     month: 'short'
   })
