@@ -1,35 +1,18 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
-import { RiArrowRightSLine, RiCloseLine, RiShareLine, RiDownloadLine, RiCheckLine, RiRadarLine, RiSearchEyeLine } from '@remixicon/react'
+import { RiArrowRightSLine, RiCloseLine, RiCloseFill, RiShareBoxLine, RiShareBoxFill, RiDownload2Line, RiDownload2Fill, RiCheckLine, RiVidiconFill, RiScan2Line } from '@remixicon/react'
 import type { Fixture, GoalEvent, RankedVideo } from '@/types/found-footy'
 import { cn } from '@/lib/utils'
 
-// Custom animated icons for scanning states
+// Animated icons for scanning states
 function ValidatingIcon({ className }: { className?: string }) {
   return (
-    <svg 
-      className={cn("animate-[spin_3s_linear_infinite]", className)} 
-      viewBox="0 0 24 24" 
-      fill="none" 
-      stroke="currentColor" 
-      strokeWidth="2"
-    >
-      <circle cx="12" cy="12" r="9" strokeDasharray="4 2" />
-      <circle cx="12" cy="12" r="5" strokeDasharray="2 2" />
-      <circle cx="12" cy="12" r="1" fill="currentColor" />
-    </svg>
+    <RiScan2Line className={cn("animate-pulse", className)} />
   )
 }
 
 function ExtractingIcon({ className }: { className?: string }) {
   return (
-    <RiSearchEyeLine className={cn("animate-[pulse_1.5s_ease-in-out_infinite]", className)} />
-  )
-}
-
-// Radar sweep animation for fixture-level scanning
-function RadarIcon({ className }: { className?: string }) {
-  return (
-    <RiRadarLine className={cn("animate-[spin_2s_linear_infinite]", className)} />
+    <RiVidiconFill className={cn("animate-pulse", className)} />
   )
 }
 
@@ -322,25 +305,29 @@ function FixtureItem({
           )} 
         />
         
-        {/* Scanning indicator in fixture header - only show icon, no text */}
-        {hasActiveScanning && (
-          <span className="text-lavender/70 flex-shrink-0">
-            {hasValidating ? (
-              <ValidatingIcon className="w-4 h-4" />
-            ) : hasExtracting ? (
-              <ExtractingIcon className="w-4 h-4" />
-            ) : null}
+        {/* Fixture title with scanning indicator on right */}
+        <span className="flex-1 flex items-center gap-2 min-w-0">
+          <span className="truncate">
+            {teams.home.name}
+            <span className="text-corpo-text/50 mx-2">
+              {goals?.home ?? 0} - {goals?.away ?? 0}
+            </span>
+            {teams.away.name}
           </span>
-        )}
-        
-        <span className="flex-1 truncate">
-          {teams.home.name}
-          <span className="text-corpo-text/50 mx-2">
-            {goals?.home ?? 0} - {goals?.away ?? 0}
-          </span>
-          {teams.away.name}
+          
+          {/* Scanning indicator - right of fixture title */}
+          {hasActiveScanning && (
+            <span className="text-lavender/70 flex-shrink-0">
+              {hasValidating ? (
+                <ValidatingIcon className="w-4 h-4" />
+              ) : hasExtracting ? (
+                <ExtractingIcon className="w-4 h-4" />
+              ) : null}
+            </span>
+          )}
         </span>
         
+        {/* Status on far right */}
         <span className={cn(
           "text-corpo-text/60 flex-shrink-0",
           isLive && "text-lavender"
@@ -463,9 +450,21 @@ function EventItem({ event, fixture, isExpanded, onToggle, onOpenVideo }: EventI
         
         {/* Two-line content: title on top, subtitle below */}
         <div className="flex-1 min-w-0">
-          {/* Title line: score at moment of goal - with <<highlighted>> scoring team */}
-          <div className="truncate">
-            <HighlightedText text={event._display_title || `${event.player.name || 'Goal'} (${event.team.name})`} />
+          {/* Title line: score at moment of goal - with <<highlighted>> scoring team and icon */}
+          <div className="flex items-center gap-2">
+            <span className="truncate">
+              <HighlightedText text={event._display_title || `${event.player.name || 'Goal'} (${event.team.name})`} />
+            </span>
+            {/* Scanning indicator - right of title */}
+            {isStillScanning && (
+              <span className="text-lavender/70 flex-shrink-0" title={isValidating ? "Validating event..." : "Extracting clips..."}>
+                {isValidating ? (
+                  <ValidatingIcon className="w-4 h-4" />
+                ) : (
+                  <ExtractingIcon className="w-4 h-4" />
+                )}
+              </span>
+            )}
           </div>
           {/* Subtitle line: time, player, assist - with <<highlighted>> scorer */}
           <div className="text-corpo-text/50 truncate text-sm">
@@ -473,30 +472,13 @@ function EventItem({ event, fixture, isExpanded, onToggle, onOpenVideo }: EventI
           </div>
         </div>
         
-        {/* Right side: scanning indicator and clip count */}
-        <div className="flex items-center gap-2 flex-shrink-0 mt-0.5">
-          {/* 
-            Scanning indicator - shows icon only in event header
-            Different icons for validating vs extracting
-          */}
-          {isStillScanning && (
-            <span className="text-lavender/70" title={isValidating ? "Validating event..." : "Extracting clips..."}>
-              {isValidating ? (
-                <ValidatingIcon className="w-4 h-4" />
-              ) : (
-                <ExtractingIcon className="w-4 h-4" />
-              )}
-            </span>
-          )}
-          
-          {/* Clip count - always visible */}
-          <span className={cn(
-            "tabular-nums",
-            videoCount > 0 ? "text-corpo-text/60" : "text-corpo-text/30"
-          )}>
-            [{videoCount}]
-          </span>
-        </div>
+        {/* Clip count on far right */}
+        <span className={cn(
+          "tabular-nums flex-shrink-0 mt-0.5",
+          videoCount > 0 ? "text-corpo-text/60" : "text-corpo-text/30"
+        )}>
+          [{videoCount}]
+        </span>
       </button>
 
       {/* Videos - collapsed content with horizontal clip buttons */}
@@ -590,7 +572,6 @@ function ClipButton({ index, isBest, onClick }: ClipButtonProps) {
               : "border-corpo-border text-corpo-text/60"
       )}
       style={{ fontSize: 'var(--text-size-base)' }}
-      title={isBest ? `Play clip ${index} (best quality)` : `Play clip ${index}`}
     >
       {index}
     </button>
@@ -607,6 +588,12 @@ interface VideoModalProps {
 
 function VideoModal({ url, title, subtitle, eventId, onClose }: VideoModalProps) {
   const [copied, setCopied] = useState(false)
+  const [shareHovered, setShareHovered] = useState(false)
+  const [shareActive, setShareActive] = useState(false)
+  const [downloadHovered, setDownloadHovered] = useState(false)
+  const [downloadActive, setDownloadActive] = useState(false)
+  const [closeHovered, setCloseHovered] = useState(false)
+  const [closeActive, setCloseActive] = useState(false)
   
   // Handle ESC key to close modal
   useEffect(() => {
@@ -655,53 +642,83 @@ function VideoModal({ url, title, subtitle, eventId, onClose }: VideoModalProps)
         className="relative w-full max-w-4xl mx-4"
         onClick={e => e.stopPropagation()}
       >
-        {/* Title bar with action buttons */}
-        <div className="flex items-start justify-between gap-4 mb-2">
+        {/* Title/subtitle and buttons row */}
+        <div className="flex items-end justify-between gap-4 mb-2">
+          {/* Title and subtitle - left side */}
           <div className="font-mono min-w-0">
             {/* Title: score at moment */}
             <div 
-              className="text-corpo-text truncate"
+              className="text-corpo-text"
               style={{ fontSize: 'var(--text-size-base)' }}
             >
               <HighlightedText text={title} />
             </div>
             {/* Subtitle: goal details */}
             <div 
-              className="text-corpo-text/50 truncate text-sm"
+              className="text-corpo-text/50 text-sm"
             >
               <HighlightedText text={subtitle} />
             </div>
           </div>
-          {/* Action buttons - aligned with title */}
+
+          {/* Action buttons - right side */}
           <div className="flex items-center gap-2 flex-shrink-0">
             {/* Share button */}
-            <button
-              onClick={handleShare}
-              className="text-corpo-text/60 hover:text-lavender transition-none p-1"
-              title="Copy shareable link"
-            >
-              {copied ? (
-                <RiCheckLine className="w-5 h-5 text-green-400" />
-              ) : (
-                <RiShareLine className="w-5 h-5" />
-              )}
-            </button>
-            {/* Download button */}
-            <button
-              onClick={handleDownload}
-              className="text-corpo-text/60 hover:text-lavender transition-none p-1"
-              title="Download video"
-            >
-              <RiDownloadLine className="w-5 h-5" />
-            </button>
-            {/* Close button */}
-            <button
-              onClick={onClose}
-              className="text-corpo-text/60 hover:text-corpo-light transition-none p-1"
-              title="Close (ESC)"
-            >
+          <button
+            onClick={handleShare}
+            onMouseEnter={() => setShareHovered(true)}
+            onMouseLeave={() => { setShareHovered(false); setShareActive(false) }}
+            onMouseDown={() => setShareActive(true)}
+            onMouseUp={() => setShareActive(false)}
+            className={cn(
+              "p-1 transition-none",
+              shareActive ? "text-lavender" : shareHovered ? "text-corpo-light" : "text-corpo-text"
+            )}
+          >
+            {copied ? (
+              <RiCheckLine className="w-5 h-5 text-lavender" />
+            ) : shareActive || shareHovered ? (
+              <RiShareBoxFill className="w-5 h-5" />
+            ) : (
+              <RiShareBoxLine className="w-5 h-5" />
+            )}
+          </button>
+          {/* Download button */}
+          <button
+            onClick={handleDownload}
+            onMouseEnter={() => setDownloadHovered(true)}
+            onMouseLeave={() => { setDownloadHovered(false); setDownloadActive(false) }}
+            onMouseDown={() => setDownloadActive(true)}
+            onMouseUp={() => setDownloadActive(false)}
+            className={cn(
+              "p-1 transition-none",
+              downloadActive ? "text-lavender" : downloadHovered ? "text-corpo-light" : "text-corpo-text"
+            )}
+          >
+            {downloadActive || downloadHovered ? (
+              <RiDownload2Fill className="w-5 h-5" />
+            ) : (
+              <RiDownload2Line className="w-5 h-5" />
+            )}
+          </button>
+          {/* Close button */}
+          <button
+            onClick={onClose}
+            onMouseEnter={() => setCloseHovered(true)}
+            onMouseLeave={() => { setCloseHovered(false); setCloseActive(false) }}
+            onMouseDown={() => setCloseActive(true)}
+            onMouseUp={() => setCloseActive(false)}
+            className={cn(
+              "p-1 transition-none",
+              closeActive ? "text-lavender" : closeHovered ? "text-corpo-light" : "text-corpo-text"
+            )}
+          >
+            {closeActive || closeHovered ? (
+              <RiCloseFill className="w-6 h-6" />
+            ) : (
               <RiCloseLine className="w-6 h-6" />
-            </button>
+            )}
+          </button>
           </div>
         </div>
         
@@ -810,23 +827,27 @@ function DemoFixtures({ expandedFixture, expandedEvent, onToggleFixture, onToggl
             )} 
           />
           
-          {/* Scanning indicator in fixture header */}
-          {hasActiveScanning && (
-            <span className="text-lavender/70 flex-shrink-0">
-              {hasValidating ? (
-                <ValidatingIcon className="w-4 h-4" />
-              ) : hasExtracting ? (
-                <ExtractingIcon className="w-4 h-4" />
-              ) : null}
+          {/* Fixture title with scanning indicator on right */}
+          <span className="flex-1 flex items-center gap-2 min-w-0">
+            <span className="truncate">
+              Demo FC
+              <span className="text-corpo-text/50 mx-2">2 - 1</span>
+              Example United
             </span>
-          )}
-          
-          <span className="flex-1 truncate">
-            Demo FC
-            <span className="text-corpo-text/50 mx-2">2 - 1</span>
-            Example United
+            
+            {/* Scanning indicator - right of fixture title */}
+            {hasActiveScanning && (
+              <span className="text-lavender/70 flex-shrink-0">
+                {hasValidating ? (
+                  <ValidatingIcon className="w-4 h-4" />
+                ) : hasExtracting ? (
+                  <ExtractingIcon className="w-4 h-4" />
+                ) : null}
+              </span>
+            )}
           </span>
           
+          {/* Status on far right */}
           <span className="text-lavender flex-shrink-0">
             45'
           </span>
@@ -863,27 +884,29 @@ function DemoFixtures({ expandedFixture, expandedEvent, onToggleFixture, onToggl
                     />
                     
                     <div className="flex-1 min-w-0">
-                      <div className="truncate"><HighlightedText text={event.title} /></div>
+                      {/* Title line with icon right of title */}
+                      <div className="flex items-center gap-2">
+                        <span className="truncate"><HighlightedText text={event.title} /></span>
+                        {isStillScanning && (
+                          <span className="text-lavender/70 flex-shrink-0">
+                            {event.isValidating ? (
+                              <ValidatingIcon className="w-4 h-4" />
+                            ) : (
+                              <ExtractingIcon className="w-4 h-4" />
+                            )}
+                          </span>
+                        )}
+                      </div>
                       <div className="text-corpo-text/50 truncate text-sm"><HighlightedText text={event.subtitle} /></div>
                     </div>
                     
-                    <div className="flex items-center gap-2 flex-shrink-0 mt-0.5">
-                      {isStillScanning && (
-                        <span className="text-lavender/70">
-                          {event.isValidating ? (
-                            <ValidatingIcon className="w-4 h-4" />
-                          ) : (
-                            <ExtractingIcon className="w-4 h-4" />
-                          )}
-                        </span>
-                      )}
-                      <span className={cn(
-                        "tabular-nums",
-                        event.videoCount > 0 ? "text-corpo-text/60" : "text-corpo-text/30"
-                      )}>
-                        [{event.videoCount}]
-                      </span>
-                    </div>
+                    {/* Clip count on far right */}
+                    <span className={cn(
+                      "tabular-nums flex-shrink-0 mt-0.5",
+                      event.videoCount > 0 ? "text-corpo-text/60" : "text-corpo-text/30"
+                    )}>
+                      [{event.videoCount}]
+                    </span>
                   </button>
 
                   {/* Event dropdown content */}

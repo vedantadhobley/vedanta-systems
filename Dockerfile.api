@@ -1,19 +1,21 @@
+# API Server Dockerfile for Found Footy and other backend services
 FROM node:18-alpine
 
 WORKDIR /app
 
-# Install dependencies for the API server
-COPY package*.json ./
-RUN npm install
+# Copy package files
+COPY package.json package-lock.json* ./
 
-# Copy server code and types
+# Install ALL dependencies (including dev for tsx)
+RUN npm ci
+
+# Copy source code
 COPY src/server ./src/server
-COPY src/types ./src/types
-COPY tsconfig.json tsconfig.server.json ./
 
-# Install tsx for running TypeScript directly
-RUN npm install -g tsx
+# Production settings
+ENV NODE_ENV=production
 
 EXPOSE 3001
 
-CMD ["tsx", "src/server/index.ts"]
+# Run the API server
+CMD ["npx", "tsx", "src/server/index.ts"]

@@ -1,29 +1,24 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import type { Fixture, FixturesResponse } from '@/types/found-footy'
 
-const API_BASE = import.meta.env.VITE_FOOTY_API_URL || 'http://localhost:4001'
+const API_BASE = import.meta.env.VITE_FOOTY_API_URL || 'http://localhost:4001/api/found-footy'
 
 // Transform a single video URL to be fully qualified
 function transformUrl(url: string): string {
-  // New format: already relative, just prepend API base
   if (url.startsWith('/video/')) {
     return `${API_BASE}${url}`
   }
-  // Legacy format: replace container hostname with API proxy
-  // Handles both found-footy-minio and found-footy-dev-minio
-  return url.replace(/http:\/\/found-footy(-dev)?-minio:9000\//, `${API_BASE}/video/`)
+  // Already fully qualified
+  return url
 }
 
 // Transform video URLs to be fully qualified API proxy URLs
-// Handles both _s3_urls (legacy) and _s3_videos (new ranked format)
 function transformVideoUrls(fixtures: Fixture[]): Fixture[] {
   return fixtures.map(fixture => ({
     ...fixture,
     events: fixture.events?.map(event => ({
       ...event,
-      // Transform legacy _s3_urls
       _s3_urls: event._s3_urls?.map(transformUrl) || [],
-      // Transform new _s3_videos with ranking
       _s3_videos: event._s3_videos?.map(video => ({
         ...video,
         url: transformUrl(video.url)
@@ -32,26 +27,50 @@ function transformVideoUrls(fixtures: Fixture[]): Fixture[] {
   }))
 }
 
+interface BackendHealth {
+  mongo: { status: 'up' | 'down' | 'unknown'; lastCheck: Date | null }
+  s3: { status: 'up' | 'down' | 'unknown'; lastCheck: Date | null }
+  temporal: { status: 'up' | 'down' | 'unknown'; lastCheck: Date | null }
+  twitter: { status: 'up' | 'down' | 'unknown'; lastCheck: Date | null }
+  overall: 'healthy' | 'degraded' | 'unhealthy' | 'unknown'
+}
+
 interface SSEEvent {
-  type: 'initial' | 'refresh' | 'heartbeat' | 'error'
+  type: 'initial' | 'refresh' | 'heartbeat' | 'error' | 'health'
   fixtures?: Fixture[]
   completedFixtures?: Fixture[]
   message?: string
+  health?: BackendHealth
 }
 
 export function useFootyStream() {
   const [fixtures, setFixtures] = useState<Fixture[]>([])
   const [completedFixtures, setCompletedFixtures] = useState<Fixture[]>([])
   const [isConnected, setIsConnected] = useState(false)
+  const [backendHealthy, setBackendHealthy] = useState<boolean | null>(null) // null = unknown until checked
   const [error, setError] = useState<string | null>(null)
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null)
   
   const eventSourceRef = useRef<EventSource | null>(null)
 
+  // Fetch backend health status
+  const fetchHealth = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_BASE}/health`)
+      const data = await res.json()
+      const healthy = data.status === 'ok' && data.health?.overall === 'healthy'
+      setBackendHealthy(healthy)
+      console.log(`💚 Backend health check: ${healthy ? 'healthy' : 'degraded'}`, data.health)
+    } catch (err) {
+      console.error('Failed to fetch health:', err)
+      setBackendHealthy(false)
+    }
+  }, [])
+
   // Fetch fixtures from REST endpoint
   const fetchFixtures = useCallback(async () => {
     try {
-      const res = await fetch(`${API_BASE}/`)
+      const res = await fetch(`${API_BASE}/fixtures`)
       const data: FixturesResponse = await res.json()
       setFixtures(transformVideoUrls(data.active))
       setCompletedFixtures(transformVideoUrls(data.completed))
@@ -74,13 +93,27 @@ export function useFootyStream() {
         break
         
       case 'refresh':
-        // Server tells us to refetch - found-footy finished a cycle
-        console.log('🔄 Refresh signal received, fetching latest data...')
-        fetchFixtures()
+        // Server sends updated data directly - found-footy finished a cycle
+        console.log('🔄 Refresh received with updated data')
+        if (event.fixtures) setFixtures(transformVideoUrls(event.fixtures))
+        if (event.completedFixtures) setCompletedFixtures(transformVideoUrls(event.completedFixtures))
+        setLastUpdate(new Date())
         break
         
       case 'heartbeat':
         // Connection alive, no action needed
+        break
+
+      case 'health':
+        // Backend health status update
+        if (event.health) {
+          const healthy = event.health.overall === 'healthy'
+          console.log(`💚 Backend health: ${event.health.overall}`, event.health)
+          setBackendHealthy(healthy)
+          if (!healthy) {
+            console.warn('⚠️ Backend health degraded:', event.health)
+          }
+        }
         break
         
       case 'error':
@@ -132,16 +165,17 @@ export function useFootyStream() {
     setIsConnected(false)
   }, [])
 
-  // Connect on mount
+  // Fetch initial health and connect on mount
   useEffect(() => {
+    fetchHealth() // Check health immediately
     connect()
     return () => disconnect()
-  }, [connect, disconnect])
+  }, [connect, disconnect, fetchHealth])
 
   return {
     fixtures,
     completedFixtures,
-    isConnected,
+    isConnected: isConnected && backendHealthy === true, // Only show online if both API connection and backend are explicitly healthy
     error,
     lastUpdate,
     reconnect: connect,

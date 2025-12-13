@@ -7,6 +7,7 @@ services:
       dockerfile: Dockerfile
       args:
         - VITE_GITHUB_TOKEN=${VITE_GITHUB_TOKEN}
+        - VITE_FOOTY_API_URL=https://vedanta.systems/api/found-footy
     container_name: vedanta-systems-prod
     ports:
       - "3000:3000"
@@ -14,6 +15,30 @@ services:
     volumes:
       - /home/vedanta/photos:/app/dist/photos:ro
       - /home/vedanta/.cloudflared:/root/.cloudflared:ro
+    networks:
+      - vedanta-systems-prod
+      - luv-prod
+    depends_on:
+      - api
+
+  # API serverndles all project APIs (/api/found-footy/*, /api/legal-tender/*, etc.)
+  api:
+    container_name: vedanta-systems-prod-api
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    # No ports exposed - only accessible via nginx proxy on internal network
+    environment:
+      - NODE_ENV=production
+      - API_PORT=3001
+      # MongoDB - connects to found-footy-prod-mongo on luv-prod network
+      - MONGODB_URI=mongodb://${FOUND_FOOTY_MONGO_USER}:${FOUND_FOOTY_MONGO_PASS}@found-footy-prod-mongo:27017/found_footy?authSource=admin
+      # MinIO - connects to found-footy-prod-minio on luv-prod network
+      - MINIO_ENDPOINT=found-footy-prod-minio
+      - MINIO_PORT=9000
+      - MINIO_ACCESS_KEY=${FOUND_FOOTY_S3_USER}
+      - MINIO_SECRET_KEY=${FOUND_FOOTY_S3_PASS}
+    restart: unless-stopped
     networks:
       - vedanta-systems-prod
       - luv-prod

@@ -1,16 +1,20 @@
-import { RiTerminalBoxLine, RiFileTextLine } from '@remixicon/react'
+import { RiTerminalBoxLine, RiTerminalBoxFill, RiFileTextLine, RiFileTextFill } from '@remixicon/react'
 import { cn } from '@/lib/utils'
 import { ReadmeViewer, useReadme } from './readme-viewer'
+import { useState } from 'react'
 
 interface ProjectStatusProps {
   githubUrl: string
   isConnected?: boolean  // Optional - only show connection status if provided
-  connectionLabel?: string  // Custom label like "stream" or "api"
 }
 
-export function ProjectStatus({ githubUrl, isConnected, connectionLabel = 'stream' }: ProjectStatusProps) {
+export function ProjectStatus({ githubUrl, isConnected }: ProjectStatusProps) {
   const showConnection = isConnected !== undefined
   const { showReadme, setShowReadme, readme, loadingReadme, fetchReadme } = useReadme(githubUrl)
+  const [repoHovered, setRepoHovered] = useState(false)
+  const [repoActive, setRepoActive] = useState(false)
+  const [readmeHovered, setReadmeHovered] = useState(false)
+  const [readmeActive, setReadmeActive] = useState(false)
 
   return (
     <>
@@ -20,9 +24,20 @@ export function ProjectStatus({ githubUrl, isConnected, connectionLabel = 'strea
           href={githubUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center gap-2 text-corpo-text/60 hover:text-lavender transition-colors"
+          onMouseEnter={() => setRepoHovered(true)}
+          onMouseLeave={() => { setRepoHovered(false); setRepoActive(false) }}
+          onMouseDown={() => setRepoActive(true)}
+          onMouseUp={() => setRepoActive(false)}
+          className={cn(
+            "flex items-center gap-2 transition-none",
+            repoActive ? "text-lavender" : repoHovered ? "text-corpo-light" : "text-corpo-text"
+          )}
         >
-          <RiTerminalBoxLine className="w-5 h-5" />
+          {repoActive || repoHovered ? (
+            <RiTerminalBoxFill className="w-5 h-5" />
+          ) : (
+            <RiTerminalBoxLine className="w-5 h-5" />
+          )}
           <span className="uppercase tracking-wider text-sm">repository</span>
         </a>
 
@@ -32,9 +47,20 @@ export function ProjectStatus({ githubUrl, isConnected, connectionLabel = 'strea
         {/* README button */}
         <button
           onClick={fetchReadme}
-          className="flex items-center gap-2 text-corpo-text/60 hover:text-lavender transition-colors"
+          onMouseEnter={() => setReadmeHovered(true)}
+          onMouseLeave={() => { setReadmeHovered(false); setReadmeActive(false) }}
+          onMouseDown={() => setReadmeActive(true)}
+          onMouseUp={() => setReadmeActive(false)}
+          className={cn(
+            "flex items-center gap-2 transition-none",
+            readmeActive ? "text-lavender" : readmeHovered ? "text-corpo-light" : "text-corpo-text"
+          )}
         >
-          <RiFileTextLine className="w-5 h-5" />
+          {readmeActive || readmeHovered ? (
+            <RiFileTextFill className="w-5 h-5" />
+          ) : (
+            <RiFileTextLine className="w-5 h-5" />
+          )}
           <span className="uppercase tracking-wider text-sm">readme</span>
         </button>
 
@@ -43,18 +69,25 @@ export function ProjectStatus({ githubUrl, isConnected, connectionLabel = 'strea
           <span className="text-corpo-border/50">/</span>
         )}
 
-        {/* Connection status */}
+        {/* Connection status with ping animation */}
         {showConnection && (
           <div className="flex items-center gap-2">
-            <span className={cn(
-              "w-2.5 h-2.5",
-              isConnected ? "bg-lavender animate-pulse" : "bg-corpo-text/30"
-            )} />
+            <span className="relative flex h-2 w-2">
+              <span className={cn(
+                "absolute inline-flex h-full w-full rounded-full opacity-75",
+                isConnected && "animate-ping",
+                isConnected ? "bg-lavender" : "bg-corpo-text/50"
+              )} />
+              <span className={cn(
+                "relative inline-flex h-2 w-2 rounded-full",
+                isConnected ? "bg-lavender" : "bg-corpo-text/50"
+              )} />
+            </span>
             <span className={cn(
               "uppercase tracking-wider text-sm",
               isConnected ? "text-lavender" : "text-corpo-text/50"
             )}>
-              {connectionLabel}: {isConnected ? 'live' : 'offline'}
+              {isConnected ? 'online' : 'offline'}
             </span>
           </div>
         )}

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useLocation, Routes, Route } from 'react-router-dom'
-import { RiFolderLine, RiFolderFill } from '@remixicon/react'
+import { RiFolder2Line, RiFolder2Fill } from '@remixicon/react'
 import { GitHubContributionGraph } from '@/components/github-contribution-graph'
 import { Header, BottomNav } from '@/components/header'
 import { PathSegment } from '@/components/filesystem-nav'
@@ -18,6 +18,22 @@ const projectGithubLinks: Record<string, string> = {
   // Add more projects here as needed
 }
 
+// Project descriptions for the projects page
+const projectDescriptions: Record<string, { name: string; blurb: string }> = {
+  '~/projects/vedanta-systems': {
+    name: 'vedanta-systems',
+    blurb: 'System monitoring dashboard and project hub. Displays real-time btop metrics, service status, and hosted project interfaces.'
+  },
+  '~/projects/found-footy': {
+    name: 'found-footy',
+    blurb: 'Automated football goal clip aggregator. Monitors live fixtures, detects goals, and automatically finds and archives video clips from social media.'
+  },
+  '~/projects/legal-tender': {
+    name: 'legal-tender',
+    blurb: 'AI-driven political influence analysis. Connects campaign finance, lobbying, and voting records to expose money in US politics.'
+  },
+}
+
 interface FolderContent {
   name: string
   path: string
@@ -33,8 +49,8 @@ const folderContents: Record<string, FolderContent[]> = {
   ],
   '~/projects': [
     { name: 'vedanta-systems', path: '~/projects/vedanta-systems', type: 'folder' },
-    { name: 'legal-tender', path: '~/projects/legal-tender', type: 'folder' },
     { name: 'found-footy', path: '~/projects/found-footy', type: 'folder' },
+    { name: 'legal-tender', path: '~/projects/legal-tender', type: 'folder' },
   ],
   '~/photos': [
     { name: 'nepal-2024', path: '~/photos/nepal-2024', type: 'folder' },
@@ -201,6 +217,7 @@ function DirectoryListing() {
               {folderContents[fsPath].map((item) => {
                 const isHovered = hoveredItem === item.path
                 const isActive = activeItem === item.path
+                const projectInfo = projectDescriptions[item.path]
                 
                 return (
                   <button
@@ -216,7 +233,7 @@ function DirectoryListing() {
                     onTouchStart={() => setActiveItem(item.path)}
                     onTouchEnd={() => setActiveItem(null)}
                     onTouchCancel={() => setActiveItem(null)}
-                    className={`flex items-center gap-2 w-full text-left py-2 font-mono transition-none ${
+                    className={`flex items-start gap-2 w-full text-left py-2 font-mono transition-none ${
                       isActive 
                         ? 'text-lavender' 
                         : isHovered 
@@ -225,14 +242,26 @@ function DirectoryListing() {
                     }`}
                     style={{ fontSize: 'var(--text-size-base)' }}
                   >
-                    {isActive ? (
-                      <RiFolderFill size={iconSize} className="text-lavender" />
-                    ) : isHovered ? (
-                      <RiFolderFill size={iconSize} className="text-corpo-light" />
-                    ) : (
-                      <RiFolderLine size={iconSize} className="text-corpo-text" />
-                    )}
-                    <span>{item.name}/</span>
+                    <span className="flex-shrink-0 mt-0.5">
+                      {isActive ? (
+                        <RiFolder2Fill size={iconSize} className="text-lavender" />
+                      ) : isHovered ? (
+                        <RiFolder2Fill size={iconSize} className="text-corpo-light" />
+                      ) : (
+                        <RiFolder2Line size={iconSize} className="text-corpo-text" />
+                      )}
+                    </span>
+                    <div className="min-w-0">
+                      <span>{item.name}/</span>
+                      {/* Show project description if on projects page */}
+                      {projectInfo && (
+                        <div className={`text-sm mt-1 leading-relaxed ${
+                          isActive ? 'text-lavender/70' : isHovered ? 'text-corpo-light/70' : 'text-corpo-text/50'
+                        }`}>
+                          {projectInfo.blurb}
+                        </div>
+                      )}
+                    </div>
                   </button>
                 )
               })}
@@ -263,7 +292,6 @@ function FoundFootyContent() {
       <ProjectStatus 
         githubUrl="https://github.com/vedantadhobley/found-footy"
         isConnected={isConnected}
-        connectionLabel="stream"
       />
       <FoundFootyBrowser 
         fixtures={fixtures}

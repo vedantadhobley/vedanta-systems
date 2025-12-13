@@ -16,7 +16,7 @@ services:
       - VITE_ENVIRONMENT=development
       - VITE_GITHUB_TOKEN=${VITE_GITHUB_TOKEN}
       # Use localhost for browser access (frontend runs in browser, not in container)
-      - VITE_FOOTY_API_URL=http://localhost:4001
+      - VITE_FOOTY_API_URL=http://localhost:4001/api/found-footy
     restart: unless-stopped
     # Enable volumes for live development (Dev Containers)
     volumes:
@@ -30,14 +30,13 @@ services:
       - vedanta-systems-dev
       - luv-dev
     depends_on:
-      - found-footy-api
+      - api
 
-  # Found Footy API - connects to MongoDB and MinIO for live fixture updates
-  found-footy-api:
-    container_name: vedanta-systems-dev-found-footy-api
-    build:
-      context: .
-      dockerfile: Dockerfile.api
+  # API serverndles all project APIs (/api/found-footy/*, /api/legal-tender/*, etc.)
+  api:
+    container_name: vedanta-systems-dev-api
+    image: node:18-alpine
+    working_dir: /app
     ports:
       - "4001:3001"
     environment:
@@ -49,6 +48,9 @@ services:
       - MINIO_PORT=9000
       - MINIO_ACCESS_KEY=${FOUND_FOOTY_S3_USER}
       - MINIO_SECRET_KEY=${FOUND_FOOTY_S3_PASS}
+    volumes:
+      - .:/app
+    command: sh -c "npm install && npx tsx watch src/server/index.ts"
     restart: unless-stopped
     networks:
       - vedanta-systems-dev

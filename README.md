@@ -10,138 +10,208 @@ A modern, Dockerized frontend application featuring a cyberpunk corporate termin
 - **React 18** - UI library with TypeScript
 - **Tailwind CSS** - Utility-first CSS
 - **shadcn/ui** - High-quality component library
+- **Express** - API server for backend integrations
+- **nginx** - Reverse proxy (production only)
 - **Docker** - Containerized deployment
-- **AWS Lightsail** - Production hosting ($10/month)
+- **Cloudflare Tunnel** - Secure production hosting (free)
+
+---
+
+## 🏗️ Architecture
+
+### Why nginx?
+
+Cloudflare Tunnel exposes only **one port** (3000) to the internet. But the browser needs to reach both:
+1. **Static files** (React app)
+2. **API endpoints** (SSE stream, video proxy, health checks)
+
+nginx solves this by routing requests on a single port:
+- `/` → Static files
+- `/api/*` → API server
+
+### Request Flow
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                      USER'S BROWSER                                  │
+│                                                                      │
+│  1. Load page      → GET https://vedanta.systems/                   │
+│  2. Health check   → GET https://vedanta.systems/api/found-footy/health
+│  3. SSE stream     → GET https://vedanta.systems/api/found-footy/stream
+│  4. Watch video    → GET https://vedanta.systems/api/found-footy/video/*
+└──────────────────────────────┬──────────────────────────────────────┘
+                               │
+                               ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                    CLOUDFLARE TUNNEL                                 │
+│                 vedanta.systems → localhost:3000                     │
+└──────────────────────────────┬──────────────────────────────────────┘
+                               │
+                               ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│              NGINX (vedanta-systems-prod:3000)                       │
+│                                                                      │
+│    GET /              → /app/dist/index.html (static)               │
+│    GET /assets/*      → /app/dist/assets/* (static)                 │
+│    GET /api/*         → proxy to API container :3001                │
+└───────────────────────────────┬─────────────────────────────────────┘
+                                │
+           ┌────────────────────┴────────────────────┐
+           │                                         │
+           ▼                                         ▼
+┌─────────────────────────┐           ┌─────────────────────────────────┐
+│   STATIC FILES          │           │   API (vedanta-systems-prod-api) │
+│   /app/dist/*           │           │   Port 3001 (NOT exposed)        │
+│                         │           │                                   │
+│   - index.html          │           │   /api/found-footy/health        │
+│   - assets/             │           │   /api/found-footy/stream (SSE)  │
+│   - photos/             │           │   /api/found-footy/fixtures      │
+└─────────────────────────┘           │   /api/found-footy/video/*       │
+                                      │   /api/found-footy/refresh       │
+                                      └───────────────┬───────────────────┘
+                                                      │
+                                                      │ Docker network
+                                                      ▼
+                                      ┌─────────────────────────────────┐
+                                      │   BACKEND SERVICES (luv-prod)   │
+                                      │                                  │
+                                      │   - MongoDB (fixture data)       │
+                                      │   - MinIO (video storage)        │
+                                      │   - found-footy (triggers /refresh)
+                                      └─────────────────────────────────┘
+```
+
+### What Goes Through nginx vs Docker Network
+
+| Request | Source | Path | Goes Through nginx? |
+|---------|--------|------|---------------------|
+| Load React app | Browser | `vedanta.systems/` | ✅ Yes |
+| Health check | Browser | `vedanta.systems/api/found-footy/health` | ✅ Yes |
+| SSE stream | Browser | `vedanta.systems/api/found-footy/stream` | ✅ Yes |
+| Video playback | Browser | `vedanta.systems/api/found-footy/video/*` | ✅ Yes |
+| Trigger refresh | found-footy backend | `vedanta-systems-prod-api:3001/api/found-footy/refresh` | ❌ No (Docker network) |
+
+### Development vs Production
+
+| | Development | Production |
+|---|-------------|------------|
+| Frontend | localhost:4000 (Vite HMR) | vedanta.systems (nginx) |
+| API | localhost:4001 (direct) | vedanta.systems/api/* (nginx proxy) |
+| nginx | Not used | Routes all traffic |
+| Why different? | Both ports exposed locally | Only port 3000 via Cloudflare |
+
+---
 
 ## Project Structure
 
 ```
 .
-├── src/                    # Source code
-│   ├── main.tsx           # React entry point
-│   ├── App.tsx            # Main App component
-│   └── index.css          # Global styles
-├── public/                # Static assets
-├── index.html             # HTML entry point
-├── vite.config.ts         # Vite configuration
-├── tailwind.config.js     # Tailwind configuration
-├── tsconfig.json          # TypeScript configuration
-├── package.json           # Dependencies
-├── Dockerfile             # Docker configuration
-└── README.md              # This file
+├── src/
+│   ├── main.tsx               # React entry point
+│   ├── App.tsx                # Main App component
+│   ├── components/            # React components
+│   ├── hooks/                 # Custom React hooks
+│   │   └── useFootyStream.ts  # SSE hook for Found Footy
+│   ├── types/                 # TypeScript types
+│   ├── server/                # Express API server
+│   │   ├── index.ts           # Main server entry
+│   │   └── routes/            # API routes by project
+│   │       └── found-footy.ts # Found Footy endpoints
+│   └── index.css              # Global styles
+├── public/                    # Static assets
+├── nginx.conf                 # Production reverse proxy config
+├── Dockerfile                 # Production build (nginx + cloudflared)
+├── Dockerfile.api             # API server build
+├── Dockerfile.dev             # Development frontend build
+├── docker-compose.yml         # Production compose
+├── docker-compose.dev.yml     # Development compose
+└── README.md                  # This file
 ```
 
 ## 🔌 Port Configuration
 
-**Port Range:** 3000-3099 (Vedanta-systems allocation)
+**Development (localhost via Docker):**
+| Service | Port | Container |
+|---------|------|-----------|
+| Frontend (Vite) | 4000 | vedanta-systems-dev |
+| API | 4001 | vedanta-systems-dev-api |
 
-**Development Access (via SSH forwarding):**
-- **Frontend:** http://localhost:3000
+**Production (via Cloudflare Tunnel):**
+| Service | Port | Container | Exposed? |
+|---------|------|-----------|----------|
+| nginx | 3000 | vedanta-systems-prod | ✅ via Cloudflare |
+| API | 3001 | vedanta-systems-prod-api | ❌ internal only |
 
-**Production:**
-- **Live Site:** https://vedanta.systems
-
-> See [Multi-Project Setup Guide](../MULTI_PROJECT_SETUP.md) for full port allocation details.
+---
 
 ## Getting Started
 
 ### Prerequisites
-- Node.js 16+ and npm/yarn
-- Docker (for containerization)
+- Docker & Docker Compose
+- Node.js 18+ (for local development without Docker)
 
-### Development
-
-1. **Install dependencies:**
-   ```bash
-   npm install
-   ```
-
-2. **Start development server:**
-   ```bash
-   npm run dev
-   ```
-   The app will open at `http://localhost:3000`
-
-3. **Run type checking:**
-   ```bash
-   npm run type-check
-   ```
-
-4. **Lint code:**
-   ```bash
-   npm run lint
-   ```
-
-### Building
-
-1. **Build for production:**
-   ```bash
-   npm run build
-   ```
-   Output will be in the `dist/` directory
-
-2. **Preview production build locally:**
-   ```bash
-   npm run preview
-   ```
-
-## Docker
-
-### Building the Docker Image
+### Development with Docker (Recommended)
 
 ```bash
-docker build -t vedanta-systems-frontend:latest .
+# Start development environment
+docker compose -f docker-compose.dev.yml up -d --build
+
+# View logs
+docker logs -f vedanta-systems-dev
+
+# Stop
+docker compose -f docker-compose.dev.yml down
 ```
 
-### Running Locally with Docker
+Access at http://localhost:4000
+
+### Local Development (without Docker)
 
 ```bash
-docker run -p 3000:3000 vedanta-systems-frontend:latest
+# Install dependencies
+npm install
+
+# Start development server
+npm run dev
 ```
 
-Visit `http://localhost:3000`
+### Building for Production
 
-### Docker Image Details
-
-- **Base Image:** `node:18-alpine` (lightweight, production-ready)
-- **Multi-stage build:** Optimized for smaller final image size
-- **Health check:** Built-in health check endpoint
-- **Port:** 3000 (configurable via environment)
+```bash
+# Build production Docker image
+docker compose up -d --build
+```
 
 ---
 
 ## 🚀 Deployment
 
-### Production (AWS Lightsail)
+### Production (Cloudflare Tunnel)
 
-**Full guide:** See [DEPLOYMENT.md](./DEPLOYMENT.md)
+**Full guide:** See [CLOUDFLARE-SETUP.md](./CLOUDFLARE-SETUP.md)
 
 #### Quick Setup
 
 ```bash
-# 1. Create Lightsail instance ($10/mo, Ubuntu 22.04, 2GB RAM)
-# 2. Install Docker & Docker Compose
-# 3. Clone repo and deploy
-cd ~/vedanta-systems
-docker-compose -f docker-compose.prod.yml up -d --build
+# 1. Clone to production server
+git clone git@github.com:vedantadhobley/vedanta-systems.git
+cd vedanta-systems
 
-# 4. Setup Nginx + SSL
-sudo apt-get install nginx certbot python3-certbot-nginx -y
-sudo certbot --nginx -d vedanta.systems
+# 2. Create .env file
+cp .env.example .env
+# Edit .env with your values
 
-# 5. Point DNS to instance IP in Route 53
+# 3. Start container
+docker compose up -d --build
+
+# 4. Setup Cloudflare Tunnel
+./scripts/setup-cloudflare-tunnel.sh
+
+# 5. (Optional) Setup auto-pull
+./scripts/setup-auto-pull.sh
 ```
 
-#### Auto-Deploy with GitHub Actions
-
-Every push to `main` automatically deploys:
-
-1. Add GitHub secrets:
-   - `LIGHTSAIL_HOST` - Your instance IP
-   - `LIGHTSAIL_USER` - `ubuntu`
-   - `LIGHTSAIL_SSH_KEY` - Your private key content
-
-2. Push to main → Live in 2-3 minutes! ✨
+The Cloudflare Tunnel exposes nginx on port 3000, which routes to both static files and the API. The API container is never directly exposed to the internet.
 
 ---
 
@@ -149,13 +219,30 @@ Every push to `main` automatically deploys:
 
 ### Environment Variables
 
-Create `.env` for local development:
+Create `.env` for both development and production:
 
 ```env
+# GitHub API (for contribution graph)
 VITE_GITHUB_TOKEN=your_github_personal_access_token
+
+# Found Footy - MongoDB credentials (same as found-footy project)
+FOUND_FOOTY_MONGO_USER=ffuser
+FOUND_FOOTY_MONGO_PASS=ffpass
+
+# Found Footy - MinIO/S3 credentials (same as found-footy project)
+FOUND_FOOTY_S3_USER=ffuser
+FOUND_FOOTY_S3_PASS=ffpass
 ```
 
-Variables must be prefixed with `VITE_` to be exposed to the client.
+**Development only** (set in docker-compose.dev.yml):
+```env
+VITE_FOOTY_API_URL=http://localhost:4001/api/found-footy
+```
+
+**Production** (baked into build via docker-compose.yml):
+```env
+VITE_FOOTY_API_URL=https://vedanta.systems/api/found-footy
+```
 
 ### Tailwind Customization
 
@@ -164,19 +251,13 @@ Edit `tailwind.config.js`:
 - Typography (monospace fonts)
 - Responsive breakpoints
 
-### TypeScript
-
-- Full type safety with strict mode
-- Path aliases configured (`@/*` → `src/*`)
-- Type definitions for all dependencies
-
 ---
 
 ## 📜 Scripts
 
 | Command | Purpose |
 |---------|---------|
-| `npm run dev` | Start dev server (port 5173) |
+| `npm run dev` | Start dev server |
 | `npm run build` | Build for production → `dist/` |
 | `npm run preview` | Preview production build |
 | `npm run lint` | Run ESLint |
@@ -186,23 +267,24 @@ Edit `tailwind.config.js`:
 
 ## 🐳 Docker
 
-### Local Development with Docker
+### Development
 
 ```bash
-# Build image
-docker build -t vedanta-systems:latest .
+# Start with hot reload
+docker compose -f docker-compose.dev.yml up -d --build
 
-# Run container
-docker run -p 3000:3000 vedanta-systems:latest
-
-# Or use docker-compose
-docker-compose up
+# View logs
+docker logs -f vedanta-systems-dev
 ```
 
 ### Production
 
 ```bash
-docker-compose -f docker-compose.prod.yml up -d --build
+# Build and start
+docker compose up -d --build
+
+# Check status
+docker ps
 ```
 
 ---
@@ -213,21 +295,57 @@ docker-compose -f docker-compose.prod.yml up -d --build
 vedanta-systems/
 ├── src/
 │   ├── components/
+│   │   ├── found-footy-browser.tsx  # Found Footy UI
 │   │   ├── github-contribution-graph.tsx
+│   │   ├── project-status.tsx       # Reusable project header
 │   │   └── ui/                      # shadcn components
-│   ├── lib/
-│   │   └── utils.ts                 # Utilities
+│   ├── hooks/
+│   │   └── useFootyStream.ts        # SSE hook for Found Footy
+│   ├── types/
+│   │   └── found-footy.ts           # TypeScript types
+│   ├── server/
+│   │   ├── index.ts                 # Express API entry point
+│   │   └── routes/
+│   │       └── found-footy.ts       # /api/found-footy/* routes
 │   ├── App.tsx                      # Main component
 │   ├── main.tsx                     # Entry point
 │   └── index.css                    # Global styles
 ├── public/                          # Static assets
-├── .github/workflows/
-│   └── deploy.yml                   # Auto-deploy
-├── docker-compose.prod.yml          # Production config
-├── Dockerfile                       # Multi-stage build
-├── DEPLOYMENT.md                    # Deployment guide
+├── scripts/
+│   ├── setup-cloudflare-tunnel.sh   # Tunnel setup
+│   └── setup-auto-pull.sh           # Auto-deploy setup
+├── nginx.conf                       # Production reverse proxy
+├── docker-compose.yml               # Production config
+├── docker-compose.dev.yml           # Development config
+├── Dockerfile                       # Production build (nginx)
+├── Dockerfile.api                   # API server build
+├── Dockerfile.dev                   # Development build
+├── CLOUDFLARE-SETUP.md              # Deployment guide
 └── package.json                     # Dependencies
 ```
+
+---
+
+## 🌐 API Endpoints
+
+All API endpoints are mounted under `/api/{project}/`:
+
+### Found Footy (`/api/found-footy/*`)
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/health` | GET | Backend health status (MongoDB, MinIO) |
+| `/fixtures` | GET | All active and completed fixtures |
+| `/stream` | GET | SSE stream for real-time updates |
+| `/video/:bucket/*` | GET | Proxy video from MinIO |
+| `/download/:bucket/*` | GET | Download video (Content-Disposition: attachment) |
+| `/refresh` | POST | Trigger SSE broadcast (called by found-footy backend) |
+
+### Global (`/api/*`)
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/health` | GET | Global API health check |
 
 ---
 
@@ -235,22 +353,22 @@ vedanta-systems/
 
 - ✨ **Animated GitHub Contribution Graph** - Real-time data with wave reveal
 - 🎨 **Cyberpunk Aesthetic** - Dark theme with lavender accents
-- 🔄 **Auto-refresh** - Live connection status monitoring
+- 🔄 **Real-time Updates** - SSE for live data streaming
 - 🌊 **Wave Animation** - Smooth 60fps reveal/erase effects
 - 📱 **Responsive** - Works on all screen sizes
 - ⚡ **Fast** - Vite HMR, optimized builds
 - 🔒 **Type-safe** - Full TypeScript coverage
 - 🐳 **Containerized** - Production-ready Docker setup
+- 🔐 **Secure** - Cloudflare Tunnel (no exposed ports)
 
 ---
 
 ## 💰 Costs
 
 **Local Development:** Free  
-**Production (Lightsail):** ~$10-12/month
-- Lightsail instance (2GB RAM): $10/mo
-- Route 53 hosted zone: $0.50/mo
-- SSL Certificate: Free (Let's Encrypt)
+**Production (Cloudflare Tunnel):** Free
+- Cloudflare Tunnel: Free tier
+- Domain (optional): Varies by registrar
 
 ---
 
@@ -260,14 +378,7 @@ vedanta-systems/
 - [React Documentation](https://react.dev)
 - [Tailwind CSS](https://tailwindcss.com)
 - [shadcn/ui](https://ui.shadcn.com)
-- [TypeScript](https://www.typescriptlang.org)
-- [AWS Lightsail](https://aws.amazon.com/lightsail/)
-
----
-
-## 🤝 Contributing
-
-This is a personal project, but feel free to open issues or submit PRs!
+- [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/)
 
 ---
 

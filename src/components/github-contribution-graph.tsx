@@ -415,18 +415,25 @@ export function GitHubContributionGraph({
   const displayWeeks = weeks.slice(-weeksToShow)
   
   return (
-    <div ref={containerRef} className="w-full" style={{ backgroundColor: 'transparent' }}>
-      <div className="max-w-[1140px] mx-auto px-4 md:px-8 pt-0 pb-0 h-[148px] md:h-[198px]">
-        {/* Graph container - responsive width */}
-        <div 
-          className="flex flex-col gap-3 w-full"
-          style={{
-            opacity: displayWeeks.length > 0 ? 1 : 0,
-            transition: 'opacity 0.3s ease-in'
-          }}
-        >
-          {/* Contribution graph */}
-          <div className="inline-flex gap-1 justify-center w-full">
+    <a 
+      href={`https://github.com/${username}`}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="block w-full cursor-pointer"
+      style={{ backgroundColor: 'transparent' }}
+    >
+      <div ref={containerRef} className="w-full" style={{ backgroundColor: 'transparent' }}>
+        <div className="max-w-[1140px] mx-auto px-4 md:px-8 pt-0 pb-0 h-[148px] md:h-[198px]">
+          {/* Graph container - responsive width */}
+          <div 
+            className="flex flex-col gap-3 w-full"
+            style={{
+              opacity: displayWeeks.length > 0 ? 1 : 0,
+              transition: 'opacity 0.3s ease-in'
+            }}
+          >
+            {/* Contribution graph */}
+            <div className="inline-flex gap-1 justify-center w-full">
           {Array.from({ length: weeksToShow }).map((_, weekIdx) => (
             <div key={weekIdx} className="flex flex-col gap-1">
               {Array.from({ length: 7 }).map((_, dayIdx) => {
@@ -496,9 +503,10 @@ export function GitHubContributionGraph({
               })}
             </div>
           ))}
+          </div>
+        </div>
         </div>
       </div>
-      </div>
-    </div>
+    </a>
   )
 }

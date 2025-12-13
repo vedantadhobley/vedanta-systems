@@ -1,8 +1,10 @@
 FROM node:18-alpine AS builder
 
-# Accept build arg
+# Accept build args
 ARG VITE_GITHUB_TOKEN
+ARG VITE_FOOTY_API_URL
 ENV VITE_GITHUB_TOKEN=${VITE_GITHUB_TOKEN}
+ENV VITE_FOOTY_API_URL=${VITE_FOOTY_API_URL}
 
 WORKDIR /app
 COPY package.json package-lock.json* yarn.lock* pnpm-lock.yaml* ./
@@ -10,7 +12,7 @@ RUN npm ci || npm install
 COPY . .
 RUN npm run build
 
-FROM node:18-alpine
+FROM nginx:alpine
 
 # Install cloudflared
 RUN apk add --no-cache wget && \
@@ -18,11 +20,13 @@ RUN apk add --no-cache wget && \
     chmod +x /usr/local/bin/cloudflared && \
     apk del wget
 
-WORKDIR /app
-RUN npm install -g serve
-COPY --from=builder /app/dist ./dist
+# Copy nginx config
+COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-# Start script that runs both serve and cloudflared
+# Copy built files
+COPY --from=builder /app/dist /app/dist
+
+# Start script that runs both nginx and cloudflared
 COPY start-with-tunnel.sh /start-with-tunnel.sh
 RUN chmod +x /start-with-tunnel.sh
 
