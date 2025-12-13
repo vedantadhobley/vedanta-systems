@@ -148,13 +148,14 @@ export function createFoundFootyRouter(config: FoundFootyConfig): Router {
       const fixtures = await fetchAllFixtures()
       const message = `data: ${JSON.stringify({ 
         type: 'refresh', 
+        stagingFixtures: fixtures.staging,
         fixtures: fixtures.active, 
         completedFixtures: fixtures.completed 
       })}\n\n`
       sseClients.forEach(client => {
         client.write(message)
       })
-      console.log(`📡 [found-footy] Broadcasted refresh with ${fixtures.active.length} active, ${fixtures.completed.length} completed fixtures to ${sseClients.size} clients`)
+      console.log(`📡 [found-footy] Broadcasted refresh with ${fixtures.staging.length} staging, ${fixtures.active.length} active, ${fixtures.completed.length} completed fixtures to ${sseClients.size} clients`)
     } catch (err) {
       console.error('[found-footy] Failed to broadcast refresh:', err)
     }
@@ -163,20 +164,28 @@ export function createFoundFootyRouter(config: FoundFootyConfig): Router {
   // Helper to fetch all fixtures
   async function fetchAllFixtures() {
     const database = await connectMongo()
-    if (!database) return { active: [], completed: [] }
+    if (!database) return { staging: [], active: [], completed: [] }
     
-    const activeFixtures = await database.collection('fixtures_active')
+    // Staging: upcoming fixtures, sorted by kickoff time ascending (earliest first)
+    const stagingFixtures = await database.collection('fixtures_staging')
       .find({})
-      .sort({ 'fixture.date': -1 })
+      .sort({ 'fixture.date': 1 })
       .toArray()
     
+    // Active: live fixtures, sorted by last activity descending (most recent activity first)
+    const activeFixtures = await database.collection('fixtures_active')
+      .find({})
+      .sort({ '_last_activity': -1, 'fixture.date': -1 })
+      .toArray()
+    
+    // Completed: finished fixtures, sorted by match date descending (most recent first)
     const completedFixtures = await database.collection('fixtures_completed')
       .find({})
       .sort({ 'fixture.date': -1 })
       .limit(20)
       .toArray()
     
-    return { active: activeFixtures, completed: completedFixtures }
+    return { staging: stagingFixtures, active: activeFixtures, completed: completedFixtures }
   }
 
   // ============ ROUTES ============
@@ -204,10 +213,17 @@ export function createFoundFootyRouter(config: FoundFootyConfig): Router {
 
   // GET /stream - SSE for real-time updates
   router.get('/stream', async (req: Request, res: Response) => {
+    // Disable socket timeout for SSE
+    req.socket.setTimeout(0)
+    req.socket.setNoDelay(true)
+    req.socket.setKeepAlive(true)
+    
     res.setHeader('Content-Type', 'text/event-stream')
     res.setHeader('Cache-Control', 'no-cache')
     res.setHeader('Connection', 'keep-alive')
     res.setHeader('Access-Control-Allow-Origin', '*')
+    res.setHeader('X-Accel-Buffering', 'no') // Disable nginx buffering
+    res.flushHeaders() // Flush headers immediately
     
     console.log('🔌 [found-footy] Client connected to SSE stream')
     sseClients.add(res)
@@ -217,6 +233,7 @@ export function createFoundFootyRouter(config: FoundFootyConfig): Router {
       const fixtures = await fetchAllFixtures()
       res.write(`data: ${JSON.stringify({ 
         type: 'initial', 
+        stagingFixtures: fixtures.staging,
         fixtures: fixtures.active, 
         completedFixtures: fixtures.completed 
       })}\n\n`)

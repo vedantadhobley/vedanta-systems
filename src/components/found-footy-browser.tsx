@@ -37,6 +37,7 @@ interface InitialVideoParams {
 }
 
 interface FoundFootyBrowserProps {
+  stagingFixtures: Fixture[]
   fixtures: Fixture[]
   completedFixtures: Fixture[]
   isConnected: boolean
@@ -45,6 +46,7 @@ interface FoundFootyBrowserProps {
 }
 
 export function FoundFootyBrowser({ 
+  stagingFixtures,
   fixtures, 
   completedFixtures, 
   isConnected: _isConnected,
@@ -55,16 +57,19 @@ export function FoundFootyBrowser({
   const [videoModal, setVideoModal] = useState<VideoInfo | null>(null)
   const initialVideoProcessed = useRef(false)
 
-  // Sort fixtures by _last_activity descending (most recent first)
+  // Sort active fixtures by _last_activity descending (most recent activity first)
   const sortByActivity = (a: Fixture, b: Fixture) => {
     const aTime = a._last_activity ? new Date(a._last_activity).getTime() : 0
     const bTime = b._last_activity ? new Date(b._last_activity).getTime() : 0
     return bTime - aTime
   }
 
+  // Staging fixtures already sorted by kickoff time ascending from API
   const sortedFixtures = [...fixtures].sort(sortByActivity)
   const sortedCompleted = [...completedFixtures].sort(sortByActivity)
-  const allFixtures = [...sortedFixtures, ...sortedCompleted]
+  
+  // All fixtures for deep linking search (staging + active + completed)
+  const allFixtures = [...stagingFixtures, ...sortedFixtures, ...sortedCompleted]
 
   // Toggle fixture - close others
   const toggleFixture = useCallback((fixtureId: number) => {
@@ -119,43 +124,31 @@ export function FoundFootyBrowser({
     }
   }, [initialVideo, allFixtures])
 
-  // Update URL when video modal changes
+  // Update URL when video modal changes - only after user interaction
+  const hasOpenedVideoRef = useRef(false)
   useEffect(() => {
     if (videoModal) {
+      hasOpenedVideoRef.current = true
       // Use content hash from video URL for sharing
       const hash = getVideoHash(videoModal.url)
       const shareUrl = hash 
         ? `/projects/found-footy?v=${videoModal.eventId}&h=${hash}`
         : `/projects/found-footy?v=${videoModal.eventId}`
       window.history.replaceState(null, '', shareUrl)
-    } else {
-      // Reset to base URL when modal closes
+    } else if (hasOpenedVideoRef.current) {
+      // Only reset URL if user previously opened a video
       window.history.replaceState(null, '', '/projects/found-footy')
     }
   }, [videoModal])
 
-  // Group fixtures by date for date separators
-  const fixturesByDate = allFixtures.reduce((acc, fixture) => {
-    // Get fixture date (from fixture.fixture.date or _last_activity)
-    const dateStr = fixture.fixture?.date || fixture._last_activity
-    if (!dateStr) return acc
-    
+  // Format kickoff time like "19:30"
+  const formatKickoff = (dateStr: string) => {
     const date = new Date(dateStr)
-    // Format as YYYY-MM-DD for grouping
-    const dateKey = date.toISOString().split('T')[0]
-    
-    if (!acc[dateKey]) {
-      acc[dateKey] = {
-        date,
-        fixtures: []
-      }
-    }
-    acc[dateKey].fixtures.push(fixture)
-    return acc
-  }, {} as Record<string, { date: Date; fixtures: Fixture[] }>)
-
-  // Sort dates descending (most recent first)
-  const sortedDates = Object.keys(fixturesByDate).sort((a, b) => b.localeCompare(a))
+    return date.toLocaleTimeString('en-GB', {
+      hour: '2-digit',
+      minute: '2-digit'
+    })
+  }
 
   // Format date like "Thursday 10 October 2025"
   const formatDate = (date: Date) => {
@@ -166,6 +159,28 @@ export function FoundFootyBrowser({
       year: 'numeric'
     })
   }
+
+  // Group all fixtures (active + completed) by date for date separators
+  const activeAndCompleted = [...sortedFixtures, ...sortedCompleted]
+  const fixturesByDate = activeAndCompleted.reduce((acc, fixture) => {
+    const dateStr = fixture.fixture?.date || fixture._last_activity
+    if (!dateStr) return acc
+    
+    const date = new Date(dateStr)
+    const dateKey = date.toISOString().split('T')[0]
+    
+    if (!acc[dateKey]) {
+      acc[dateKey] = { date, fixtures: [] }
+    }
+    acc[dateKey].fixtures.push(fixture)
+    return acc
+  }, {} as Record<string, { date: Date; fixtures: Fixture[] }>)
+
+  // Sort dates descending (most recent first)
+  const sortedDates = Object.keys(fixturesByDate).sort((a, b) => b.localeCompare(a))
+
+  // Check if we have any fixtures at all
+  const hasFixtures = stagingFixtures.length > 0 || sortedFixtures.length > 0 || sortedCompleted.length > 0
 
   return (
     <div className="font-mono" style={{ fontSize: 'var(--text-size-base)' }}>
@@ -187,32 +202,55 @@ export function FoundFootyBrowser({
 
       {/* Fixtures list with date separators */}
       <div className="space-y-1">
-        {allFixtures.length === 0 ? (
+        {!hasFixtures ? (
           <div className="text-corpo-text/50 py-8 text-center">
             No fixtures available
           </div>
         ) : (
-          sortedDates.map(dateKey => (
-            <div key={dateKey}>
-              {/* Date separator */}
-              <div className="text-corpo-text/40 text-sm py-3 mt-4 first:mt-0">
-                {formatDate(fixturesByDate[dateKey].date)}
+          <>
+            {/* Upcoming fixtures (staging) - shown first if any */}
+            {stagingFixtures.length > 0 && (
+              <div>
+                <div className="text-corpo-text/40 text-sm py-3">
+                  Upcoming
+                </div>
+                <div className="space-y-1">
+                  {stagingFixtures.map(fixture => (
+                    <StagingFixtureItem
+                      key={fixture._id}
+                      fixture={fixture}
+                      formatKickoff={formatKickoff}
+                    />
+                  ))}
+                </div>
               </div>
-              
-              {/* Fixtures for this date */}
-              {fixturesByDate[dateKey].fixtures.map(fixture => (
-                <FixtureItem
-                  key={fixture._id}
-                  fixture={fixture}
-                  isExpanded={expandedFixture === fixture._id}
-                  expandedEvent={expandedEvent}
-                  onToggle={() => toggleFixture(fixture._id)}
-                  onToggleEvent={toggleEvent}
-                  onOpenVideo={(info) => setVideoModal(info)}
-                />
-              ))}
-            </div>
-          ))
+            )}
+
+            {/* Active and completed fixtures grouped by date */}
+            {sortedDates.map(dateKey => (
+              <div key={dateKey}>
+                {/* Date separator */}
+                <div className="text-corpo-text/40 text-sm py-3 mt-4 first:mt-0">
+                  {formatDate(fixturesByDate[dateKey].date)}
+                </div>
+                
+                {/* Fixtures for this date */}
+                <div className="space-y-1">
+                  {fixturesByDate[dateKey].fixtures.map(fixture => (
+                    <FixtureItem
+                      key={fixture._id}
+                      fixture={fixture}
+                      isExpanded={expandedFixture === fixture._id}
+                      expandedEvent={expandedEvent}
+                      onToggle={() => toggleFixture(fixture._id)}
+                      onToggleEvent={toggleEvent}
+                      onOpenVideo={(info) => setVideoModal(info)}
+                    />
+                  ))}
+                </div>
+              </div>
+            ))}
+          </>
         )}
       </div>
 
@@ -226,6 +264,83 @@ export function FoundFootyBrowser({
           onClose={() => setVideoModal(null)} 
         />
       )}
+    </div>
+  )
+}
+
+// Staging fixture item - matches FixtureItem style but shows countdown to kickoff
+interface StagingFixtureItemProps {
+  fixture: Fixture
+  formatKickoff: (dateStr: string) => string
+}
+
+function StagingFixtureItem({ fixture, formatKickoff }: StagingFixtureItemProps) {
+  const [isHovered, setIsHovered] = useState(false)
+  const [countdown, setCountdown] = useState<string>('')
+  
+  const { teams, fixture: fixtureInfo } = fixture
+  const kickoffTime = formatKickoff(fixtureInfo.date)
+  
+  // Calculate and update countdown
+  useEffect(() => {
+    const updateCountdown = () => {
+      const now = new Date()
+      const kickoff = new Date(fixtureInfo.date)
+      const diff = kickoff.getTime() - now.getTime()
+      
+      if (diff <= 0) {
+        setCountdown('Starting...')
+        return
+      }
+      
+      const hours = Math.floor(diff / (1000 * 60 * 60))
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
+      
+      if (hours > 0) {
+        setCountdown(`${hours}h ${minutes}m`)
+      } else {
+        setCountdown(`${minutes}m`)
+      }
+    }
+    
+    updateCountdown()
+    const interval = setInterval(updateCountdown, 60000) // Update every minute
+    return () => clearInterval(interval)
+  }, [fixtureInfo.date])
+
+  return (
+    <div className="border border-corpo-border">
+      <div
+        className={cn(
+          "w-full flex items-center gap-2 px-3 py-2 text-left transition-none",
+          isHovered ? "text-corpo-light" : "text-corpo-text"
+        )}
+        style={{ fontSize: 'var(--text-size-base)' }}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+      >
+        {/* Spacer for arrow alignment with FixtureItem */}
+        <div className="w-4 h-4 flex-shrink-0" />
+        
+        {/* Fixture title */}
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          {/* Home team */}
+          <span className="truncate">{teams.home.name}</span>
+          
+          {/* Countdown / Kickoff time - shown where score would be */}
+          <div className="flex items-center gap-1 flex-shrink-0">
+            <span className="text-lavender/70 tabular-nums text-sm">
+              {kickoffTime}
+            </span>
+            <span className="text-corpo-text/40 text-sm">
+              ({countdown})
+            </span>
+          </div>
+          
+          {/* Away team */}
+          <span className="truncate">{teams.away.name}</span>
+        </div>
+      </div>
     </div>
   )
 }

@@ -127,6 +127,7 @@ export interface SSEEvent {
 
 // API response types
 export interface FixturesResponse {
+  staging: Fixture[]
   active: Fixture[]
   completed: Fixture[]
 }

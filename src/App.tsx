@@ -8,7 +8,7 @@ import { PhotoGallery } from '@/components/photo-gallery'
 import { MoonBackground } from '@/components/moon-background'
 import { FoundFootyBrowser } from '@/components/found-footy-browser'
 import { ProjectStatus } from '@/components/project-status'
-import { useFootyStream } from '@/hooks/useFootyStream'
+import { FootyStreamProvider, useFootyStream } from '@/contexts/FootyStreamContext'
 import './App.css'
 
 // Project GitHub links - maps project paths to their repos
@@ -277,7 +277,7 @@ function DirectoryListing() {
 
 // FoundFooty content component - rendered inside DirectoryListing
 function FoundFootyContent() {
-  const { fixtures, completedFixtures, isConnected, lastUpdate } = useFootyStream()
+  const { stagingFixtures, fixtures, completedFixtures, isConnected, lastUpdate } = useFootyStream()
   const location = useLocation()
   
   // Parse URL params for deep linking (e.g., ?v=event_id&h=video_hash)
@@ -294,6 +294,7 @@ function FoundFootyContent() {
         isConnected={isConnected}
       />
       <FoundFootyBrowser 
+        stagingFixtures={stagingFixtures}
         fixtures={fixtures}
         completedFixtures={completedFixtures}
         isConnected={isConnected}
@@ -306,12 +307,12 @@ function FoundFootyContent() {
 
 function App() {
   return (
-    <>
+    <FootyStreamProvider>
       <MoonBackground />
       <Routes>
         <Route path="*" element={<DirectoryListing />} />
       </Routes>
-    </>
+    </FootyStreamProvider>
   )
 }
 

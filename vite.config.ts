@@ -17,6 +17,10 @@ export default defineConfig({
     hmr: {
       clientPort: 3000,  // Hot module reload
     },
+    watch: {
+      // Ignore server files - they're not part of the frontend
+      ignored: ['**/src/server/**'],
+    },
   },
   build: {
     outDir: 'dist',
