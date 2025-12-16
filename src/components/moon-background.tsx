@@ -230,25 +230,48 @@ export function MoonBackground() {
             console.error('Failed to resume playback:', err)
           })
         }
+        // Restart animation loop when becoming visible
+        cancelAnimationFrame(animationId)
+        animationId = requestAnimationFrame(drawFrame)
       } else {
         // Pause when not visible to save battery
         if (!video.paused) {
           video.pause()
         }
+        // Stop animation loop when hidden
+        cancelAnimationFrame(animationId)
       }
     }
 
     const handlePageShow = (event: PageTransitionEvent) => {
       // Handle back/forward cache (bfcache) on mobile
-      if (event.persisted && video.paused) {
+      if (event.persisted) {
+        if (video.paused) {
+          video.play().catch(err => {
+            console.error('Failed to resume from bfcache:', err)
+          })
+        }
+        // Restart animation loop after bfcache restore
+        cancelAnimationFrame(animationId)
+        animationId = requestAnimationFrame(drawFrame)
+      }
+    }
+
+    // Handle focus events (mobile browser tab switches)
+    const handleFocus = () => {
+      if (video.paused) {
         video.play().catch(err => {
-          console.error('Failed to resume from bfcache:', err)
+          console.error('Failed to resume on focus:', err)
         })
       }
+      // Restart animation loop on focus
+      cancelAnimationFrame(animationId)
+      animationId = requestAnimationFrame(drawFrame)
     }
     
     document.addEventListener('visibilitychange', handleVisibilityChange)
     window.addEventListener('pageshow', handlePageShow)
+    window.addEventListener('focus', handleFocus)
     
     return () => {
       cancelAnimationFrame(animationId)
@@ -256,6 +279,7 @@ export function MoonBackground() {
       video.removeEventListener('play', handlePlay)
       document.removeEventListener('visibilitychange', handleVisibilityChange)
       window.removeEventListener('pageshow', handlePageShow)
+      window.removeEventListener('focus', handleFocus)
     }
   }, [])
 
