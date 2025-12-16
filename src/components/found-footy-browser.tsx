@@ -711,6 +711,26 @@ function VideoModal({ url, title, subtitle, eventId, onClose }: VideoModalProps)
   const [downloadActive, setDownloadActive] = useState(false)
   const [closeHovered, setCloseHovered] = useState(false)
   const [closeActive, setCloseActive] = useState(false)
+  const videoRef = useRef<HTMLVideoElement>(null)
+  
+  // Load saved volume preference on mount
+  useEffect(() => {
+    const video = videoRef.current
+    if (!video) return
+    
+    const savedVolume = localStorage.getItem('footy-video-volume')
+    if (savedVolume !== null) {
+      video.volume = parseFloat(savedVolume)
+    }
+    
+    // Save volume when changed
+    const handleVolumeChange = () => {
+      localStorage.setItem('footy-video-volume', video.volume.toString())
+    }
+    
+    video.addEventListener('volumechange', handleVolumeChange)
+    return () => video.removeEventListener('volumechange', handleVolumeChange)
+  }, [])
   
   // Handle ESC key to close modal
   useEffect(() => {
@@ -841,6 +861,7 @@ function VideoModal({ url, title, subtitle, eventId, onClose }: VideoModalProps)
         
         {/* Video player */}
         <video
+          ref={videoRef}
           src={url}
           controls
           autoPlay
