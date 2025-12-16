@@ -267,6 +267,14 @@ export function MoonBackground() {
       }
       startAnimation()
     }
+
+    // Periodic check to ensure video is playing when page is visible
+    // This catches edge cases where visibility/focus events don't fire
+    const videoCheckInterval = setInterval(() => {
+      if (document.visibilityState === 'visible' && video.paused) {
+        video.play().catch(() => {})
+      }
+    }, 1000)
     
     document.addEventListener('visibilitychange', handleVisibilityChange)
     window.addEventListener('pageshow', handlePageShow)
@@ -279,6 +287,7 @@ export function MoonBackground() {
     
     return () => {
       stopAnimation()
+      clearInterval(videoCheckInterval)
       video.removeEventListener('loadedmetadata', handleLoadedMetadata)
       video.removeEventListener('play', handlePlay)
       video.removeEventListener('pause', handlePause)
