@@ -278,7 +278,7 @@ function StagingFixtureItem({ fixture, formatKickoff }: StagingFixtureItemProps)
   const [isHovered, setIsHovered] = useState(false)
   const [countdown, setCountdown] = useState<string>('')
   
-  const { teams, fixture: fixtureInfo } = fixture
+  const { teams, fixture: fixtureInfo, league } = fixture
   const kickoffTime = formatKickoff(fixtureInfo.date)
   
   // Calculate and update countdown
@@ -322,24 +322,25 @@ function StagingFixtureItem({ fixture, formatKickoff }: StagingFixtureItemProps)
         {/* Spacer for arrow alignment with FixtureItem */}
         <div className="w-4 h-4 flex-shrink-0" />
         
-        {/* Fixture title */}
-        <div className="flex items-center gap-2 flex-1 min-w-0">
-          {/* Home team */}
-          <span className="truncate">{teams.home.name}</span>
-          
-          {/* Countdown / Kickoff time - shown where score would be */}
-          <div className="flex items-center gap-1 flex-shrink-0">
-            <span className="text-lavender/70 tabular-nums text-sm">
+        {/* Fixture info - two lines like active fixtures */}
+        <span className="flex-1 flex flex-col min-w-0">
+          {/* Teams and kickoff time */}
+          <span className="truncate flex items-center">
+            <span>{teams.home.name}</span>
+            {/* Countdown / Kickoff time - shown where score would be */}
+            <span className="text-lavender/70 tabular-nums text-sm mx-2">
               {kickoffTime}
             </span>
-            <span className="text-corpo-text/40 text-sm">
+            <span className="text-corpo-text/40 text-sm mr-2">
               ({countdown})
             </span>
-          </div>
-          
-          {/* Away team */}
-          <span className="truncate">{teams.away.name}</span>
-        </div>
+            <span>{teams.away.name}</span>
+          </span>
+          {/* Competition name */}
+          <span className="text-corpo-text/40 text-sm truncate">
+            {league?.name || 'Unknown Competition'}
+          </span>
+        </span>
       </div>
     </div>
   )
