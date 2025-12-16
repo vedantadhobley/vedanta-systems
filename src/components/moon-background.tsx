@@ -15,9 +15,7 @@ export function MoonBackground() {
     const displayCtx = displayCanvas.getContext('2d', { willReadFrequently: true })
     if (!sourceCtx || !displayCtx) return
 
-    let animationId: number
-    let lastFrameTime = 0
-    let lastAnimationCheck = 0  // Track when animation last ran (for watchdog)
+    let animationInterval: number | null = null
     const FPS = 15
     
     // Simple characters that look good as pixels
@@ -34,24 +32,13 @@ export function MoonBackground() {
       
       // Disable image smoothing for crisp pixels
       displayCtx.imageSmoothingEnabled = false
-      console.log('Canvas setup:', displayCanvas.width, 'x', displayCanvas.height)
     }
 
     // Draw ASCII as pixel blocks on canvas
-    const drawFrame = (timestamp: number) => {
-      lastAnimationCheck = performance.now()  // Update watchdog timestamp
-      
+    const drawFrame = () => {
       if (video.paused || video.ended) {
-        animationId = requestAnimationFrame(drawFrame)
         return
       }
-
-      // Throttle to 15 FPS
-      if (timestamp - lastFrameTime < 1000 / FPS) {
-        animationId = requestAnimationFrame(drawFrame)
-        return
-      }
-      lastFrameTime = timestamp
 
       // Draw video to small source canvas
       sourceCtx.drawImage(video, 0, 0, COLS, ROWS)
@@ -201,8 +188,19 @@ export function MoonBackground() {
           )
         }
       }
+    }
 
-      animationId = requestAnimationFrame(drawFrame)
+    // Start animation using setInterval (more reliable on mobile than requestAnimationFrame)
+    const startAnimation = () => {
+      if (animationInterval) return  // Already running
+      animationInterval = setInterval(drawFrame, 1000 / FPS) as unknown as number
+    }
+
+    const stopAnimation = () => {
+      if (animationInterval) {
+        clearInterval(animationInterval)
+        animationInterval = null
+      }
     }
 
     const handleLoadedMetadata = () => {
@@ -214,7 +212,11 @@ export function MoonBackground() {
 
     const handlePlay = () => {
       if (displayCanvas.width === 0) setupCanvases()
-      drawFrame(0)
+      startAnimation()
+    }
+
+    const handlePause = () => {
+      // Don't stop animation - let it keep checking for video resume
     }
 
     // Check if metadata already loaded
@@ -224,6 +226,7 @@ export function MoonBackground() {
 
     video.addEventListener('loadedmetadata', handleLoadedMetadata)
     video.addEventListener('play', handlePlay)
+    video.addEventListener('pause', handlePause)
 
     // Handle page visibility and mobile app switching
     const handleVisibilityChange = () => {
@@ -233,16 +236,13 @@ export function MoonBackground() {
             console.error('Failed to resume playback:', err)
           })
         }
-        // Restart animation loop when becoming visible
-        cancelAnimationFrame(animationId)
-        animationId = requestAnimationFrame(drawFrame)
+        startAnimation()
       } else {
-        // Pause when not visible to save battery
+        // Pause video when not visible to save battery
         if (!video.paused) {
           video.pause()
         }
-        // Stop animation loop when hidden
-        cancelAnimationFrame(animationId)
+        stopAnimation()
       }
     }
 
@@ -254,9 +254,7 @@ export function MoonBackground() {
             console.error('Failed to resume from bfcache:', err)
           })
         }
-        // Restart animation loop after bfcache restore
-        cancelAnimationFrame(animationId)
-        animationId = requestAnimationFrame(drawFrame)
+        startAnimation()
       }
     }
 
@@ -267,34 +265,23 @@ export function MoonBackground() {
           console.error('Failed to resume on focus:', err)
         })
       }
-      // Restart animation loop on focus
-      cancelAnimationFrame(animationId)
-      animationId = requestAnimationFrame(drawFrame)
+      startAnimation()
     }
-
-    // Watchdog timer - periodically check if animation needs restart
-    // This catches cases where visibility/focus events don't fire (mobile screen off/on)
-    const watchdogInterval = setInterval(() => {
-      const now = performance.now()
-      // If more than 2 seconds since last animation frame and page is visible, restart
-      if (document.visibilityState === 'visible' && now - lastAnimationCheck > 2000) {
-        if (video.paused) {
-          video.play().catch(() => {})
-        }
-        cancelAnimationFrame(animationId)
-        animationId = requestAnimationFrame(drawFrame)
-      }
-    }, 1000)
     
     document.addEventListener('visibilitychange', handleVisibilityChange)
     window.addEventListener('pageshow', handlePageShow)
     window.addEventListener('focus', handleFocus)
     
+    // Start animation immediately if video is ready
+    if (video.readyState >= 1 && !video.paused) {
+      startAnimation()
+    }
+    
     return () => {
-      cancelAnimationFrame(animationId)
-      clearInterval(watchdogInterval)
+      stopAnimation()
       video.removeEventListener('loadedmetadata', handleLoadedMetadata)
       video.removeEventListener('play', handlePlay)
+      video.removeEventListener('pause', handlePause)
       document.removeEventListener('visibilitychange', handleVisibilityChange)
       window.removeEventListener('pageshow', handlePageShow)
       window.removeEventListener('focus', handleFocus)
