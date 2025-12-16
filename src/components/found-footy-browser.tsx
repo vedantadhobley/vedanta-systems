@@ -365,8 +365,15 @@ function FixtureItem({
   const [isHovered, setIsHovered] = useState(false)
   const [isActive, setIsActive] = useState(false)
   
-  const { teams, goals, fixture: fixtureInfo, events } = fixture
-  const isLive = ['1H', '2H', 'HT', 'ET', 'P'].includes(fixtureInfo.status.short)
+  const { teams, goals, fixture: fixtureInfo, events, league } = fixture
+  const isLive = ['1H', '2H', 'HT', 'ET', 'BT', 'P', 'SUSP', 'INT', 'LIVE'].includes(fixtureInfo.status.short)
+  // Only show elapsed time for statuses where game is actively playing
+  const showElapsedTime = ['1H', '2H', 'ET', 'LIVE'].includes(fixtureInfo.status.short)
+  
+  // Determine winner for highlighting (only for completed matches)
+  const isCompleted = ['FT', 'AET', 'PEN', 'AWD', 'WO'].includes(fixtureInfo.status.short)
+  const homeWins = isCompleted && goals && goals.home !== null && goals.away !== null && goals.home > goals.away
+  const awayWins = isCompleted && goals && goals.home !== null && goals.away !== null && goals.away > goals.home
   
   // Sort events by _first_seen descending (most recent first)
   const sortedEvents = [...(events || [])].sort((a, b) => {
@@ -407,33 +414,38 @@ function FixtureItem({
         />
         
         {/* Fixture title with scanning indicator on right */}
-        <span className="flex-1 flex items-center gap-2 min-w-0">
-          <span className="truncate">
-            {teams.home.name}
+        <span className="flex-1 flex flex-col min-w-0">
+          <span className="truncate flex items-center">
+            <span className={cn(homeWins && "text-lavender")}>{teams.home.name}</span>
             <span className="text-corpo-text/50 mx-2">
               {goals?.home ?? 0} - {goals?.away ?? 0}
             </span>
-            {teams.away.name}
+            <span className={cn(awayWins && "text-lavender")}>{teams.away.name}</span>
+          </span>
+          {/* Competition name */}
+          <span className="text-corpo-text/40 text-sm truncate">
+            {league?.name || 'Unknown Competition'}
           </span>
           
-          {/* Scanning indicator - right of fixture title */}
-          {hasActiveScanning && (
-            <span className="text-lavender/70 flex-shrink-0">
-              {hasValidating ? (
-                <ValidatingIcon className="w-4 h-4" />
-              ) : hasExtracting ? (
-                <ExtractingIcon className="w-4 h-4" />
-              ) : null}
-            </span>
-          )}
         </span>
+        
+        {/* Scanning indicator */}
+        {hasActiveScanning && (
+          <span className="text-lavender/70 flex-shrink-0">
+            {hasValidating ? (
+              <ValidatingIcon className="w-4 h-4" />
+            ) : hasExtracting ? (
+              <ExtractingIcon className="w-4 h-4" />
+            ) : null}
+          </span>
+        )}
         
         {/* Status on far right */}
         <span className={cn(
           "text-corpo-text/60 flex-shrink-0",
           isLive && "text-lavender"
         )}>
-          {isLive 
+          {showElapsedTime
             ? (fixtureInfo.status.extra 
                 ? `${fixtureInfo.status.elapsed}+${fixtureInfo.status.extra}'`
                 : `${fixtureInfo.status.elapsed}'`)
@@ -586,9 +598,9 @@ function EventItem({ event, fixture, isExpanded, onToggle, onOpenVideo }: EventI
         </span>
       </button>
 
-      {/* Videos - collapsed content with horizontal clip buttons */}
+      {/* Videos - collapsed content */}
       {isExpanded && (
-        <div className="ml-4 border-l border-corpo-border">
+        <div className="ml-4">
           <div className="pl-4 pr-3 py-2" style={{ fontSize: 'var(--text-size-base)' }}>
             {/* 
               Three states:
