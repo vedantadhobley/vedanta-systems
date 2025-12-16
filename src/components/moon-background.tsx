@@ -269,11 +269,39 @@ export function MoonBackground() {
     }
 
     // Periodic check to ensure video is playing when page is visible
-    // This catches edge cases where visibility/focus events don't fire
+    // Track currentTime to detect frozen videos (paused state can lie on mobile)
+    let lastVideoTime = 0
+    let stuckCount = 0
+    
     const videoCheckInterval = setInterval(() => {
-      if (document.visibilityState === 'visible' && video.paused) {
+      if (document.visibilityState !== 'visible') return
+      
+      const currentTime = video.currentTime
+      
+      // If video time hasn't changed and video should be playing
+      if (currentTime === lastVideoTime && !video.paused) {
+        stuckCount++
+        // If stuck for 3+ checks (3 seconds), force reload the video
+        if (stuckCount >= 3) {
+          console.log('[moon] Video stuck, forcing reload')
+          const src = video.currentSrc
+          video.src = ''
+          video.load()
+          video.src = src
+          video.load()
+          video.play().catch(() => {})
+          stuckCount = 0
+        }
+      } else {
+        stuckCount = 0
+      }
+      
+      // Always try to play if paused
+      if (video.paused) {
         video.play().catch(() => {})
       }
+      
+      lastVideoTime = currentTime
     }, 1000)
     
     document.addEventListener('visibilitychange', handleVisibilityChange)
