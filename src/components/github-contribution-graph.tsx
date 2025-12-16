@@ -429,12 +429,13 @@ export function GitHubContributionGraph({
               transition: 'opacity 0.3s ease-in'
             }}
           >
-            {/* Contribution graph - clickable */}
+          {/* Contribution graph - clickable */}
+          <div className="flex justify-center w-full">
             <a 
               href={`https://github.com/${username}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex gap-1 justify-center w-fit mx-auto cursor-pointer"
+              className="inline-flex gap-1 cursor-pointer"
             >
           {Array.from({ length: weeksToShow }).map((_, weekIdx) => (
             <div key={weekIdx} className="flex flex-col gap-1">
@@ -505,7 +506,8 @@ export function GitHubContributionGraph({
               })}
             </div>
           ))}
-          </a>
+            </a>
+          </div>
         </div>
         </div>
       </div>
