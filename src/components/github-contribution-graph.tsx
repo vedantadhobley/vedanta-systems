@@ -415,11 +415,8 @@ export function GitHubContributionGraph({
   const displayWeeks = weeks.slice(-weeksToShow)
   
   return (
-    <a 
-      href={`https://github.com/${username}`}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="block w-full cursor-pointer"
+    <div 
+      className="block w-full"
       style={{ backgroundColor: 'transparent' }}
     >
       <div ref={containerRef} className="w-full" style={{ backgroundColor: 'transparent' }}>
@@ -432,8 +429,13 @@ export function GitHubContributionGraph({
               transition: 'opacity 0.3s ease-in'
             }}
           >
-            {/* Contribution graph */}
-            <div className="inline-flex gap-1 justify-center w-full">
+            {/* Contribution graph - clickable */}
+            <a 
+              href={`https://github.com/${username}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex gap-1 justify-center w-fit mx-auto cursor-pointer"
+            >
           {Array.from({ length: weeksToShow }).map((_, weekIdx) => (
             <div key={weekIdx} className="flex flex-col gap-1">
               {Array.from({ length: 7 }).map((_, dayIdx) => {
@@ -503,10 +505,10 @@ export function GitHubContributionGraph({
               })}
             </div>
           ))}
-          </div>
+          </a>
         </div>
         </div>
       </div>
-    </a>
+    </div>
   )
 }

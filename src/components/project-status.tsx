@@ -18,60 +18,10 @@ export function ProjectStatus({ githubUrl, isConnected }: ProjectStatusProps) {
 
   return (
     <>
-      <div className="flex items-center gap-6 mb-6 font-mono">
-        {/* Repository link */}
-        <a
-          href={githubUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          onMouseEnter={() => setRepoHovered(true)}
-          onMouseLeave={() => { setRepoHovered(false); setRepoActive(false) }}
-          onMouseDown={() => setRepoActive(true)}
-          onMouseUp={() => setRepoActive(false)}
-          className={cn(
-            "flex items-center gap-2 transition-none",
-            repoActive ? "text-lavender" : repoHovered ? "text-corpo-light" : "text-corpo-text"
-          )}
-        >
-          {repoActive || repoHovered ? (
-            <RiTerminalBoxFill className="w-5 h-5" />
-          ) : (
-            <RiTerminalBoxLine className="w-5 h-5" />
-          )}
-          <span className="uppercase tracking-wider text-sm">repository</span>
-        </a>
-
-        {/* Divider */}
-        <span className="text-corpo-border/50">/</span>
-
-        {/* README button */}
-        <button
-          onClick={fetchReadme}
-          onMouseEnter={() => setReadmeHovered(true)}
-          onMouseLeave={() => { setReadmeHovered(false); setReadmeActive(false) }}
-          onMouseDown={() => setReadmeActive(true)}
-          onMouseUp={() => setReadmeActive(false)}
-          className={cn(
-            "flex items-center gap-2 transition-none",
-            readmeActive ? "text-lavender" : readmeHovered ? "text-corpo-light" : "text-corpo-text"
-          )}
-        >
-          {readmeActive || readmeHovered ? (
-            <RiFileTextFill className="w-5 h-5" />
-          ) : (
-            <RiFileTextLine className="w-5 h-5" />
-          )}
-          <span className="uppercase tracking-wider text-sm">readme</span>
-        </button>
-
-        {/* Divider */}
+      <div className="flex items-center gap-3 md:gap-6 mb-6 font-mono">
+        {/* Connection status with ping animation - first on mobile */}
         {showConnection && (
-          <span className="text-corpo-border/50">/</span>
-        )}
-
-        {/* Connection status with ping animation */}
-        {showConnection && (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 md:gap-2">
             <span className="relative flex h-2 w-2">
               <span className={cn(
                 "absolute inline-flex h-full w-full rounded-full opacity-75",
@@ -84,13 +34,63 @@ export function ProjectStatus({ githubUrl, isConnected }: ProjectStatusProps) {
               )} />
             </span>
             <span className={cn(
-              "uppercase tracking-wider text-sm",
+              "uppercase tracking-wider text-xs md:text-sm",
               isConnected ? "text-lavender" : "text-corpo-text/50"
             )}>
               {isConnected ? 'online' : 'offline'}
             </span>
           </div>
         )}
+
+        {/* Divider */}
+        {showConnection && (
+          <span className="text-corpo-border/50">/</span>
+        )}
+
+        {/* README button */}
+        <button
+          onClick={fetchReadme}
+          onMouseEnter={() => setReadmeHovered(true)}
+          onMouseLeave={() => { setReadmeHovered(false); setReadmeActive(false) }}
+          onMouseDown={() => setReadmeActive(true)}
+          onMouseUp={() => setReadmeActive(false)}
+          className={cn(
+            "flex items-center gap-1.5 md:gap-2 transition-none",
+            readmeActive ? "text-lavender" : readmeHovered ? "text-corpo-light" : "text-corpo-text"
+          )}
+        >
+          {readmeActive || readmeHovered ? (
+            <RiFileTextFill className="w-4 h-4 md:w-5 md:h-5" />
+          ) : (
+            <RiFileTextLine className="w-4 h-4 md:w-5 md:h-5" />
+          )}
+          <span className="uppercase tracking-wider text-xs md:text-sm">readme</span>
+        </button>
+
+        {/* Divider */}
+        <span className="text-corpo-border/50">/</span>
+
+        {/* Repository link */}
+        <a
+          href={githubUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          onMouseEnter={() => setRepoHovered(true)}
+          onMouseLeave={() => { setRepoHovered(false); setRepoActive(false) }}
+          onMouseDown={() => setRepoActive(true)}
+          onMouseUp={() => setRepoActive(false)}
+          className={cn(
+            "flex items-center gap-1.5 md:gap-2 transition-none",
+            repoActive ? "text-lavender" : repoHovered ? "text-corpo-light" : "text-corpo-text"
+          )}
+        >
+          {repoActive || repoHovered ? (
+            <RiTerminalBoxFill className="w-4 h-4 md:w-5 md:h-5" />
+          ) : (
+            <RiTerminalBoxLine className="w-4 h-4 md:w-5 md:h-5" />
+          )}
+          <span className="uppercase tracking-wider text-xs md:text-sm">repository</span>
+        </a>
       </div>
 
       {/* README Modal */}

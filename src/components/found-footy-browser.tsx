@@ -552,14 +552,14 @@ function EventItem({ event, fixture, isExpanded, onToggle, onOpenVideo }: EventI
         onTouchEnd={() => setIsActive(false)}
         onTouchCancel={() => setIsActive(false)}
         className={cn(
-          "w-full flex items-start gap-2 px-3 py-2 text-left transition-none",
+          "w-full flex items-center gap-2 px-3 py-2 text-left transition-none",
           isActive ? "text-lavender" : isHovered ? "text-corpo-light" : "text-corpo-text"
         )}
         style={{ fontSize: 'var(--text-size-base)' }}
       >
         <RiArrowRightSLine 
           className={cn(
-            "w-4 h-4 transition-none flex-shrink-0 mt-0.5",
+            "w-4 h-4 transition-none flex-shrink-0",
             isExpanded && "rotate-90",
             isActive ? "text-lavender" : isHovered ? "text-corpo-light" : "text-corpo-text/50"
           )} 
