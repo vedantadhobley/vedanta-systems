@@ -17,6 +17,7 @@ export function MoonBackground() {
 
     let animationId: number
     let lastFrameTime = 0
+    let lastAnimationCheck = 0  // Track when animation last ran (for watchdog)
     const FPS = 15
     
     // Simple characters that look good as pixels
@@ -38,12 +39,14 @@ export function MoonBackground() {
 
     // Draw ASCII as pixel blocks on canvas
     const drawFrame = (timestamp: number) => {
+      lastAnimationCheck = performance.now()  // Update watchdog timestamp
+      
       if (video.paused || video.ended) {
         animationId = requestAnimationFrame(drawFrame)
         return
       }
 
-      // Throttle to 30 FPS
+      // Throttle to 15 FPS
       if (timestamp - lastFrameTime < 1000 / FPS) {
         animationId = requestAnimationFrame(drawFrame)
         return
@@ -268,6 +271,20 @@ export function MoonBackground() {
       cancelAnimationFrame(animationId)
       animationId = requestAnimationFrame(drawFrame)
     }
+
+    // Watchdog timer - periodically check if animation needs restart
+    // This catches cases where visibility/focus events don't fire (mobile screen off/on)
+    const watchdogInterval = setInterval(() => {
+      const now = performance.now()
+      // If more than 2 seconds since last animation frame and page is visible, restart
+      if (document.visibilityState === 'visible' && now - lastAnimationCheck > 2000) {
+        if (video.paused) {
+          video.play().catch(() => {})
+        }
+        cancelAnimationFrame(animationId)
+        animationId = requestAnimationFrame(drawFrame)
+      }
+    }, 1000)
     
     document.addEventListener('visibilitychange', handleVisibilityChange)
     window.addEventListener('pageshow', handlePageShow)
@@ -275,6 +292,7 @@ export function MoonBackground() {
     
     return () => {
       cancelAnimationFrame(animationId)
+      clearInterval(watchdogInterval)
       video.removeEventListener('loadedmetadata', handleLoadedMetadata)
       video.removeEventListener('play', handlePlay)
       document.removeEventListener('visibilitychange', handleVisibilityChange)
