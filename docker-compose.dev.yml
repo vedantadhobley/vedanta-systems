@@ -32,7 +32,7 @@ services:
     depends_on:
       - api
 
-  # API serverndles all project APIs (/api/found-footy/*, /api/legal-tender/*, etc.)
+  # API server handles all project APIs (/api/found-footy/*, /api/legal-tender/*, etc.)
   api:
     container_name: vedanta-systems-dev-api
     image: node:18-alpine
