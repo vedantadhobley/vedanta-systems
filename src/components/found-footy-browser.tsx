@@ -414,9 +414,10 @@ function DateSection({ date, fixtureCount, isExpanded, onToggle, formatDate, chi
         onTouchEnd={() => setIsActive(false)}
         onTouchCancel={() => setIsActive(false)}
         className={cn(
-          "w-full flex items-center gap-2 py-3 text-left text-sm transition-none",
-          isActive ? "text-lavender" : isHovered ? "text-corpo-light" : "text-corpo-text/40"
+          "w-full flex items-center gap-2 py-3 text-left transition-none",
+          isActive ? "text-lavender" : isHovered ? "text-corpo-light" : "text-corpo-text/50"
         )}
+        style={{ fontSize: 'var(--text-size-base)' }}
       >
         <RiArrowRightSLine 
           className={cn(
