@@ -98,23 +98,23 @@ export function FoundFootyBrowser({
     setExpandedEvent(prev => prev === eventId ? null : eventId)
   }, [])
 
-  // Toggle date section
-  const toggleDate = useCallback((dateKey: string, fixtureIds: number[]) => {
+  // Toggle date section - only one open at a time
+  const toggleDate = useCallback((dateKey: string) => {
     setExpandedDates(prev => {
-      const newSet = new Set(prev)
-      if (newSet.has(dateKey)) {
-        newSet.delete(dateKey)
-        // Collapse any expanded fixture in this date section
-        if (expandedFixture !== null && fixtureIds.includes(expandedFixture)) {
-          setExpandedFixture(null)
-          setExpandedEvent(null)
-        }
+      const isCurrentlyExpanded = prev?.has(dateKey)
+      if (isCurrentlyExpanded) {
+        // Closing this section - collapse any expanded fixture
+        setExpandedFixture(null)
+        setExpandedEvent(null)
+        return new Set<string>()
       } else {
-        newSet.add(dateKey)
+        // Opening this section - close all others, collapse any expanded fixture
+        setExpandedFixture(null)
+        setExpandedEvent(null)
+        return new Set([dateKey])
       }
-      return newSet
     })
-  }, [expandedFixture])
+  }, [])
 
   // Handle opening video from URL params (shared link) - only run once
   useEffect(() => {
@@ -252,7 +252,6 @@ export function FoundFootyBrowser({
             {/* All fixtures grouped by date */}
             {sortedDates.map(dateKey => {
               const dateFixtures = fixturesByDate[dateKey].fixtures
-              const fixtureIds = dateFixtures.map(f => f._id)
               const isExpanded = expandedDates?.has(dateKey) ?? false
               const fixtureCount = dateFixtures.length
               
@@ -263,7 +262,7 @@ export function FoundFootyBrowser({
                   date={fixturesByDate[dateKey].date}
                   fixtureCount={fixtureCount}
                   isExpanded={isExpanded}
-                  onToggle={() => toggleDate(dateKey, fixtureIds)}
+                  onToggle={() => toggleDate(dateKey)}
                   formatDate={formatDate}
                 >
                   {dateFixtures.map(fixture => {
