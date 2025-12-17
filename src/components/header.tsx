@@ -74,8 +74,8 @@ export function Header({ onNavigate }: HeaderProps) {
         <img 
           src="/og-image.svg" 
           alt="Vedanta Systems Logo"
-          className="h-6 md:h-8 w-auto absolute left-1/2 -translate-x-1/2"
-          style={{ opacity: 0.7 }}
+          className="absolute left-1/2 -translate-x-1/2"
+          style={{ height: '24px', width: 'auto' }}
         />
         
         <time 
