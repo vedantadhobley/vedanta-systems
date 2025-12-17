@@ -14,8 +14,8 @@ RUN npm run build
 
 FROM nginx:alpine
 
-# Install cloudflared
-RUN apk add --no-cache wget && \
+# Install cloudflared and Node.js for OG server
+RUN apk add --no-cache wget nodejs && \
     wget -q https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -O /usr/local/bin/cloudflared && \
     chmod +x /usr/local/bin/cloudflared && \
     apk del wget
@@ -26,7 +26,10 @@ COPY nginx.conf /etc/nginx/conf.d/default.conf
 # Copy built files
 COPY --from=builder /app/dist /app/dist
 
-# Start script that runs both nginx and cloudflared
+# Copy OG server
+COPY og-server.js /app/og-server.js
+
+# Start script that runs nginx, cloudflared, and OG server
 COPY start-with-tunnel.sh /start-with-tunnel.sh
 RUN chmod +x /start-with-tunnel.sh
 

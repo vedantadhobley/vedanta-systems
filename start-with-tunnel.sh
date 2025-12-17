@@ -1,6 +1,9 @@
 #!/bin/sh
 set -e
 
+echo "Starting OG meta server on port 3002..."
+node /app/og-server.js &
+
 echo "Starting nginx on port 3000..."
 nginx -g 'daemon off;' &
 

@@ -9,6 +9,7 @@ import { MoonBackground } from '@/components/moon-background'
 import { FoundFootyBrowser } from '@/components/found-footy-browser'
 import { ProjectStatus } from '@/components/project-status'
 import { FootyStreamProvider, useFootyStream } from '@/contexts/FootyStreamContext'
+import { TimezoneProvider } from '@/contexts/timezone-context'
 import './App.css'
 
 // Project GitHub links - maps project paths to their repos
@@ -307,12 +308,14 @@ function FoundFootyContent() {
 
 function App() {
   return (
-    <FootyStreamProvider>
-      <MoonBackground />
-      <Routes>
-        <Route path="*" element={<DirectoryListing />} />
-      </Routes>
-    </FootyStreamProvider>
+    <TimezoneProvider>
+      <FootyStreamProvider>
+        <MoonBackground />
+        <Routes>
+          <Route path="*" element={<DirectoryListing />} />
+        </Routes>
+      </FootyStreamProvider>
+    </TimezoneProvider>
   )
 }
 

@@ -2,6 +2,50 @@ import { useState, useCallback, useEffect, useRef } from 'react'
 import { RiArrowRightSLine, RiCloseLine, RiCloseFill, RiShareBoxLine, RiShareBoxFill, RiDownload2Line, RiDownload2Fill, RiCheckLine, RiVidiconFill, RiScan2Line } from '@remixicon/react'
 import type { Fixture, GoalEvent, RankedVideo } from '@/types/found-footy'
 import { cn } from '@/lib/utils'
+import { useTimezone } from '@/contexts/timezone-context'
+
+/**
+ * Generate event display title with <<highlighted>> markers around scoring team's score
+ * Format: "Home X-(Y) Away" where scoring team's score is in parentheses and highlighted
+ * Uses _score_after (score at moment of goal) and _scoring_team from the event
+ */
+function generateEventTitle(fixture: Fixture, event: GoalEvent): string {
+  const { teams } = fixture
+  
+  // Use _score_after for the score at this moment, fallback to fixture goals
+  const homeScore = event._score_after?.home ?? fixture.goals?.home ?? 0
+  const awayScore = event._score_after?.away ?? fixture.goals?.away ?? 0
+  
+  // Use _scoring_team to determine which team scored
+  const scoringTeamIsHome = event._scoring_team === 'home'
+  
+  if (scoringTeamIsHome) {
+    // Home team scored - highlight home score with parentheses
+    return `<<${teams.home.name} (${homeScore})>> - ${awayScore} ${teams.away.name}`
+  } else {
+    // Away team scored - highlight away score with parentheses
+    return `${teams.home.name} ${homeScore} - <<(${awayScore}) ${teams.away.name}>>`
+  }
+}
+
+/**
+ * Generate event display subtitle with <<highlighted>> markers around scorer name
+ * Format: "45' Goal - <<Scorer Name>> (Assister Name)" or "45+2' Goal - <<Scorer Name>>"
+ */
+function generateEventSubtitle(event: GoalEvent): string {
+  const timeStr = event.time.extra 
+    ? `${event.time.elapsed}+${event.time.extra}'` 
+    : `${event.time.elapsed}'`
+  
+  const eventType = event.detail || event.type || 'Goal'
+  const scorerName = event.player?.name || 'Unknown'
+  const assistName = event.assist?.name
+  
+  if (assistName) {
+    return `${timeStr} ${eventType} - <<${scorerName}>> (${assistName})`
+  }
+  return `${timeStr} ${eventType} - <<${scorerName}>>`
+}
 
 // Animated icons for scanning states
 function ValidatingIcon({ className }: { className?: string }) {
@@ -55,8 +99,8 @@ export function FoundFootyBrowser({
   const [expandedFixture, setExpandedFixture] = useState<number | null>(null)
   const [expandedEvent, setExpandedEvent] = useState<string | null>(null)
   const [videoModal, setVideoModal] = useState<VideoInfo | null>(null)
-  const [expandedDates, setExpandedDates] = useState<Set<string> | null>(null)
   const initialVideoProcessed = useRef(false)
+  const { mode, formatTime, getTimezoneAbbr } = useTimezone()
 
   // Custom sort: fixtures with _last_activity first (by activity DESC), then fixtures without (by kickoff ASC)
   const sortFixturesCustom = (fixtureList: Fixture[]) => {
@@ -98,24 +142,6 @@ export function FoundFootyBrowser({
     setExpandedEvent(prev => prev === eventId ? null : eventId)
   }, [])
 
-  // Toggle date section - only one open at a time
-  const toggleDate = useCallback((dateKey: string) => {
-    setExpandedDates(prev => {
-      const isCurrentlyExpanded = prev?.has(dateKey)
-      if (isCurrentlyExpanded) {
-        // Closing this section - collapse any expanded fixture
-        setExpandedFixture(null)
-        setExpandedEvent(null)
-        return new Set<string>()
-      } else {
-        // Opening this section - close all others, collapse any expanded fixture
-        setExpandedFixture(null)
-        setExpandedEvent(null)
-        return new Set([dateKey])
-      }
-    })
-  }, [])
-
   // Handle opening video from URL params (shared link) - only run once
   useEffect(() => {
     if (!initialVideo || allFixtures.length === 0 || initialVideoProcessed.current) return
@@ -138,16 +164,10 @@ export function FoundFootyBrowser({
           const video = videos.find(v => getVideoHash(v.url) === initialVideo.hash)
           
           if (video) {
-            const title = event._display_title || `${fixture.teams.home.name} vs ${fixture.teams.away.name}`
-            const timeStr = event.time.extra 
-              ? `${event.time.elapsed}+${event.time.extra}'` 
-              : `${event.time.elapsed}'`
-            const subtitle = event._display_subtitle || `${timeStr} - ${event.player.name || 'Goal'}`
-            
             setVideoModal({
               url: video.url,
-              title,
-              subtitle,
+              title: generateEventTitle(fixture, event),
+              subtitle: generateEventSubtitle(event),
               eventId: event._event_id
             })
           }
@@ -175,14 +195,11 @@ export function FoundFootyBrowser({
     }
   }, [videoModal])
 
-  // Format kickoff time like "19:30"
-  const formatKickoff = (dateStr: string) => {
+  // Format kickoff time like "19:30 EST" - respects timezone toggle
+  const formatKickoff = useCallback((dateStr: string) => {
     const date = new Date(dateStr)
-    return date.toLocaleTimeString('en-GB', {
-      hour: '2-digit',
-      minute: '2-digit'
-    })
-  }
+    return `${formatTime(date)} ${getTimezoneAbbr()}`
+  }, [mode, formatTime, getTimezoneAbbr])
 
   // Format date like "Tuesday 17 December"
   const formatDate = (date: Date) => {
@@ -213,13 +230,6 @@ export function FoundFootyBrowser({
   // Sort dates descending (most recent first)
   const sortedDates = Object.keys(fixturesByDate).sort((a, b) => b.localeCompare(a))
 
-  // Set initial expanded date to most recent date with fixtures (first in sorted list)
-  useEffect(() => {
-    if (expandedDates === null && sortedDates.length > 0) {
-      setExpandedDates(new Set([sortedDates[0]]))
-    }
-  }, [sortedDates, expandedDates])
-
   // Check if we have any fixtures at all
   const hasFixtures = sortedDates.length > 0
 
@@ -227,7 +237,7 @@ export function FoundFootyBrowser({
     <div className="font-mono" style={{ fontSize: 'var(--text-size-base)' }}>
       {/* System advisory */}
       <div className="mb-6 border border-corpo-border/50 bg-corpo-bg/50 p-4">
-        <div className="space-y-2 text-corpo-text/60 text-sm">
+        <div className="space-y-2 text-corpo-text/60 text-sm font-fine">
           <div className="text-corpo-text/40 uppercase tracking-wider text-xs">
             // SYSTEM ADVISORY
           </div>
@@ -252,7 +262,6 @@ export function FoundFootyBrowser({
             {/* All fixtures grouped by date */}
             {sortedDates.map(dateKey => {
               const dateFixtures = fixturesByDate[dateKey].fixtures
-              const isExpanded = expandedDates?.has(dateKey) ?? false
               const fixtureCount = dateFixtures.length
               
               return (
@@ -261,8 +270,6 @@ export function FoundFootyBrowser({
                   dateKey={dateKey}
                   date={fixturesByDate[dateKey].date}
                   fixtureCount={fixtureCount}
-                  isExpanded={isExpanded}
-                  onToggle={() => toggleDate(dateKey)}
                   formatDate={formatDate}
                 >
                   {dateFixtures.map(fixture => {
@@ -371,13 +378,13 @@ function StagingFixtureItem({ fixture, formatKickoff }: StagingFixtureItemProps)
             <span>{teams.away.name}</span>
           </span>
           {/* Competition name */}
-          <span className="text-corpo-text/40 text-sm truncate">
+          <span className="text-corpo-text/40 text-sm truncate font-fine">
             {league?.name || 'Unknown Competition'}
           </span>
         </span>
         
         {/* Kickoff time on far right (where status would be) */}
-        <span className="text-corpo-text/60 flex-shrink-0 text-right">
+        <span className="text-corpo-text/60 flex-shrink-0 text-right font-fine">
           <span className="tabular-nums">{kickoffTime}</span>
           <span className="text-corpo-text/40 text-sm ml-1">({countdown})</span>
         </span>
@@ -386,55 +393,31 @@ function StagingFixtureItem({ fixture, formatKickoff }: StagingFixtureItemProps)
   )
 }
 
-// Collapsible date section
+// Date section header (non-collapsible)
 interface DateSectionProps {
   dateKey: string
   date: Date
   fixtureCount: number
-  isExpanded: boolean
-  onToggle: () => void
   formatDate: (date: Date) => string
   children: React.ReactNode
 }
 
-function DateSection({ date, fixtureCount, isExpanded, onToggle, formatDate, children }: DateSectionProps) {
-  const [isHovered, setIsHovered] = useState(false)
-  const [isActive, setIsActive] = useState(false)
-
+function DateSection({ date, fixtureCount, formatDate, children }: DateSectionProps) {
   return (
-    <div className="mt-4 first:mt-0">
-      {/* Date header - clickable */}
-      <button
-        onClick={onToggle}
-        onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => { setIsHovered(false); setIsActive(false) }}
-        onMouseDown={() => setIsActive(true)}
-        onMouseUp={() => setIsActive(false)}
-        onTouchStart={() => setIsActive(true)}
-        onTouchEnd={() => setIsActive(false)}
-        onTouchCancel={() => setIsActive(false)}
-        className={cn(
-          "w-full flex items-center gap-2 py-3 text-left transition-none",
-          isActive ? "text-lavender" : isHovered ? "text-corpo-light" : "text-corpo-text/50"
-        )}
+    <div className="mt-12 first:mt-0">
+      {/* Date header */}
+      <div
+        className="flex items-center gap-2 pt-4 pb-1 text-corpo-text/50 font-fine"
         style={{ fontSize: 'var(--text-size-base)' }}
       >
-        <RiArrowRightSLine 
-          className={cn(
-            "w-4 h-4 transition-none flex-shrink-0",
-            isExpanded && "rotate-90"
-          )} 
-        />
         <span>{formatDate(date)}</span>
         <span className="text-corpo-text/30">({fixtureCount})</span>
-      </button>
+      </div>
       
-      {/* Fixtures - collapsible */}
-      {isExpanded && (
-        <div className="space-y-1">
-          {children}
-        </div>
-      )}
+      {/* Fixtures */}
+      <div className="space-y-1">
+        {children}
+      </div>
     </div>
   )
 }
@@ -517,7 +500,7 @@ function FixtureItem({
             <span className={cn(awayWins && "text-lavender")}>{teams.away.name}</span>
           </span>
           {/* Competition name */}
-          <span className="text-corpo-text/40 text-sm truncate">
+          <span className="text-corpo-text/40 text-sm truncate font-fine">
             {league?.name || 'Unknown Competition'}
           </span>
           
@@ -536,7 +519,7 @@ function FixtureItem({
         
         {/* Status on far right */}
         <span className={cn(
-          "text-corpo-text/60 flex-shrink-0",
+          "text-corpo-text/60 flex-shrink-0 font-fine",
           isLive && "text-lavender"
         )}>
           {showElapsedTime
@@ -551,7 +534,7 @@ function FixtureItem({
       {isExpanded && (
         <div className="ml-4 border-l border-corpo-border">
           {sortedEvents.length === 0 ? (
-            <div className="pl-4 pr-3 py-3 text-corpo-text/40" style={{ fontSize: 'var(--text-size-base)' }}>
+            <div className="pl-4 pr-3 py-3 text-corpo-text/40 font-fine" style={{ fontSize: 'var(--text-size-base)' }}>
               No goals yet
             </div>
           ) : (
@@ -609,9 +592,6 @@ function EventItem({ event, fixture, isExpanded, onToggle, onOpenVideo }: EventI
     : event._s3_urls?.map((url, idx) => ({ url, rank: idx + 1, perceptual_hash: undefined })) || []
   
   const videoCount = rankedVideos.length
-  const timeStr = event.time.extra 
-    ? `${event.time.elapsed}+${event.time.extra}'` 
-    : `${event.time.elapsed}'`
   
   // Scanning states:
   // - _monitor_complete = false: Debounce/validating (event just detected, waiting for stability)
@@ -621,9 +601,9 @@ function EventItem({ event, fixture, isExpanded, onToggle, onOpenVideo }: EventI
   const isExtracting = event._monitor_complete === true && !event._twitter_complete
   const isStillScanning = isValidating || isExtracting
 
-  // Use MongoDB display fields for video modal
-  const videoTitle = event._display_title || `${fixture.teams.home.name} vs ${fixture.teams.away.name}`
-  const videoSubtitle = event._display_subtitle || `${timeStr} - ${event.player.name || 'Goal'}`
+  // Use generated display strings for video modal
+  const videoTitle = generateEventTitle(fixture, event)
+  const videoSubtitle = generateEventSubtitle(event)
 
   // Create VideoInfo for a specific video
   const makeVideoInfo = (video: typeof rankedVideos[0]): VideoInfo => ({
@@ -664,7 +644,7 @@ function EventItem({ event, fixture, isExpanded, onToggle, onOpenVideo }: EventI
           {/* Title line: score at moment of goal - with <<highlighted>> scoring team and icon */}
           <div className="flex items-center gap-2">
             <span className="truncate">
-              <HighlightedText text={event._display_title || `${event.player.name || 'Goal'} (${event.team.name})`} />
+              <HighlightedText text={generateEventTitle(fixture, event)} />
             </span>
             {/* Scanning indicator - right of title */}
             {isStillScanning && (
@@ -679,7 +659,7 @@ function EventItem({ event, fixture, isExpanded, onToggle, onOpenVideo }: EventI
           </div>
           {/* Subtitle line: time, player, assist - with <<highlighted>> scorer */}
           <div className="text-corpo-text/50 truncate text-sm">
-            <HighlightedText text={event._display_subtitle || `${timeStr} - ${event.player.name || 'Unknown'}`} />
+            <HighlightedText text={generateEventSubtitle(event)} />
           </div>
         </div>
         
@@ -805,7 +785,29 @@ function VideoModal({ url, title, subtitle, eventId, onClose }: VideoModalProps)
   const [downloadActive, setDownloadActive] = useState(false)
   const [closeHovered, setCloseHovered] = useState(false)
   const [closeActive, setCloseActive] = useState(false)
+  const [showControls, setShowControls] = useState(false)
   const videoRef = useRef<HTMLVideoElement>(null)
+  const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  
+  // Show controls with auto-hide
+  const revealControls = () => {
+    setShowControls(true)
+    if (controlsTimeoutRef.current) {
+      clearTimeout(controlsTimeoutRef.current)
+    }
+    controlsTimeoutRef.current = setTimeout(() => {
+      setShowControls(false)
+    }, 3000)
+  }
+  
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (controlsTimeoutRef.current) {
+        clearTimeout(controlsTimeoutRef.current)
+      }
+    }
+  }, [])
   
   // Load saved volume preference on mount
   useEffect(() => {
@@ -886,7 +888,7 @@ function VideoModal({ url, title, subtitle, eventId, onClose }: VideoModalProps)
             </div>
             {/* Subtitle: goal details */}
             <div 
-              className="text-corpo-text/50 text-sm"
+              className="text-corpo-text/50 text-sm font-fine"
             >
               <HighlightedText text={subtitle} />
             </div>
@@ -957,10 +959,14 @@ function VideoModal({ url, title, subtitle, eventId, onClose }: VideoModalProps)
         <video
           ref={videoRef}
           src={url}
-          controls
+          controls={showControls}
           autoPlay
           className="w-full bg-black border border-corpo-border"
           style={{ maxHeight: '80vh' }}
+          onMouseEnter={revealControls}
+          onMouseMove={revealControls}
+          onTouchStart={revealControls}
+          onClick={revealControls}
         />
       </div>
     </div>

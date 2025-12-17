@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { FileSystemNav, PathSegment } from './filesystem-nav'
 import { RiSkipUpLine, RiSkipUpFill } from '@remixicon/react'
+import { useTimezone } from '@/contexts/timezone-context'
 
 interface HeaderProps {
   currentPath: PathSegment[]
@@ -11,6 +12,9 @@ export function Header({ onNavigate }: HeaderProps) {
   const [time, setTime] = useState(new Date())
   const [hoveredTitle, setHoveredTitle] = useState(false)
   const [activeTitle, setActiveTitle] = useState(false)
+  const [hoveredTime, setHoveredTime] = useState(false)
+  const [activeTime, setActiveTime] = useState(false)
+  const { formatTimeWithZone, toggleMode } = useTimezone()
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -19,13 +23,6 @@ export function Header({ onNavigate }: HeaderProps) {
 
     return () => clearInterval(interval)
   }, [])
-
-  const formatUTC = (date: Date) => {
-    const hours = date.getUTCHours().toString().padStart(2, '0')
-    const minutes = date.getUTCMinutes().toString().padStart(2, '0')
-    const seconds = date.getUTCSeconds().toString().padStart(2, '0')
-    return `${hours}:${minutes}:${seconds} UTC`
-  }
 
   return (
     <header 
@@ -59,8 +56,8 @@ export function Header({ onNavigate }: HeaderProps) {
             color: activeTitle 
               ? 'hsl(260, 35%, 68%)' 
               : hoveredTitle 
-                ? 'hsl(220, 2%, 75%)' 
-                : 'hsl(220, 3%, 65%)',
+                ? 'rgba(255, 255, 255, 1)' 
+                : 'rgba(255, 255, 255, 0.8)',
             background: 'none',
             border: 'none',
             padding: 0,
@@ -78,18 +75,37 @@ export function Header({ onNavigate }: HeaderProps) {
           style={{ height: '24px', width: 'auto' }}
         />
         
-        <time 
-          className="font-mono tabular-nums" 
+        <button
+          onClick={toggleMode}
+          onMouseEnter={() => setHoveredTime(true)}
+          onMouseLeave={() => {
+            setHoveredTime(false)
+            setActiveTime(false)
+          }}
+          onMouseDown={() => setActiveTime(true)}
+          onMouseUp={() => setActiveTime(false)}
+          onTouchStart={() => setActiveTime(true)}
+          onTouchEnd={() => setActiveTime(false)}
+          onTouchCancel={() => setActiveTime(false)}
+          className="font-mono tabular-nums transition-none" 
           style={{ 
             fontSize: 'var(--text-size-base)',
             lineHeight: '1',
             WebkitTextSizeAdjust: '100%',
             textSizeAdjust: '100%',
-            color: 'hsl(220, 3%, 65%)'
+            color: activeTime 
+              ? 'hsl(260, 35%, 68%)' 
+              : hoveredTime 
+                ? 'rgba(255, 255, 255, 1)' 
+                : 'rgba(255, 255, 255, 0.8)',
+            background: 'none',
+            border: 'none',
+            padding: 0,
+            cursor: 'pointer'
           }}
         >
-          {formatUTC(time)}
-        </time>
+          {formatTimeWithZone(time, true)}
+        </button>
       </div>
     </header>
   )

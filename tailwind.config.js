@@ -83,15 +83,20 @@ export default {
   		},
   		fontFamily: {
   			mono: [
-  				'IBM Plex Mono',
-  				'Consolas',
+  				'Right Serif Mono',
+  				'ui-monospace',
   				'monospace'
   			],
   			corpo: [
-  				'IBM Plex Mono',
-  				'Consolas',
+  				'Right Serif Mono',
+  				'ui-monospace',
   				'monospace'
   			]
+  		},
+  		fontWeight: {
+  			fine: '300',
+  			regular: '400',
+  			dark: '700'
   		}
   	}
   },
