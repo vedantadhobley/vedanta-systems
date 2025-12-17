@@ -789,7 +789,7 @@ function VideoModal({ url, title, subtitle, eventId, onClose }: VideoModalProps)
   const videoRef = useRef<HTMLVideoElement>(null)
   const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   
-  // Show controls with auto-hide
+  // Show controls with auto-hide after 3 seconds
   const revealControls = () => {
     setShowControls(true)
     if (controlsTimeoutRef.current) {
@@ -965,8 +965,7 @@ function VideoModal({ url, title, subtitle, eventId, onClose }: VideoModalProps)
           style={{ maxHeight: '80vh' }}
           onMouseEnter={revealControls}
           onMouseMove={revealControls}
-          onTouchStart={revealControls}
-          onClick={revealControls}
+          onTouchEnd={revealControls}
         />
       </div>
     </div>
