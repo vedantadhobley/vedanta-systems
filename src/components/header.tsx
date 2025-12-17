@@ -35,7 +35,7 @@ export function Header({ onNavigate }: HeaderProps) {
         backgroundColor: 'transparent'
       }}
     >
-      <div className="max-w-[1140px] mx-auto px-4 md:px-8 h-12 md:h-14 flex items-center justify-between">
+      <div className="max-w-[1140px] mx-auto px-4 md:px-8 h-12 md:h-14 flex items-center justify-between relative">
         <button
           onClick={() => {
             onNavigate('~')
@@ -69,6 +69,14 @@ export function Header({ onNavigate }: HeaderProps) {
         >
           vedanta.systems
         </button>
+        
+        {/* Logo - centered */}
+        <img 
+          src="/og-image.svg" 
+          alt="Vedanta Systems Logo"
+          className="h-6 md:h-8 w-auto absolute left-1/2 -translate-x-1/2"
+          style={{ opacity: 0.7 }}
+        />
         
         <time 
           className="font-mono tabular-nums" 
