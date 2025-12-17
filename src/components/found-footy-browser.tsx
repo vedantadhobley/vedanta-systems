@@ -328,8 +328,10 @@ function StagingFixtureItem({ fixture, formatKickoff }: StagingFixtureItemProps)
   const { teams, fixture: fixtureInfo, league } = fixture
   const kickoffTime = formatKickoff(fixtureInfo.date)
   
-  // Calculate and update countdown
+  // Calculate and update countdown - synced to minute boundary
   useEffect(() => {
+    let intervalId: NodeJS.Timeout | null = null
+    
     const updateCountdown = () => {
       const now = new Date()
       const kickoff = new Date(fixtureInfo.date)
@@ -351,8 +353,21 @@ function StagingFixtureItem({ fixture, formatKickoff }: StagingFixtureItemProps)
     }
     
     updateCountdown()
-    const interval = setInterval(updateCountdown, 60000) // Update every minute
-    return () => clearInterval(interval)
+    
+    // Calculate ms until next minute boundary
+    const now = new Date()
+    const msUntilNextMinute = (60 - now.getSeconds()) * 1000 - now.getMilliseconds()
+    
+    // First timeout syncs to minute boundary, then interval every 60s
+    const timeoutId = setTimeout(() => {
+      updateCountdown()
+      intervalId = setInterval(updateCountdown, 60000)
+    }, msUntilNextMinute)
+    
+    return () => {
+      clearTimeout(timeoutId)
+      if (intervalId) clearInterval(intervalId)
+    }
   }, [fixtureInfo.date])
 
   return (
