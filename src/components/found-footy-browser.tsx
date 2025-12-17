@@ -55,11 +55,7 @@ export function FoundFootyBrowser({
   const [expandedFixture, setExpandedFixture] = useState<number | null>(null)
   const [expandedEvent, setExpandedEvent] = useState<string | null>(null)
   const [videoModal, setVideoModal] = useState<VideoInfo | null>(null)
-  const [expandedDates, setExpandedDates] = useState<Set<string>>(() => {
-    // Default: today's date is expanded
-    const today = new Date().toISOString().split('T')[0]
-    return new Set([today])
-  })
+  const [expandedDates, setExpandedDates] = useState<Set<string> | null>(null)
   const initialVideoProcessed = useRef(false)
 
   // Custom sort: fixtures with _last_activity first (by activity DESC), then fixtures without (by kickoff ASC)
@@ -103,17 +99,22 @@ export function FoundFootyBrowser({
   }, [])
 
   // Toggle date section
-  const toggleDate = useCallback((dateKey: string) => {
+  const toggleDate = useCallback((dateKey: string, fixtureIds: number[]) => {
     setExpandedDates(prev => {
       const newSet = new Set(prev)
       if (newSet.has(dateKey)) {
         newSet.delete(dateKey)
+        // Collapse any expanded fixture in this date section
+        if (expandedFixture !== null && fixtureIds.includes(expandedFixture)) {
+          setExpandedFixture(null)
+          setExpandedEvent(null)
+        }
       } else {
         newSet.add(dateKey)
       }
       return newSet
     })
-  }, [])
+  }, [expandedFixture])
 
   // Handle opening video from URL params (shared link) - only run once
   useEffect(() => {
@@ -192,10 +193,11 @@ export function FoundFootyBrowser({
     })
   }
 
-  // Group all fixtures (active + completed) by date for date separators
-  const activeAndCompleted = [...sortedFixtures, ...sortedCompleted]
-  const fixturesByDate = activeAndCompleted.reduce((acc, fixture) => {
-    const dateStr = fixture.fixture?.date || fixture._last_activity
+  // Group ALL fixtures (staging + active + completed) by date
+  const allFixturesForGrouping = [...stagingFixtures, ...sortedFixtures, ...sortedCompleted]
+  const fixturesByDate = allFixturesForGrouping.reduce((acc, fixture) => {
+    // Use fixture.date for grouping (the kickoff date)
+    const dateStr = fixture.fixture?.date
     if (!dateStr) return acc
     
     const date = new Date(dateStr)
@@ -211,11 +213,15 @@ export function FoundFootyBrowser({
   // Sort dates descending (most recent first)
   const sortedDates = Object.keys(fixturesByDate).sort((a, b) => b.localeCompare(a))
 
-  // Get today's date key for default expansion
-  const todayKey = new Date().toISOString().split('T')[0]
+  // Set initial expanded date to most recent date with fixtures (first in sorted list)
+  useEffect(() => {
+    if (expandedDates === null && sortedDates.length > 0) {
+      setExpandedDates(new Set([sortedDates[0]]))
+    }
+  }, [sortedDates, expandedDates])
 
   // Check if we have any fixtures at all
-  const hasFixtures = stagingFixtures.length > 0 || sortedFixtures.length > 0 || sortedCompleted.length > 0
+  const hasFixtures = sortedDates.length > 0
 
   return (
     <div className="font-mono" style={{ fontSize: 'var(--text-size-base)' }}>
@@ -243,28 +249,12 @@ export function FoundFootyBrowser({
           </div>
         ) : (
           <>
-            {/* Upcoming fixtures (staging) - shown first if any */}
-            {stagingFixtures.length > 0 && (
-              <div>
-                <div className="text-corpo-text/40 text-sm py-3">
-                  Upcoming
-                </div>
-                <div className="space-y-1">
-                  {stagingFixtures.map(fixture => (
-                    <StagingFixtureItem
-                      key={fixture._id}
-                      fixture={fixture}
-                      formatKickoff={formatKickoff}
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Active and completed fixtures grouped by date */}
+            {/* All fixtures grouped by date */}
             {sortedDates.map(dateKey => {
-              const isExpanded = expandedDates.has(dateKey) || dateKey === todayKey
-              const fixtureCount = fixturesByDate[dateKey].fixtures.length
+              const dateFixtures = fixturesByDate[dateKey].fixtures
+              const fixtureIds = dateFixtures.map(f => f._id)
+              const isExpanded = expandedDates?.has(dateKey) ?? false
+              const fixtureCount = dateFixtures.length
               
               return (
                 <DateSection
@@ -273,20 +263,31 @@ export function FoundFootyBrowser({
                   date={fixturesByDate[dateKey].date}
                   fixtureCount={fixtureCount}
                   isExpanded={isExpanded}
-                  onToggle={() => toggleDate(dateKey)}
+                  onToggle={() => toggleDate(dateKey, fixtureIds)}
                   formatDate={formatDate}
                 >
-                  {fixturesByDate[dateKey].fixtures.map(fixture => (
-                    <FixtureItem
-                      key={fixture._id}
-                      fixture={fixture}
-                      isExpanded={expandedFixture === fixture._id}
-                      expandedEvent={expandedEvent}
-                      onToggle={() => toggleFixture(fixture._id)}
-                      onToggleEvent={toggleEvent}
-                      onOpenVideo={(info) => setVideoModal(info)}
-                    />
-                  ))}
+                  {dateFixtures.map(fixture => {
+                    // Check if fixture is still pending (not started)
+                    const isPending = fixture.fixture.status.short === 'NS'
+                    
+                    return isPending ? (
+                      <StagingFixtureItem
+                        key={fixture._id}
+                        fixture={fixture}
+                        formatKickoff={formatKickoff}
+                      />
+                    ) : (
+                      <FixtureItem
+                        key={fixture._id}
+                        fixture={fixture}
+                        isExpanded={expandedFixture === fixture._id}
+                        expandedEvent={expandedEvent}
+                        onToggle={() => toggleFixture(fixture._id)}
+                        onToggleEvent={toggleEvent}
+                        onOpenVideo={(info) => setVideoModal(info)}
+                      />
+                    )
+                  })}
                 </DateSection>
               )
             })}
@@ -420,7 +421,7 @@ function DateSection({ date, fixtureCount, isExpanded, onToggle, formatDate, chi
       >
         <RiArrowRightSLine 
           className={cn(
-            "w-4 h-4 transition-transform duration-150 flex-shrink-0",
+            "w-4 h-4 transition-none flex-shrink-0",
             isExpanded && "rotate-90"
           )} 
         />
