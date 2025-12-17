@@ -364,22 +364,22 @@ function StagingFixtureItem({ fixture, formatKickoff }: StagingFixtureItemProps)
         
         {/* Fixture info - two lines like active fixtures */}
         <span className="flex-1 flex flex-col min-w-0">
-          {/* Teams and kickoff time */}
+          {/* Teams with vs in middle (matching active fixture style without score) */}
           <span className="truncate flex items-center">
             <span>{teams.home.name}</span>
-            {/* Countdown / Kickoff time - shown where score would be */}
-            <span className="text-lavender/70 tabular-nums text-sm mx-2">
-              {kickoffTime}
-            </span>
-            <span className="text-corpo-text/40 text-sm mr-2">
-              ({countdown})
-            </span>
+            <span className="text-corpo-text/50 mx-2">vs</span>
             <span>{teams.away.name}</span>
           </span>
           {/* Competition name */}
           <span className="text-corpo-text/40 text-sm truncate">
             {league?.name || 'Unknown Competition'}
           </span>
+        </span>
+        
+        {/* Kickoff time on far right (where status would be) */}
+        <span className="text-corpo-text/60 flex-shrink-0 text-right">
+          <span className="tabular-nums">{kickoffTime}</span>
+          <span className="text-corpo-text/40 text-sm ml-1">({countdown})</span>
         </span>
       </div>
     </div>
