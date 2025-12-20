@@ -1,4 +1,4 @@
-name: vedanta-systems
+name: vedanta-systems-prod
 
 services:
   frontend:
