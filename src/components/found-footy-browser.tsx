@@ -227,6 +227,11 @@ export function FoundFootyBrowser({
     return acc
   }, {} as Record<string, { date: Date; fixtures: Fixture[] }>)
 
+  // Sort fixtures within each date group: started fixtures (_last_activity) above upcoming
+  Object.keys(fixturesByDate).forEach(dateKey => {
+    fixturesByDate[dateKey].fixtures = sortFixturesCustom(fixturesByDate[dateKey].fixtures)
+  })
+
   // Sort dates descending (most recent first)
   const sortedDates = Object.keys(fixturesByDate).sort((a, b) => b.localeCompare(a))
 
