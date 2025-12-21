@@ -60,11 +60,12 @@ networks:
   # Internal network for vedanta-systems DEV services
   vedanta-systems-dev:
     name: vedanta-systems-dev
-    external: true
+    driver: bridge
   
   # Shared network - persistent, cross-project communication
   # Only join this if you need to talk to OTHER projects
   luv-dev:
+    name: luv-dev
     external: true
 
 # Example: Add your backend services here when ready
