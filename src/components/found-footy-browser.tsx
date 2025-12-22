@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
-import { RiArrowRightSLine, RiCloseLine, RiCloseFill, RiShareBoxLine, RiShareBoxFill, RiDownload2Line, RiDownload2Fill, RiCheckLine, RiVidiconFill, RiScan2Line } from '@remixicon/react'
+import { RiCloseLine, RiCloseFill, RiShareBoxLine, RiShareBoxFill, RiDownload2Line, RiDownload2Fill, RiCheckLine, RiVidiconFill, RiScan2Line, RiHourglass2Line, RiHourglass2Fill, RiExpandUpDownLine, RiExpandUpDownFill, RiContractUpDownLine, RiContractUpDownFill } from '@remixicon/react'
 import type { Fixture, GoalEvent, RankedVideo } from '@/types/found-footy'
 import { cn } from '@/lib/utils'
 import { useTimezone } from '@/contexts/timezone-context'
@@ -329,6 +329,7 @@ interface StagingFixtureItemProps {
 function StagingFixtureItem({ fixture, formatKickoff }: StagingFixtureItemProps) {
   const [isHovered, setIsHovered] = useState(false)
   const [countdown, setCountdown] = useState<string>('')
+  const recentTouchRef = useRef(false)
   
   const { teams, fixture: fixtureInfo, league } = fixture
   const kickoffTime = formatKickoff(fixtureInfo.date)
@@ -383,11 +384,17 @@ function StagingFixtureItem({ fixture, formatKickoff }: StagingFixtureItemProps)
           isHovered ? "text-corpo-light" : "text-corpo-text"
         )}
         style={{ fontSize: 'var(--text-size-base)' }}
-        onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => setIsHovered(false)}
+        onMouseEnter={() => { if (!recentTouchRef.current) setIsHovered(true) }}
+        onMouseLeave={() => { if (!recentTouchRef.current) setIsHovered(false) }}
+        onTouchStart={() => { recentTouchRef.current = true; setIsHovered(false) }}
+        onTouchEnd={() => { setIsHovered(false); setTimeout(() => { recentTouchRef.current = false }, 300) }}
       >
-        {/* Spacer for arrow alignment with FixtureItem */}
-        <div className="w-4 h-4 flex-shrink-0" />
+        {/* Hourglass icon for pending fixtures */}
+        {isHovered ? (
+          <RiHourglass2Fill className="w-4 h-4 flex-shrink-0 text-corpo-text/50" />
+        ) : (
+          <RiHourglass2Line className="w-4 h-4 flex-shrink-0 text-corpo-text/50" />
+        )}
         
         {/* Fixture info - two lines like active fixtures */}
         <span className="flex-1 flex flex-col min-w-0">
@@ -397,16 +404,16 @@ function StagingFixtureItem({ fixture, formatKickoff }: StagingFixtureItemProps)
             <span className="text-corpo-text/50 mx-2">vs</span>
             <span>{teams.away.name}</span>
           </span>
-          {/* Competition name */}
+          {/* Competition name with country and round */}
           <span className="text-corpo-text/40 text-sm truncate font-fine">
-            {league?.name || 'Unknown Competition'}
+            {league ? `${league.country} - ${league.name}${league.round ? ` (${league.round})` : ''}` : 'Unknown Competition'}
           </span>
         </span>
         
-        {/* Kickoff time on far right (where status would be) */}
-        <span className="text-corpo-text/60 flex-shrink-0 text-right font-fine">
+        {/* Kickoff time stacked - time on top, countdown below */}
+        <span className="text-corpo-text/60 flex-shrink-0 text-right font-fine flex flex-col items-end">
           <span className="tabular-nums">{kickoffTime}</span>
-          <span className="text-corpo-text/40 text-sm ml-1">({countdown})</span>
+          <span className="text-corpo-text/40 text-sm">{countdown}</span>
         </span>
       </div>
     </div>
@@ -461,6 +468,7 @@ function FixtureItem({
 }: FixtureItemProps) {
   const [isHovered, setIsHovered] = useState(false)
   const [isActive, setIsActive] = useState(false)
+  const recentTouchRef = useRef(false)
   
   const { teams, goals, fixture: fixtureInfo, events, league } = fixture
   const isLive = ['1H', '2H', 'HT', 'ET', 'BT', 'P', 'SUSP', 'INT', 'LIVE'].includes(fixtureInfo.status.short)
@@ -489,26 +497,46 @@ function FixtureItem({
       {/* Fixture header */}
       <button
         onClick={onToggle}
-        onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => { setIsHovered(false); setIsActive(false) }}
+        onMouseEnter={() => { if (!recentTouchRef.current) setIsHovered(true) }}
+        onMouseLeave={() => { if (!recentTouchRef.current) { setIsHovered(false); setIsActive(false) } }}
         onMouseDown={() => setIsActive(true)}
         onMouseUp={() => setIsActive(false)}
-        onTouchStart={() => setIsActive(true)}
-        onTouchEnd={() => setIsActive(false)}
-        onTouchCancel={() => setIsActive(false)}
+        onTouchStart={() => { recentTouchRef.current = true; setIsActive(true); setIsHovered(false) }}
+        onTouchEnd={() => { setIsActive(false); setIsHovered(false); setTimeout(() => { recentTouchRef.current = false }, 300) }}
+        onTouchCancel={() => { setIsActive(false); setIsHovered(false); setTimeout(() => { recentTouchRef.current = false }, 300) }}
         className={cn(
           "w-full flex items-center gap-2 px-3 py-2 text-left transition-none",
           isActive ? "text-lavender" : isHovered ? "text-corpo-light" : "text-corpo-text"
         )}
         style={{ fontSize: 'var(--text-size-base)' }}
       >
-        <RiArrowRightSLine 
-          className={cn(
-            "w-4 h-4 transition-none flex-shrink-0",
-            isExpanded && "rotate-90",
-            isActive ? "text-lavender" : isHovered ? "text-corpo-light" : "text-corpo-text/50"
-          )} 
-        />
+        {isExpanded ? (
+          isActive || isHovered ? (
+            <RiContractUpDownFill 
+              className={cn(
+                "w-4 h-4 transition-none flex-shrink-0",
+                isActive ? "text-lavender" : "text-corpo-light"
+              )} 
+            />
+          ) : (
+            <RiContractUpDownLine 
+              className="w-4 h-4 transition-none flex-shrink-0 text-corpo-text/50" 
+            />
+          )
+        ) : (
+          isActive || isHovered ? (
+            <RiExpandUpDownFill 
+              className={cn(
+                "w-4 h-4 transition-none flex-shrink-0",
+                isActive ? "text-lavender" : "text-corpo-light"
+              )} 
+            />
+          ) : (
+            <RiExpandUpDownLine 
+              className="w-4 h-4 transition-none flex-shrink-0 text-corpo-text/50" 
+            />
+          )
+        )}
         
         {/* Fixture title with scanning indicator on right */}
         <span className="flex-1 flex flex-col min-w-0">
@@ -519,9 +547,9 @@ function FixtureItem({
             </span>
             <span className={cn(awayWins && "text-lavender")}>{teams.away.name}</span>
           </span>
-          {/* Competition name */}
+          {/* Competition name with country and round */}
           <span className="text-corpo-text/40 text-sm truncate font-fine">
-            {league?.name || 'Unknown Competition'}
+            {league ? `${league.country} - ${league.name}${league.round ? ` (${league.round})` : ''}` : 'Unknown Competition'}
           </span>
           
         </span>
@@ -605,6 +633,7 @@ interface EventItemProps {
 function EventItem({ event, fixture, isExpanded, onToggle, onOpenVideo }: EventItemProps) {
   const [isHovered, setIsHovered] = useState(false)
   const [isActive, setIsActive] = useState(false)
+  const recentTouchRef = useRef(false)
   
   // Get videos - prefer ranked _s3_videos, fall back to legacy _s3_urls
   const rankedVideos: (RankedVideo | { url: string; rank: number; perceptual_hash?: string })[] = event._s3_videos 
@@ -638,26 +667,46 @@ function EventItem({ event, fixture, isExpanded, onToggle, onOpenVideo }: EventI
       {/* Event header - two lines: title and subtitle */}
       <button
         onClick={onToggle}
-        onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => { setIsHovered(false); setIsActive(false) }}
+        onMouseEnter={() => { if (!recentTouchRef.current) setIsHovered(true) }}
+        onMouseLeave={() => { if (!recentTouchRef.current) { setIsHovered(false); setIsActive(false) } }}
         onMouseDown={() => setIsActive(true)}
         onMouseUp={() => setIsActive(false)}
-        onTouchStart={() => setIsActive(true)}
-        onTouchEnd={() => setIsActive(false)}
-        onTouchCancel={() => setIsActive(false)}
+        onTouchStart={() => { recentTouchRef.current = true; setIsActive(true); setIsHovered(false) }}
+        onTouchEnd={() => { setIsActive(false); setIsHovered(false); setTimeout(() => { recentTouchRef.current = false }, 300) }}
+        onTouchCancel={() => { setIsActive(false); setIsHovered(false); setTimeout(() => { recentTouchRef.current = false }, 300) }}
         className={cn(
           "w-full flex items-center gap-2 px-3 py-2 text-left transition-none",
           isActive ? "text-lavender" : isHovered ? "text-corpo-light" : "text-corpo-text"
         )}
         style={{ fontSize: 'var(--text-size-base)' }}
       >
-        <RiArrowRightSLine 
-          className={cn(
-            "w-4 h-4 transition-none flex-shrink-0",
-            isExpanded && "rotate-90",
-            isActive ? "text-lavender" : isHovered ? "text-corpo-light" : "text-corpo-text/50"
-          )} 
-        />
+        {isExpanded ? (
+          isActive || isHovered ? (
+            <RiContractUpDownFill 
+              className={cn(
+                "w-4 h-4 transition-none flex-shrink-0",
+                isActive ? "text-lavender" : "text-corpo-light"
+              )} 
+            />
+          ) : (
+            <RiContractUpDownLine 
+              className="w-4 h-4 transition-none flex-shrink-0 text-corpo-text/50" 
+            />
+          )
+        ) : (
+          isActive || isHovered ? (
+            <RiExpandUpDownFill 
+              className={cn(
+                "w-4 h-4 transition-none flex-shrink-0",
+                isActive ? "text-lavender" : "text-corpo-light"
+              )} 
+            />
+          ) : (
+            <RiExpandUpDownLine 
+              className="w-4 h-4 transition-none flex-shrink-0 text-corpo-text/50" 
+            />
+          )
+        )}
         
         {/* Two-line content: title on top, subtitle below */}
         <div className="flex-1 min-w-0">
@@ -764,14 +813,18 @@ interface ClipButtonProps {
 function ClipButton({ index, isBest, onClick }: ClipButtonProps) {
   const [isHovered, setIsHovered] = useState(false)
   const [isActive, setIsActive] = useState(false)
+  const recentTouchRef = useRef(false)
   
   return (
     <button
       onClick={onClick}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => { setIsHovered(false); setIsActive(false) }}
+      onMouseEnter={() => { if (!recentTouchRef.current) setIsHovered(true) }}
+      onMouseLeave={() => { if (!recentTouchRef.current) { setIsHovered(false); setIsActive(false) } }}
       onMouseDown={() => setIsActive(true)}
       onMouseUp={() => setIsActive(false)}
+      onTouchStart={() => { recentTouchRef.current = true; setIsActive(true); setIsHovered(false) }}
+      onTouchEnd={() => { setIsActive(false); setIsHovered(false); setTimeout(() => { recentTouchRef.current = false }, 300) }}
+      onTouchCancel={() => { setIsActive(false); setIsHovered(false); setTimeout(() => { recentTouchRef.current = false }, 300) }}
       className={cn(
         "w-7 h-7 border flex items-center justify-center transition-none font-mono",
         isActive 
@@ -808,6 +861,7 @@ function VideoModal({ url, title, subtitle, eventId, onClose }: VideoModalProps)
   const [showControls, setShowControls] = useState(false)
   const videoRef = useRef<HTMLVideoElement>(null)
   const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const isTouchRef = useRef(false)
   
   // Show controls with auto-hide after 3 seconds
   const revealControls = () => {
@@ -873,7 +927,9 @@ function VideoModal({ url, title, subtitle, eventId, onClose }: VideoModalProps)
     try {
       await navigator.clipboard.writeText(shareUrl)
       setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
+      setShareActive(false)
+      setShareHovered(false)
+      setTimeout(() => setCopied(false), 5000)
     } catch (err) {
       console.error('Failed to copy:', err)
     }
@@ -919,17 +975,32 @@ function VideoModal({ url, title, subtitle, eventId, onClose }: VideoModalProps)
             {/* Share button */}
           <button
             onClick={handleShare}
-            onMouseEnter={() => setShareHovered(true)}
-            onMouseLeave={() => { setShareHovered(false); setShareActive(false) }}
-            onMouseDown={() => setShareActive(true)}
-            onMouseUp={() => setShareActive(false)}
+            onMouseEnter={() => { if (!isTouchRef.current) setShareHovered(true) }}
+            onMouseLeave={() => { if (!isTouchRef.current) { setShareHovered(false); setShareActive(false) } }}
+            onMouseDown={() => { if (!isTouchRef.current) setShareActive(true) }}
+            onMouseUp={() => { if (!isTouchRef.current) setShareActive(false) }}
+            onTouchStart={() => { 
+              isTouchRef.current = true
+              setShareActive(true)
+              setShareHovered(false)
+            }}
+            onTouchEnd={() => { 
+              setShareActive(false)
+              setShareHovered(false)
+              setTimeout(() => { isTouchRef.current = false }, 300)
+            }}
+            onTouchCancel={() => { 
+              setShareActive(false)
+              setShareHovered(false)
+              setTimeout(() => { isTouchRef.current = false }, 300)
+            }}
             className={cn(
               "p-1 transition-none",
-              shareActive ? "text-lavender" : shareHovered ? "text-corpo-light" : "text-corpo-text"
+              copied ? "text-lavender" : shareActive ? "text-lavender" : shareHovered ? "text-corpo-light" : "text-corpo-text"
             )}
           >
             {copied ? (
-              <RiCheckLine className="w-5 h-5 text-lavender" />
+              <RiCheckLine className="w-5 h-5" />
             ) : shareActive || shareHovered ? (
               <RiShareBoxFill className="w-5 h-5" />
             ) : (
@@ -939,10 +1010,25 @@ function VideoModal({ url, title, subtitle, eventId, onClose }: VideoModalProps)
           {/* Download button */}
           <button
             onClick={handleDownload}
-            onMouseEnter={() => setDownloadHovered(true)}
-            onMouseLeave={() => { setDownloadHovered(false); setDownloadActive(false) }}
+            onMouseEnter={() => { if (!isTouchRef.current) setDownloadHovered(true) }}
+            onMouseLeave={() => { if (!isTouchRef.current) { setDownloadHovered(false); setDownloadActive(false) } }}
             onMouseDown={() => setDownloadActive(true)}
-            onMouseUp={() => setDownloadActive(false)}
+            onMouseUp={() => { if (!isTouchRef.current) setDownloadActive(false) }}
+            onTouchStart={() => { 
+              isTouchRef.current = true
+              setDownloadActive(true)
+              setDownloadHovered(false)
+            }}
+            onTouchEnd={() => { 
+              setDownloadActive(false)
+              setDownloadHovered(false)
+              setTimeout(() => { isTouchRef.current = false }, 300)
+            }}
+            onTouchCancel={() => { 
+              setDownloadActive(false)
+              setDownloadHovered(false)
+              setTimeout(() => { isTouchRef.current = false }, 300)
+            }}
             className={cn(
               "p-1 transition-none",
               downloadActive ? "text-lavender" : downloadHovered ? "text-corpo-light" : "text-corpo-text"
@@ -957,10 +1043,25 @@ function VideoModal({ url, title, subtitle, eventId, onClose }: VideoModalProps)
           {/* Close button */}
           <button
             onClick={onClose}
-            onMouseEnter={() => setCloseHovered(true)}
-            onMouseLeave={() => { setCloseHovered(false); setCloseActive(false) }}
-            onMouseDown={() => setCloseActive(true)}
-            onMouseUp={() => setCloseActive(false)}
+            onMouseEnter={() => { if (!isTouchRef.current) setCloseHovered(true) }}
+            onMouseLeave={() => { if (!isTouchRef.current) { setCloseHovered(false); setCloseActive(false) } }}
+            onMouseDown={() => { if (!isTouchRef.current) setCloseActive(true) }}
+            onMouseUp={() => { if (!isTouchRef.current) setCloseActive(false) }}
+            onTouchStart={() => { 
+              isTouchRef.current = true
+              setCloseActive(true)
+              setCloseHovered(false)
+            }}
+            onTouchEnd={() => { 
+              setCloseActive(false)
+              setCloseHovered(false)
+              setTimeout(() => { isTouchRef.current = false }, 300)
+            }}
+            onTouchCancel={() => { 
+              setCloseActive(false)
+              setCloseHovered(false)
+              setTimeout(() => { isTouchRef.current = false }, 300)
+            }}
             className={cn(
               "p-1 transition-none",
               closeActive ? "text-lavender" : closeHovered ? "text-corpo-light" : "text-corpo-text"
@@ -981,6 +1082,7 @@ function VideoModal({ url, title, subtitle, eventId, onClose }: VideoModalProps)
           src={url}
           controls={showControls}
           autoPlay
+          playsInline
           className="w-full bg-black border border-corpo-border"
           style={{ maxHeight: '80vh' }}
           onMouseEnter={revealControls}

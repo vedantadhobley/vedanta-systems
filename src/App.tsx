@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useLocation, Routes, Route } from 'react-router-dom'
 import { RiFolder2Line, RiFolder2Fill } from '@remixicon/react'
 import { GitHubContributionGraph } from '@/components/github-contribution-graph'
@@ -143,6 +143,7 @@ function DirectoryListing() {
   const [hoveredItem, setHoveredItem] = useState<string | null>(null)
   const [activeItem, setActiveItem] = useState<string | null>(null)
   const [iconSize, setIconSize] = useState(window.innerWidth >= 768 ? 20 : 16)
+  const recentTouchRef = useRef(false)
 
   const currentPath = getPathSegmentsFromUrl(location.pathname)
   const fsPath = currentPath[currentPath.length - 1].path
@@ -224,16 +225,17 @@ function DirectoryListing() {
                   <button
                     key={item.path}
                     onClick={() => handleNavigate(item.path)}
-                    onMouseEnter={() => setHoveredItem(item.path)}
+                    onMouseEnter={() => { if (!recentTouchRef.current) setHoveredItem(item.path) }}
                     onMouseLeave={() => {
+                      if (recentTouchRef.current) return
                       setHoveredItem(null)
                       setActiveItem(null)
                     }}
                     onMouseDown={() => setActiveItem(item.path)}
                     onMouseUp={() => setActiveItem(null)}
-                    onTouchStart={() => setActiveItem(item.path)}
-                    onTouchEnd={() => setActiveItem(null)}
-                    onTouchCancel={() => setActiveItem(null)}
+                    onTouchStart={() => { recentTouchRef.current = true; setActiveItem(item.path); setHoveredItem(null) }}
+                    onTouchEnd={() => { setActiveItem(null); setHoveredItem(null); setTimeout(() => { recentTouchRef.current = false }, 300) }}
+                    onTouchCancel={() => { setActiveItem(null); setHoveredItem(null); setTimeout(() => { recentTouchRef.current = false }, 300) }}
                     className={`flex items-start gap-2 w-full text-left py-2 font-mono transition-none ${
                       isActive 
                         ? 'text-lavender' 

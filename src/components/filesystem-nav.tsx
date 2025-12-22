@@ -7,7 +7,7 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 
 export interface PathSegment {
   name: string
@@ -26,6 +26,7 @@ export function FileSystemNav({ currentPath, onNavigate }: FileSystemNavProps) {
   const [hoveredText, setHoveredText] = useState<string | null>(null)
   const [activeText, setActiveText] = useState<string | null>(null)
   const [iconSize, setIconSize] = useState(window.innerWidth >= 768 ? 20 : 16)
+  const recentTouchRef = useRef(false)
 
   // Update icon size on resize
   useEffect(() => {
@@ -67,10 +68,12 @@ export function FileSystemNav({ currentPath, onNavigate }: FileSystemNavProps) {
                   <BreadcrumbLink
                     onClick={() => onNavigate(segment.path)}
                     onMouseEnter={() => {
+                      if (recentTouchRef.current) return
                       setHoveredPath(segment.path)
                       setHoveredText(segment.path)
                     }}
                     onMouseLeave={() => {
+                      if (recentTouchRef.current) return
                       setHoveredPath(null)
                       setActivePath(null)
                       setHoveredText(null)
@@ -85,16 +88,25 @@ export function FileSystemNav({ currentPath, onNavigate }: FileSystemNavProps) {
                       setActiveText(null)
                     }}
                     onTouchStart={() => {
+                      recentTouchRef.current = true
                       setActivePath(segment.path)
                       setActiveText(segment.path)
+                      setHoveredPath(null)
+                      setHoveredText(null)
                     }}
                     onTouchEnd={() => {
                       setActivePath(null)
                       setActiveText(null)
+                      setHoveredPath(null)
+                      setHoveredText(null)
+                      setTimeout(() => { recentTouchRef.current = false }, 300)
                     }}
                     onTouchCancel={() => {
                       setActivePath(null)
                       setActiveText(null)
+                      setHoveredPath(null)
+                      setHoveredText(null)
+                      setTimeout(() => { recentTouchRef.current = false }, 300)
                     }}
                     className="flex items-center gap-1.5 cursor-pointer transition-none"
                   >

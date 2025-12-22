@@ -1,7 +1,7 @@
 import { RiTerminalBoxLine, RiTerminalBoxFill, RiFileTextLine, RiFileTextFill } from '@remixicon/react'
 import { cn } from '@/lib/utils'
 import { ReadmeViewer, useReadme } from './readme-viewer'
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 
 interface ProjectStatusProps {
   githubUrl: string
@@ -15,6 +15,7 @@ export function ProjectStatus({ githubUrl, isConnected }: ProjectStatusProps) {
   const [repoActive, setRepoActive] = useState(false)
   const [readmeHovered, setReadmeHovered] = useState(false)
   const [readmeActive, setReadmeActive] = useState(false)
+  const recentTouchRef = useRef(false)
 
   return (
     <>
@@ -50,10 +51,13 @@ export function ProjectStatus({ githubUrl, isConnected }: ProjectStatusProps) {
         {/* README button */}
         <button
           onClick={fetchReadme}
-          onMouseEnter={() => setReadmeHovered(true)}
-          onMouseLeave={() => { setReadmeHovered(false); setReadmeActive(false) }}
+          onMouseEnter={() => { if (!recentTouchRef.current) setReadmeHovered(true) }}
+          onMouseLeave={() => { if (!recentTouchRef.current) { setReadmeHovered(false); setReadmeActive(false) } }}
           onMouseDown={() => setReadmeActive(true)}
           onMouseUp={() => setReadmeActive(false)}
+          onTouchStart={() => { recentTouchRef.current = true; setReadmeActive(true); setReadmeHovered(false) }}
+          onTouchEnd={() => { setReadmeActive(false); setReadmeHovered(false); setTimeout(() => { recentTouchRef.current = false }, 300) }}
+          onTouchCancel={() => { setReadmeActive(false); setReadmeHovered(false); setTimeout(() => { recentTouchRef.current = false }, 300) }}
           className={cn(
             "flex items-center gap-1.5 md:gap-2 transition-none",
             readmeActive ? "text-lavender" : readmeHovered ? "text-corpo-light" : "text-corpo-text"
@@ -75,10 +79,13 @@ export function ProjectStatus({ githubUrl, isConnected }: ProjectStatusProps) {
           href={githubUrl}
           target="_blank"
           rel="noopener noreferrer"
-          onMouseEnter={() => setRepoHovered(true)}
-          onMouseLeave={() => { setRepoHovered(false); setRepoActive(false) }}
+          onMouseEnter={() => { if (!recentTouchRef.current) setRepoHovered(true) }}
+          onMouseLeave={() => { if (!recentTouchRef.current) { setRepoHovered(false); setRepoActive(false) } }}
           onMouseDown={() => setRepoActive(true)}
           onMouseUp={() => setRepoActive(false)}
+          onTouchStart={() => { recentTouchRef.current = true; setRepoActive(true); setRepoHovered(false) }}
+          onTouchEnd={() => { setRepoActive(false); setRepoHovered(false); setTimeout(() => { recentTouchRef.current = false }, 300) }}
+          onTouchCancel={() => { setRepoActive(false); setRepoHovered(false); setTimeout(() => { recentTouchRef.current = false }, 300) }}
           className={cn(
             "flex items-center gap-1.5 md:gap-2 transition-none",
             repoActive ? "text-lavender" : repoHovered ? "text-corpo-light" : "text-corpo-text"

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { FileSystemNav, PathSegment } from './filesystem-nav'
 import { RiSkipUpLine, RiSkipUpFill } from '@remixicon/react'
 import { useTimezone } from '@/contexts/timezone-context'
@@ -15,6 +15,10 @@ export function Header({ onNavigate }: HeaderProps) {
   const [hoveredTime, setHoveredTime] = useState(false)
   const [activeTime, setActiveTime] = useState(false)
   const { formatTimeWithZone, toggleMode } = useTimezone()
+  
+  // Track recent touch to ignore simulated mouse events
+  const recentTouchTitleRef = useRef(false)
+  const recentTouchTimeRef = useRef(false)
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -37,16 +41,29 @@ export function Header({ onNavigate }: HeaderProps) {
           onClick={() => {
             onNavigate('~')
           }}
-          onMouseEnter={() => setHoveredTitle(true)}
+          onMouseEnter={() => { if (!recentTouchTitleRef.current) setHoveredTitle(true) }}
           onMouseLeave={() => {
+            if (recentTouchTitleRef.current) return
             setHoveredTitle(false)
             setActiveTitle(false)
           }}
           onMouseDown={() => setActiveTitle(true)}
           onMouseUp={() => setActiveTitle(false)}
-          onTouchStart={() => setActiveTitle(true)}
-          onTouchEnd={() => setActiveTitle(false)}
-          onTouchCancel={() => setActiveTitle(false)}
+          onTouchStart={() => { 
+            recentTouchTitleRef.current = true
+            setActiveTitle(true)
+            setHoveredTitle(false) 
+          }}
+          onTouchEnd={() => { 
+            setActiveTitle(false)
+            setHoveredTitle(false)
+            setTimeout(() => { recentTouchTitleRef.current = false }, 300)
+          }}
+          onTouchCancel={() => { 
+            setActiveTitle(false)
+            setHoveredTitle(false)
+            setTimeout(() => { recentTouchTitleRef.current = false }, 300)
+          }}
           className="font-mono tracking-tight transition-none"
           style={{ 
             fontSize: 'var(--text-size-base)',
@@ -77,16 +94,29 @@ export function Header({ onNavigate }: HeaderProps) {
         
         <button
           onClick={toggleMode}
-          onMouseEnter={() => setHoveredTime(true)}
+          onMouseEnter={() => { if (!recentTouchTimeRef.current) setHoveredTime(true) }}
           onMouseLeave={() => {
+            if (recentTouchTimeRef.current) return
             setHoveredTime(false)
             setActiveTime(false)
           }}
           onMouseDown={() => setActiveTime(true)}
           onMouseUp={() => setActiveTime(false)}
-          onTouchStart={() => setActiveTime(true)}
-          onTouchEnd={() => setActiveTime(false)}
-          onTouchCancel={() => setActiveTime(false)}
+          onTouchStart={() => { 
+            recentTouchTimeRef.current = true
+            setActiveTime(true)
+            setHoveredTime(false) 
+          }}
+          onTouchEnd={() => { 
+            setActiveTime(false)
+            setHoveredTime(false)
+            setTimeout(() => { recentTouchTimeRef.current = false }, 300)
+          }}
+          onTouchCancel={() => { 
+            setActiveTime(false)
+            setHoveredTime(false)
+            setTimeout(() => { recentTouchTimeRef.current = false }, 300)
+          }}
           className="font-mono tabular-nums transition-none" 
           style={{ 
             fontSize: 'var(--text-size-base)',
@@ -115,6 +145,7 @@ export function BottomNav({ currentPath, onNavigate }: HeaderProps) {
   const [hoveredScrollTop, setHoveredScrollTop] = useState(false)
   const [activeScrollTop, setActiveScrollTop] = useState(false)
   const [iconSize, setIconSize] = useState(window.innerWidth >= 768 ? 20 : 16)
+  const isTouchRef = useRef(false)
 
   useEffect(() => {
     const handleResize = () => {
@@ -129,7 +160,6 @@ export function BottomNav({ currentPath, onNavigate }: HeaderProps) {
     if (scrollContainer) {
       scrollContainer.scrollTo({ top: 0, behavior: 'smooth' })
     }
-    // Always clear states after scroll
     setActiveScrollTop(false)
     setHoveredScrollTop(false)
   }
@@ -148,24 +178,24 @@ export function BottomNav({ currentPath, onNavigate }: HeaderProps) {
         
         <button
           onClick={scrollToTop}
-          onMouseEnter={() => setHoveredScrollTop(true)}
-          onMouseLeave={() => {
-            setHoveredScrollTop(false)
-            setActiveScrollTop(false)
-          }}
-          onMouseDown={() => setActiveScrollTop(true)}
-          onMouseUp={() => setActiveScrollTop(false)}
+          onMouseEnter={() => { if (!isTouchRef.current) setHoveredScrollTop(true) }}
+          onMouseLeave={() => { if (!isTouchRef.current) { setHoveredScrollTop(false); setActiveScrollTop(false) } }}
+          onMouseDown={() => { if (!isTouchRef.current) setActiveScrollTop(true) }}
+          onMouseUp={() => { if (!isTouchRef.current) setActiveScrollTop(false) }}
           onTouchStart={() => {
+            isTouchRef.current = true
             setActiveScrollTop(true)
             setHoveredScrollTop(false)
           }}
           onTouchEnd={() => {
             setActiveScrollTop(false)
             setHoveredScrollTop(false)
+            setTimeout(() => { isTouchRef.current = false }, 300)
           }}
           onTouchCancel={() => {
             setActiveScrollTop(false)
             setHoveredScrollTop(false)
+            setTimeout(() => { isTouchRef.current = false }, 300)
           }}
           className="flex items-center transition-none"
           style={{ 
