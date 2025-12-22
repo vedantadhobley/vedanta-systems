@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
-import { RiCloseLine, RiCloseFill, RiShareBoxLine, RiShareBoxFill, RiDownload2Line, RiDownload2Fill, RiCheckLine, RiVidiconFill, RiScan2Line, RiHourglass2Line, RiHourglass2Fill, RiExpandUpDownLine, RiExpandUpDownFill, RiContractUpDownLine, RiContractUpDownFill } from '@remixicon/react'
+import { RiCloseLine, RiCloseFill, RiShareBoxLine, RiShareBoxFill, RiDownload2Line, RiDownload2Fill, RiCheckLine, RiVidiconFill, RiScan2Line, RiHourglass2Line, RiHourglass2Fill, RiExpandUpDownLine, RiExpandUpDownFill, RiContractUpDownLine, RiContractUpDownFill, RiVolumeMuteLine, RiVolumeUpFill } from '@remixicon/react'
 import type { Fixture, GoalEvent, RankedVideo } from '@/types/found-footy'
 import { cn } from '@/lib/utils'
 import { useTimezone } from '@/contexts/timezone-context'
@@ -859,6 +859,9 @@ function VideoModal({ url, title, subtitle, eventId, onClose }: VideoModalProps)
   const [closeHovered, setCloseHovered] = useState(false)
   const [closeActive, setCloseActive] = useState(false)
   const [showControls, setShowControls] = useState(false)
+  const [isMuted, setIsMuted] = useState(true)
+  const [volumeHovered, setVolumeHovered] = useState(false)
+  const [volumeActive, setVolumeActive] = useState(false)
   const videoRef = useRef<HTMLVideoElement>(null)
   const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const isTouchRef = useRef(false)
@@ -883,19 +886,34 @@ function VideoModal({ url, title, subtitle, eventId, onClose }: VideoModalProps)
     }
   }, [])
   
-  // Load saved volume preference on mount
+  // Handle autoplay - try unmuted first, fall back to muted if browser blocks
   useEffect(() => {
     const video = videoRef.current
     if (!video) return
     
     const savedVolume = localStorage.getItem('footy-video-volume')
-    if (savedVolume !== null) {
-      video.volume = parseFloat(savedVolume)
+    const targetVolume = savedVolume !== null ? parseFloat(savedVolume) : 1
+    
+    // Try to play unmuted first (works if user has interacted with page)
+    video.muted = false
+    video.volume = targetVolume
+    setIsMuted(false)
+    
+    const playPromise = video.play()
+    if (playPromise !== undefined) {
+      playPromise.catch(() => {
+        // Autoplay was blocked - play muted instead
+        video.muted = true
+        setIsMuted(true)
+        video.play().catch(() => {})
+      })
     }
     
     // Save volume when changed
     const handleVolumeChange = () => {
-      localStorage.setItem('footy-video-volume', video.volume.toString())
+      if (!video.muted) {
+        localStorage.setItem('footy-video-volume', video.volume.toString())
+      }
     }
     
     video.addEventListener('volumechange', handleVolumeChange)
@@ -940,6 +958,18 @@ function VideoModal({ url, title, subtitle, eventId, onClose }: VideoModalProps)
     // This works on iOS and forces download instead of playing
     const downloadUrl = url.replace('/video/', '/download/')
     window.open(downloadUrl, '_blank')
+  }
+
+  const handleUnmute = () => {
+    const video = videoRef.current
+    if (!video) return
+    
+    const savedVolume = localStorage.getItem('footy-video-volume')
+    const targetVolume = savedVolume !== null ? parseFloat(savedVolume) : 1
+    
+    video.muted = false
+    video.volume = targetVolume
+    setIsMuted(false)
   }
 
   return (
@@ -1076,19 +1106,55 @@ function VideoModal({ url, title, subtitle, eventId, onClose }: VideoModalProps)
           </div>
         </div>
         
-        {/* Video player */}
-        <video
-          ref={videoRef}
-          src={url}
-          controls={showControls}
-          autoPlay
-          playsInline
-          className="w-full bg-black border border-corpo-border"
-          style={{ maxHeight: '80vh' }}
-          onMouseEnter={revealControls}
-          onMouseMove={revealControls}
-          onTouchEnd={revealControls}
-        />
+        {/* Video player with unmute overlay */}
+        <div className="relative">
+          <video
+            ref={videoRef}
+            src={url}
+            controls={showControls}
+            playsInline
+            className="w-full bg-black border border-corpo-border"
+            style={{ maxHeight: '80vh' }}
+            onMouseEnter={revealControls}
+            onMouseMove={revealControls}
+            onTouchEnd={revealControls}
+          />
+          {/* Unmute button - shows when video is muted */}
+          {isMuted && (
+            <button
+              onClick={handleUnmute}
+              onMouseEnter={() => { if (!isTouchRef.current) setVolumeHovered(true) }}
+              onMouseLeave={() => { if (!isTouchRef.current) { setVolumeHovered(false); setVolumeActive(false) } }}
+              onMouseDown={() => { if (!isTouchRef.current) setVolumeActive(true) }}
+              onMouseUp={() => { if (!isTouchRef.current) setVolumeActive(false) }}
+              onTouchStart={() => { 
+                isTouchRef.current = true
+                setVolumeActive(true)
+                setVolumeHovered(false)
+              }}
+              onTouchEnd={() => { 
+                setVolumeActive(false)
+                setVolumeHovered(false)
+                setTimeout(() => { isTouchRef.current = false }, 300)
+              }}
+              onTouchCancel={() => { 
+                setVolumeActive(false)
+                setVolumeHovered(false)
+                setTimeout(() => { isTouchRef.current = false }, 300)
+              }}
+              className={cn(
+                "absolute bottom-4 left-4 p-3 rounded-full bg-black/70 transition-none",
+                volumeActive ? "text-lavender" : volumeHovered ? "text-corpo-light" : "text-corpo-text"
+              )}
+            >
+              {volumeActive || volumeHovered ? (
+                <RiVolumeUpFill className="w-6 h-6" />
+              ) : (
+                <RiVolumeMuteLine className="w-6 h-6" />
+              )}
+            </button>
+          )}
+        </div>
       </div>
     </div>
   )
