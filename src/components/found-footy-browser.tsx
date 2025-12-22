@@ -859,9 +859,47 @@ function VideoModal({ url, title, subtitle, eventId, onClose }: VideoModalProps)
   const [closeHovered, setCloseHovered] = useState(false)
   const [closeActive, setCloseActive] = useState(false)
   const [showControls, setShowControls] = useState(false)
+  const [isMobileLandscape, setIsMobileLandscape] = useState(false)
+  const [isPaused, setIsPaused] = useState(false)
   const videoRef = useRef<HTMLVideoElement>(null)
   const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const isTouchRef = useRef(false)
+
+  // Detect mobile landscape - uses touch capability to distinguish from desktop
+  // Desktop monitors are horizontal but don't have touch, so this won't trigger
+  useEffect(() => {
+    const checkMobileLandscape = () => {
+      const isTouchDevice = navigator.maxTouchPoints > 0 || 'ontouchstart' in window
+      const isLandscape = window.innerWidth > window.innerHeight
+      setIsMobileLandscape(isTouchDevice && isLandscape)
+    }
+    
+    checkMobileLandscape()
+    window.addEventListener('resize', checkMobileLandscape)
+    window.addEventListener('orientationchange', checkMobileLandscape)
+    
+    return () => {
+      window.removeEventListener('resize', checkMobileLandscape)
+      window.removeEventListener('orientationchange', checkMobileLandscape)
+    }
+  }, [])
+
+  // Track video play/pause state
+  useEffect(() => {
+    const video = videoRef.current
+    if (!video) return
+    
+    const handlePlay = () => setIsPaused(false)
+    const handlePause = () => setIsPaused(true)
+    
+    video.addEventListener('play', handlePlay)
+    video.addEventListener('pause', handlePause)
+    
+    return () => {
+      video.removeEventListener('play', handlePlay)
+      video.removeEventListener('pause', handlePause)
+    }
+  }, [])
   
   // Show controls with auto-hide after 3 seconds
   const revealControls = () => {
@@ -942,6 +980,176 @@ function VideoModal({ url, title, subtitle, eventId, onClose }: VideoModalProps)
     window.open(downloadUrl, '_blank')
   }
 
+  // Shared button components to avoid duplication
+  const ShareButton = () => (
+    <button
+      onClick={handleShare}
+      onMouseEnter={() => { if (!isTouchRef.current) setShareHovered(true) }}
+      onMouseLeave={() => { if (!isTouchRef.current) { setShareHovered(false); setShareActive(false) } }}
+      onMouseDown={() => { if (!isTouchRef.current) setShareActive(true) }}
+      onMouseUp={() => { if (!isTouchRef.current) setShareActive(false) }}
+      onTouchStart={() => { 
+        isTouchRef.current = true
+        setShareActive(true)
+        setShareHovered(false)
+      }}
+      onTouchEnd={() => { 
+        setShareActive(false)
+        setShareHovered(false)
+        setTimeout(() => { isTouchRef.current = false }, 300)
+      }}
+      onTouchCancel={() => { 
+        setShareActive(false)
+        setShareHovered(false)
+        setTimeout(() => { isTouchRef.current = false }, 300)
+      }}
+      className={cn(
+        "p-1 transition-none",
+        copied ? "text-lavender" : shareActive ? "text-lavender" : shareHovered ? "text-corpo-light" : "text-corpo-text"
+      )}
+    >
+      {copied ? (
+        <RiCheckLine className="w-5 h-5" />
+      ) : shareActive || shareHovered ? (
+        <RiShareBoxFill className="w-5 h-5" />
+      ) : (
+        <RiShareBoxLine className="w-5 h-5" />
+      )}
+    </button>
+  )
+
+  const DownloadButton = () => (
+    <button
+      onClick={handleDownload}
+      onMouseEnter={() => { if (!isTouchRef.current) setDownloadHovered(true) }}
+      onMouseLeave={() => { if (!isTouchRef.current) { setDownloadHovered(false); setDownloadActive(false) } }}
+      onMouseDown={() => setDownloadActive(true)}
+      onMouseUp={() => { if (!isTouchRef.current) setDownloadActive(false) }}
+      onTouchStart={() => { 
+        isTouchRef.current = true
+        setDownloadActive(true)
+        setDownloadHovered(false)
+      }}
+      onTouchEnd={() => { 
+        setDownloadActive(false)
+        setDownloadHovered(false)
+        setTimeout(() => { isTouchRef.current = false }, 300)
+      }}
+      onTouchCancel={() => { 
+        setDownloadActive(false)
+        setDownloadHovered(false)
+        setTimeout(() => { isTouchRef.current = false }, 300)
+      }}
+      className={cn(
+        "p-1 transition-none",
+        downloadActive ? "text-lavender" : downloadHovered ? "text-corpo-light" : "text-corpo-text"
+      )}
+    >
+      {downloadActive || downloadHovered ? (
+        <RiDownload2Fill className="w-5 h-5" />
+      ) : (
+        <RiDownload2Line className="w-5 h-5" />
+      )}
+    </button>
+  )
+
+  const CloseButton = () => (
+    <button
+      onClick={onClose}
+      onMouseEnter={() => { if (!isTouchRef.current) setCloseHovered(true) }}
+      onMouseLeave={() => { if (!isTouchRef.current) { setCloseHovered(false); setCloseActive(false) } }}
+      onMouseDown={() => { if (!isTouchRef.current) setCloseActive(true) }}
+      onMouseUp={() => { if (!isTouchRef.current) setCloseActive(false) }}
+      onTouchStart={() => { 
+        isTouchRef.current = true
+        setCloseActive(true)
+        setCloseHovered(false)
+      }}
+      onTouchEnd={() => { 
+        setCloseActive(false)
+        setCloseHovered(false)
+        setTimeout(() => { isTouchRef.current = false }, 300)
+      }}
+      onTouchCancel={() => { 
+        setCloseActive(false)
+        setCloseHovered(false)
+        setTimeout(() => { isTouchRef.current = false }, 300)
+      }}
+      className={cn(
+        "p-1 transition-none",
+        closeActive ? "text-lavender" : closeHovered ? "text-corpo-light" : "text-corpo-text"
+      )}
+    >
+      {closeActive || closeHovered ? (
+        <RiCloseFill className="w-6 h-6" />
+      ) : (
+        <RiCloseLine className="w-6 h-6" />
+      )}
+    </button>
+  )
+
+  const TitleSection = () => (
+    <div className="font-mono min-w-0">
+      <div 
+        className="text-corpo-text"
+        style={{ fontSize: 'var(--text-size-base)' }}
+      >
+        <HighlightedText text={title} />
+      </div>
+      <div className="text-corpo-text/50 text-sm font-fine">
+        <HighlightedText text={subtitle} />
+      </div>
+    </div>
+  )
+
+  // Mobile landscape: fullscreen-like display with overlay controls
+  if (isMobileLandscape) {
+    return (
+      <div 
+        className="fixed inset-0 z-50 bg-black flex items-center justify-center"
+        onClick={onClose}
+      >
+        {/* Video fills the screen */}
+        <video
+          ref={videoRef}
+          src={url}
+          controls={showControls}
+          autoPlay
+          playsInline
+          className="w-full h-full object-contain"
+          onClick={e => e.stopPropagation()}
+          onMouseEnter={revealControls}
+          onMouseMove={revealControls}
+          onTouchEnd={(e) => {
+            e.stopPropagation()
+            revealControls()
+          }}
+        />
+        
+        {/* Overlay controls - top right, always visible */}
+        <div 
+          className="absolute top-4 right-4 flex items-center gap-2 bg-black/60 rounded-lg px-2 py-1"
+          onClick={e => e.stopPropagation()}
+        >
+          <ShareButton />
+          <DownloadButton />
+          <CloseButton />
+        </div>
+
+        {/* Title overlay - shows when paused */}
+        {isPaused && (
+          <div 
+            className="absolute top-4 left-4 bg-black/60 rounded-lg px-3 py-2"
+            onClick={e => e.stopPropagation()}
+          >
+            <TitleSection />
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // Standard portrait/desktop layout
   return (
     <div 
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/80"
@@ -953,126 +1161,11 @@ function VideoModal({ url, title, subtitle, eventId, onClose }: VideoModalProps)
       >
         {/* Title/subtitle and buttons row */}
         <div className="flex items-end justify-between gap-4 mb-2">
-          {/* Title and subtitle - left side */}
-          <div className="font-mono min-w-0">
-            {/* Title: score at moment */}
-            <div 
-              className="text-corpo-text"
-              style={{ fontSize: 'var(--text-size-base)' }}
-            >
-              <HighlightedText text={title} />
-            </div>
-            {/* Subtitle: goal details */}
-            <div 
-              className="text-corpo-text/50 text-sm font-fine"
-            >
-              <HighlightedText text={subtitle} />
-            </div>
-          </div>
-
-          {/* Action buttons - right side */}
+          <TitleSection />
           <div className="flex items-center gap-2 flex-shrink-0">
-            {/* Share button */}
-          <button
-            onClick={handleShare}
-            onMouseEnter={() => { if (!isTouchRef.current) setShareHovered(true) }}
-            onMouseLeave={() => { if (!isTouchRef.current) { setShareHovered(false); setShareActive(false) } }}
-            onMouseDown={() => { if (!isTouchRef.current) setShareActive(true) }}
-            onMouseUp={() => { if (!isTouchRef.current) setShareActive(false) }}
-            onTouchStart={() => { 
-              isTouchRef.current = true
-              setShareActive(true)
-              setShareHovered(false)
-            }}
-            onTouchEnd={() => { 
-              setShareActive(false)
-              setShareHovered(false)
-              setTimeout(() => { isTouchRef.current = false }, 300)
-            }}
-            onTouchCancel={() => { 
-              setShareActive(false)
-              setShareHovered(false)
-              setTimeout(() => { isTouchRef.current = false }, 300)
-            }}
-            className={cn(
-              "p-1 transition-none",
-              copied ? "text-lavender" : shareActive ? "text-lavender" : shareHovered ? "text-corpo-light" : "text-corpo-text"
-            )}
-          >
-            {copied ? (
-              <RiCheckLine className="w-5 h-5" />
-            ) : shareActive || shareHovered ? (
-              <RiShareBoxFill className="w-5 h-5" />
-            ) : (
-              <RiShareBoxLine className="w-5 h-5" />
-            )}
-          </button>
-          {/* Download button */}
-          <button
-            onClick={handleDownload}
-            onMouseEnter={() => { if (!isTouchRef.current) setDownloadHovered(true) }}
-            onMouseLeave={() => { if (!isTouchRef.current) { setDownloadHovered(false); setDownloadActive(false) } }}
-            onMouseDown={() => setDownloadActive(true)}
-            onMouseUp={() => { if (!isTouchRef.current) setDownloadActive(false) }}
-            onTouchStart={() => { 
-              isTouchRef.current = true
-              setDownloadActive(true)
-              setDownloadHovered(false)
-            }}
-            onTouchEnd={() => { 
-              setDownloadActive(false)
-              setDownloadHovered(false)
-              setTimeout(() => { isTouchRef.current = false }, 300)
-            }}
-            onTouchCancel={() => { 
-              setDownloadActive(false)
-              setDownloadHovered(false)
-              setTimeout(() => { isTouchRef.current = false }, 300)
-            }}
-            className={cn(
-              "p-1 transition-none",
-              downloadActive ? "text-lavender" : downloadHovered ? "text-corpo-light" : "text-corpo-text"
-            )}
-          >
-            {downloadActive || downloadHovered ? (
-              <RiDownload2Fill className="w-5 h-5" />
-            ) : (
-              <RiDownload2Line className="w-5 h-5" />
-            )}
-          </button>
-          {/* Close button */}
-          <button
-            onClick={onClose}
-            onMouseEnter={() => { if (!isTouchRef.current) setCloseHovered(true) }}
-            onMouseLeave={() => { if (!isTouchRef.current) { setCloseHovered(false); setCloseActive(false) } }}
-            onMouseDown={() => { if (!isTouchRef.current) setCloseActive(true) }}
-            onMouseUp={() => { if (!isTouchRef.current) setCloseActive(false) }}
-            onTouchStart={() => { 
-              isTouchRef.current = true
-              setCloseActive(true)
-              setCloseHovered(false)
-            }}
-            onTouchEnd={() => { 
-              setCloseActive(false)
-              setCloseHovered(false)
-              setTimeout(() => { isTouchRef.current = false }, 300)
-            }}
-            onTouchCancel={() => { 
-              setCloseActive(false)
-              setCloseHovered(false)
-              setTimeout(() => { isTouchRef.current = false }, 300)
-            }}
-            className={cn(
-              "p-1 transition-none",
-              closeActive ? "text-lavender" : closeHovered ? "text-corpo-light" : "text-corpo-text"
-            )}
-          >
-            {closeActive || closeHovered ? (
-              <RiCloseFill className="w-6 h-6" />
-            ) : (
-              <RiCloseLine className="w-6 h-6" />
-            )}
-          </button>
+            <ShareButton />
+            <DownloadButton />
+            <CloseButton />
           </div>
         </div>
         
