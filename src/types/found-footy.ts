@@ -4,6 +4,7 @@ export interface Team {
   id: number
   name: string
   logo?: string
+  winner?: boolean | null  // true = won, false = lost, null = draw or not yet determined
 }
 
 export interface Player {

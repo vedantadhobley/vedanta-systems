@@ -470,15 +470,20 @@ function FixtureItem({
   const [isActive, setIsActive] = useState(false)
   const recentTouchRef = useRef(false)
   
-  const { teams, goals, fixture: fixtureInfo, events, league } = fixture
+  const { teams, goals, score, fixture: fixtureInfo, events, league } = fixture
   const isLive = ['1H', '2H', 'HT', 'ET', 'BT', 'P', 'SUSP', 'INT', 'LIVE'].includes(fixtureInfo.status.short)
   // Only show elapsed time for statuses where game is actively playing
   const showElapsedTime = ['1H', '2H', 'ET', 'LIVE'].includes(fixtureInfo.status.short)
   
+  // Check if this is a penalty shootout (in progress 'P' or completed 'PEN')
+  const showPenaltyScore = ['P', 'PEN'].includes(fixtureInfo.status.short) && score?.penalty
+  
   // Determine winner for highlighting (only for completed matches)
+  // Use teams.winner from API - this correctly handles penalty shootouts
+  // where goals are tied but there's still a winner
   const isCompleted = ['FT', 'AET', 'PEN', 'AWD', 'WO'].includes(fixtureInfo.status.short)
-  const homeWins = isCompleted && goals && goals.home !== null && goals.away !== null && goals.home > goals.away
-  const awayWins = isCompleted && goals && goals.home !== null && goals.away !== null && goals.away > goals.home
+  const homeWins = isCompleted && teams.home.winner === true
+  const awayWins = isCompleted && teams.away.winner === true
   
   // Sort events by _first_seen descending (most recent first)
   const sortedEvents = [...(events || [])].sort((a, b) => {
@@ -543,7 +548,10 @@ function FixtureItem({
           <span className="truncate flex items-center">
             <span className={cn(homeWins && "text-lavender")}>{teams.home.name}</span>
             <span className="text-corpo-text/50 mx-2">
-              {goals?.home ?? 0} - {goals?.away ?? 0}
+              {showPenaltyScore 
+                ? `${goals?.home ?? 0} (${score.penalty!.home}) - (${score.penalty!.away}) ${goals?.away ?? 0}`
+                : `${goals?.home ?? 0} - ${goals?.away ?? 0}`
+              }
             </span>
             <span className={cn(awayWins && "text-lavender")}>{teams.away.name}</span>
           </span>
