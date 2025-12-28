@@ -47,12 +47,12 @@
       
       /* Prevent font loading shift */
       body {
-        font-family: 'PT Mono', ui-monospace, monospace;
+        font-family: 'GT Pressura Mono', ui-monospace, monospace;
       }
       
-      /* Match PT Mono metrics with fallback to prevent layout shift */
+      /* Match GT Pressura Mono metrics with fallback to prevent layout shift */
       @font-face {
-        font-family: 'PT Mono Fallback';
+        font-family: 'GT Pressura Mono Fallback';
         src: local('Courier New'), local('monospace');
         size-adjust: 95%;
         ascent-override: 95%;
@@ -61,7 +61,7 @@
       }
     </style>
     <script>
-      // Wait for PT Mono font to load before showing content
+      // Wait for GT Pressura Mono font to load before showing content
       if (document.fonts) {
         document.fonts.ready.then(() => {
           document.documentElement.classList.add('fonts-loaded');

@@ -2,50 +2,50 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Right Serif Mono Font Family */
+/* GT Pressura Mono Font Family - Primary */
 @font-face {
-  font-family: 'Right Serif Mono';
-  src: url('/fonts/right-serif-mono-fine.otf') format('opentype');
+  font-family: 'GT Pressura Mono';
+  src: url('/fonts/gt-pressura-mono-light.ttf') format('truetype');
   font-weight: 300;
   font-style: normal;
   font-display: swap;
 }
 
 @font-face {
-  font-family: 'Right Serif Mono';
-  src: url('/fonts/right-serif-mono-fineitalic.otf') format('opentype');
+  font-family: 'GT Pressura Mono';
+  src: url('/fonts/gt-pressura-mono-light-italic.ttf') format('truetype');
   font-weight: 300;
   font-style: italic;
   font-display: swap;
 }
 
 @font-face {
-  font-family: 'Right Serif Mono';
-  src: url('/fonts/right-serif-mono-regular.otf') format('opentype');
+  font-family: 'GT Pressura Mono';
+  src: url('/fonts/gt-pressura-mono-regular.ttf') format('truetype');
   font-weight: 400;
   font-style: normal;
   font-display: swap;
 }
 
 @font-face {
-  font-family: 'Right Serif Mono';
-  src: url('/fonts/right-serif-mono-regularitalic.otf') format('opentype');
+  font-family: 'GT Pressura Mono';
+  src: url('/fonts/gt-pressura-mono-regular-italic.ttf') format('truetype');
   font-weight: 400;
   font-style: italic;
   font-display: swap;
 }
 
 @font-face {
-  font-family: 'Right Serif Mono';
-  src: url('/fonts/right-serif-mono-dark.otf') format('opentype');
+  font-family: 'GT Pressura Mono';
+  src: url('/fonts/gt-pressura-mono-bold.ttf') format('truetype');
   font-weight: 700;
   font-style: normal;
   font-display: swap;
 }
 
 @font-face {
-  font-family: 'Right Serif Mono';
-  src: url('/fonts/right-serif-mono-darkitalic.otf') format('opentype');
+  font-family: 'GT Pressura Mono';
+  src: url('/fonts/gt-pressura-mono-bold-italic.ttf') format('truetype');
   font-weight: 700;
   font-style: italic;
   font-display: swap;
@@ -201,7 +201,7 @@
   
   body {
     @apply bg-background text-foreground font-mono;
-    font-family: 'Right Serif Mono', ui-monospace, monospace;
+    font-family: 'GT Pressura Mono', ui-monospace, monospace;
     /* Subtle monitor grain */
     background-image: 
       repeating-linear-gradient(

@@ -242,7 +242,7 @@ export function FoundFootyBrowser({
     <div className="font-mono" style={{ fontSize: 'var(--text-size-base)' }}>
       {/* System advisory */}
       <div className="mb-6 border border-corpo-border/50 bg-corpo-bg/50 p-4">
-        <div className="space-y-2 text-corpo-text/60 text-sm font-fine">
+        <div className="space-y-2 text-corpo-text/60 text-sm font-light">
           <div className="text-corpo-text/40 uppercase tracking-wider text-xs">
             // SYSTEM ADVISORY
           </div>
@@ -405,13 +405,13 @@ function StagingFixtureItem({ fixture, formatKickoff }: StagingFixtureItemProps)
             <span>{teams.away.name}</span>
           </span>
           {/* Competition name with country and round */}
-          <span className="text-corpo-text/40 text-sm truncate font-fine">
+          <span className="text-corpo-text/40 text-sm truncate font-light">
             {league ? `${league.country} - ${league.name}${league.round ? ` (${league.round})` : ''}` : 'Unknown Competition'}
           </span>
         </span>
         
         {/* Kickoff time stacked - time on top, countdown below */}
-        <span className="text-corpo-text/60 flex-shrink-0 text-right font-fine flex flex-col items-end">
+        <span className="text-corpo-text/60 flex-shrink-0 text-right font-light flex flex-col items-end">
           <span className="tabular-nums">{kickoffTime}</span>
           <span className="text-corpo-text/40 text-sm">{countdown}</span>
         </span>
@@ -434,7 +434,7 @@ function DateSection({ date, fixtureCount, formatDate, children }: DateSectionPr
     <div className="mt-12 first:mt-0">
       {/* Date header */}
       <div
-        className="flex items-center gap-2 pt-4 pb-1 text-corpo-text/50 font-fine"
+        className="flex items-center gap-2 pt-4 pb-1 text-corpo-text/50 font-light"
         style={{ fontSize: 'var(--text-size-base)' }}
       >
         <span>{formatDate(date)}</span>
@@ -556,7 +556,7 @@ function FixtureItem({
             <span className={cn(awayWins && "text-lavender")}>{teams.away.name}</span>
           </span>
           {/* Competition name with country and round */}
-          <span className="text-corpo-text/40 text-sm truncate font-fine">
+          <span className="text-corpo-text/40 text-sm truncate font-light">
             {league ? `${league.country} - ${league.name}${league.round ? ` (${league.round})` : ''}` : 'Unknown Competition'}
           </span>
           
@@ -575,7 +575,7 @@ function FixtureItem({
         
         {/* Status on far right */}
         <span className={cn(
-          "text-corpo-text/60 flex-shrink-0 font-fine",
+          "text-corpo-text/60 flex-shrink-0 font-light",
           isLive && "text-lavender"
         )}>
           {showElapsedTime
@@ -590,7 +590,7 @@ function FixtureItem({
       {isExpanded && (
         <div className="ml-4 border-l border-corpo-border">
           {sortedEvents.length === 0 ? (
-            <div className="pl-4 pr-3 py-3 text-corpo-text/40 font-fine" style={{ fontSize: 'var(--text-size-base)' }}>
+            <div className="pl-4 pr-3 py-3 text-corpo-text/40 font-light" style={{ fontSize: 'var(--text-size-base)' }}>
               No goals yet
             </div>
           ) : (
@@ -834,7 +834,7 @@ function ClipButton({ index, isBest, onClick }: ClipButtonProps) {
       onTouchEnd={() => { setIsActive(false); setIsHovered(false); setTimeout(() => { recentTouchRef.current = false }, 300) }}
       onTouchCancel={() => { setIsActive(false); setIsHovered(false); setTimeout(() => { recentTouchRef.current = false }, 300) }}
       className={cn(
-        "w-7 h-7 border flex items-center justify-center transition-none font-mono",
+        "w-7 h-7 border flex items-center justify-center transition-none font-mono leading-none",
         isActive 
           ? "border-lavender text-lavender bg-lavender/10" 
           : isHovered 
@@ -845,7 +845,7 @@ function ClipButton({ index, isBest, onClick }: ClipButtonProps) {
       )}
       style={{ fontSize: 'var(--text-size-base)' }}
     >
-      {index}
+      <span className="relative" style={{ top: '-1px' }}>{index}</span>
     </button>
   )
 }
@@ -1002,7 +1002,7 @@ function VideoModal({ url, title, subtitle, eventId, onClose }: VideoModalProps)
             </div>
             {/* Subtitle: goal details */}
             <div 
-              className="text-corpo-text/50 text-sm font-fine"
+              className="text-corpo-text/50 text-sm font-light"
             >
               <HighlightedText text={subtitle} />
             </div>

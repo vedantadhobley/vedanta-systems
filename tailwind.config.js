@@ -83,20 +83,20 @@ export default {
   		},
   		fontFamily: {
   			mono: [
-  				'Right Serif Mono',
+  				'GT Pressura Mono',
   				'ui-monospace',
   				'monospace'
   			],
   			corpo: [
-  				'Right Serif Mono',
+  				'GT Pressura Mono',
   				'ui-monospace',
   				'monospace'
   			]
   		},
   		fontWeight: {
-  			fine: '300',
+  			light: '300',
   			regular: '400',
-  			dark: '700'
+  			bold: '700'
   		}
   	}
   },
