@@ -867,7 +867,7 @@ function VideoModal({ url, title, subtitle, eventId, onClose }: VideoModalProps)
   const [closeHovered, setCloseHovered] = useState(false)
   const [closeActive, setCloseActive] = useState(false)
   const [showControls, setShowControls] = useState(false)
-  const [isMuted, setIsMuted] = useState(true)
+  const [isMuted, setIsMuted] = useState<boolean | null>(null) // null = not yet determined
   const [volumeHovered, setVolumeHovered] = useState(false)
   const [volumeActive, setVolumeActive] = useState(false)
   const videoRef = useRef<HTMLVideoElement>(null)
@@ -1127,8 +1127,8 @@ function VideoModal({ url, title, subtitle, eventId, onClose }: VideoModalProps)
             onMouseMove={revealControls}
             onTouchEnd={revealControls}
           />
-          {/* Unmute button - shows when video is muted */}
-          {isMuted && (
+          {/* Unmute button - shows when video is muted (not during initial load) */}
+          {isMuted === true && (
             <button
               onClick={handleUnmute}
               onMouseEnter={() => { if (!isTouchRef.current) setVolumeHovered(true) }}

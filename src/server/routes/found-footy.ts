@@ -182,7 +182,6 @@ export function createFoundFootyRouter(config: FoundFootyConfig): Router {
     const completedFixtures = await database.collection('fixtures_completed')
       .find({})
       .sort({ 'fixture.date': -1 })
-      .limit(20)
       .toArray()
     
     return { staging: stagingFixtures, active: activeFixtures, completed: completedFixtures }
