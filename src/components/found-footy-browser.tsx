@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from 'react'
+import { useState, useCallback, useEffect, useRef, memo } from 'react'
 import { RiCloseLine, RiCloseFill, RiShareBoxLine, RiShareBoxFill, RiDownload2Line, RiDownload2Fill, RiCheckLine, RiVidiconFill, RiScan2Line, RiHourglass2Line, RiHourglass2Fill, RiExpandUpDownLine, RiExpandUpDownFill, RiContractUpDownLine, RiContractUpDownFill, RiVolumeMuteLine, RiVolumeUpFill } from '@remixicon/react'
 import type { Fixture, GoalEvent, RankedVideo } from '@/types/found-footy'
 import { cn } from '@/lib/utils'
@@ -308,7 +308,7 @@ export function FoundFootyBrowser({
 
       {/* Video Modal */}
       {videoModal && (
-        <VideoModal 
+        <MemoizedVideoModal 
           url={videoModal.url} 
           title={videoModal.title}
           subtitle={videoModal.subtitle}
@@ -858,7 +858,7 @@ interface VideoModalProps {
   onClose: () => void
 }
 
-function VideoModal({ url, title, subtitle, eventId, onClose }: VideoModalProps) {
+const MemoizedVideoModal = memo(function VideoModal({ url, title, subtitle, eventId, onClose }: VideoModalProps) {
   const [copied, setCopied] = useState(false)
   const [shareHovered, setShareHovered] = useState(false)
   const [shareActive, setShareActive] = useState(false)
@@ -866,7 +866,6 @@ function VideoModal({ url, title, subtitle, eventId, onClose }: VideoModalProps)
   const [downloadActive, setDownloadActive] = useState(false)
   const [closeHovered, setCloseHovered] = useState(false)
   const [closeActive, setCloseActive] = useState(false)
-  const [showControls, setShowControls] = useState(false)
   const [isMuted, setIsMuted] = useState<boolean | null>(null) // null = not yet determined
   const [volumeHovered, setVolumeHovered] = useState(false)
   const [volumeActive, setVolumeActive] = useState(false)
@@ -874,16 +873,20 @@ function VideoModal({ url, title, subtitle, eventId, onClose }: VideoModalProps)
   const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const isTouchRef = useRef(false)
   
-  // Show controls with auto-hide after 3 seconds
-  const revealControls = () => {
-    setShowControls(true)
+  // Show controls with auto-hide after 3 seconds (direct DOM manipulation to avoid re-renders)
+  const revealControls = useCallback(() => {
+    if (videoRef.current) {
+      videoRef.current.controls = true
+    }
     if (controlsTimeoutRef.current) {
       clearTimeout(controlsTimeoutRef.current)
     }
     controlsTimeoutRef.current = setTimeout(() => {
-      setShowControls(false)
+      if (videoRef.current) {
+        videoRef.current.controls = false
+      }
     }, 3000)
-  }
+  }, [])
   
   // Cleanup timeout on unmount
   useEffect(() => {
@@ -1114,18 +1117,19 @@ function VideoModal({ url, title, subtitle, eventId, onClose }: VideoModalProps)
           </div>
         </div>
         
-        {/* Video player with unmute overlay */}
-        <div className="relative">
+        {/* Video player with unmute overlay - outer div has black bg to mask any flicker */}
+        <div className="relative bg-black">
           <video
             ref={videoRef}
             src={url}
-            controls={showControls}
             playsInline
-            className="w-full bg-black border border-corpo-border"
-            style={{ maxHeight: '80vh' }}
+            preload="metadata"
+            crossOrigin="anonymous"
+            className="w-full border border-corpo-border"
+            style={{ maxHeight: '80vh', backgroundColor: '#000' }}
             onMouseEnter={revealControls}
             onMouseMove={revealControls}
-            onTouchEnd={revealControls}
+            onTouchStart={revealControls}
           />
           {/* Unmute button - shows when video is muted (not during initial load) */}
           {isMuted === true && (
@@ -1166,4 +1170,21 @@ function VideoModal({ url, title, subtitle, eventId, onClose }: VideoModalProps)
       </div>
     </div>
   )
-}
+// Custom comparison - only re-render if url/title/subtitle/eventId change (ignore onClose function reference)
+}, (prevProps, nextProps) => {
+  const shouldSkipRender = prevProps.url === nextProps.url &&
+         prevProps.title === nextProps.title &&
+         prevProps.subtitle === nextProps.subtitle &&
+         prevProps.eventId === nextProps.eventId
+  
+  if (!shouldSkipRender) {
+    console.log('[VideoModal] Re-rendering because props changed:', {
+      urlChanged: prevProps.url !== nextProps.url,
+      titleChanged: prevProps.title !== nextProps.title,
+      subtitleChanged: prevProps.subtitle !== nextProps.subtitle,
+      eventIdChanged: prevProps.eventId !== nextProps.eventId
+    })
+  }
+  
+  return shouldSkipRender
+})

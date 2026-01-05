@@ -283,16 +283,27 @@ export function createFoundFootyRouter(config: FoundFootyConfig): Router {
       const stat = await minioClient.statObject(bucket, objectPath)
       const fileSize = stat.size
       
-      // Set headers
+      // Set headers for optimal video streaming
       res.setHeader('Content-Type', stat.metaData?.['content-type'] || 'video/mp4')
       res.setHeader('Accept-Ranges', 'bytes')
+      // Cache video chunks for 1 day (immutable content)
+      res.setHeader('Cache-Control', 'public, max-age=86400, immutable')
+      // Keep connection alive for streaming
+      res.setHeader('Connection', 'keep-alive')
+      // CORS for video playback
+      res.setHeader('Access-Control-Allow-Origin', '*')
+      res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS')
+      res.setHeader('Access-Control-Allow-Headers', 'Range')
+      res.setHeader('Access-Control-Expose-Headers', 'Content-Length, Content-Range, Accept-Ranges')
       
       // Handle range requests for video seeking
       const range = req.headers.range
       if (range) {
         const parts = range.replace(/bytes=/, '').split('-')
         const start = parseInt(parts[0], 10)
-        const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1
+        // For better streaming, use larger chunks (2MB) when end not specified
+        const requestedEnd = parts[1] ? parseInt(parts[1], 10) : null
+        const end = requestedEnd !== null ? requestedEnd : Math.min(start + 2 * 1024 * 1024, fileSize - 1)
         const chunkSize = end - start + 1
         
         res.status(206)
