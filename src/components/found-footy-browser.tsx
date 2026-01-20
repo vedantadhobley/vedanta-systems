@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef, memo } from 'react'
-import { RiCloseLine, RiCloseFill, RiShareBoxLine, RiShareBoxFill, RiDownload2Line, RiDownload2Fill, RiCheckLine, RiVidiconFill, RiScan2Line, RiHourglass2Line, RiHourglass2Fill, RiExpandUpDownLine, RiExpandUpDownFill, RiContractUpDownLine, RiContractUpDownFill, RiVolumeMuteLine, RiVolumeUpFill } from '@remixicon/react'
+import { RiCloseLine, RiCloseFill, RiShareBoxLine, RiShareBoxFill, RiDownload2Line, RiDownload2Fill, RiCheckLine, RiVidiconFill, RiScan2Line, RiHourglass2Line, RiHourglass2Fill, RiExpandUpDownLine, RiExpandUpDownFill, RiContractUpDownLine, RiContractUpDownFill, RiVolumeMuteLine, RiVolumeUpFill, RiErrorWarningLine } from '@remixicon/react'
 import type { Fixture, GoalEvent, RankedVideo } from '@/types/found-footy'
 import { cn } from '@/lib/utils'
 import { useTimezone } from '@/contexts/timezone-context'
@@ -47,17 +47,38 @@ function generateEventSubtitle(event: GoalEvent): string {
   return `${timeStr} ${eventType} - <<${scorerName}>>`
 }
 
-// Animated icons for scanning states
+// Tailwind's animate-pulse duration is 2000ms
+const PULSE_DURATION_MS = 2000
+
+// Module-level constant: captured once when module loads, shared by ALL icons
+// This ensures every icon calculates the exact same offset
+const PAGE_LOAD_TIME = Date.now()
+const SYNCED_PULSE_OFFSET = PAGE_LOAD_TIME % PULSE_DURATION_MS
+const SYNCED_PULSE_STYLE: React.CSSProperties = { animationDelay: `-${SYNCED_PULSE_OFFSET}ms` }
+
+// Animated icons for scanning states - synced across all instances
 function ValidatingIcon({ className }: { className?: string }) {
   return (
-    <RiScan2Line className={cn("animate-pulse", className)} />
+    <RiScan2Line className={cn("animate-pulse", className)} style={SYNCED_PULSE_STYLE} />
   )
 }
 
 function ExtractingIcon({ className }: { className?: string }) {
   return (
-    <RiVidiconFill className={cn("animate-pulse", className)} />
+    <RiVidiconFill className={cn("animate-pulse", className)} style={SYNCED_PULSE_STYLE} />
   )
+}
+
+// Icon for events with unknown player (no debouncing applied)
+function UnknownPlayerIcon({ className }: { className?: string }) {
+  return (
+    <RiErrorWarningLine className={className} />
+  )
+}
+
+// Check if player is unknown (null, undefined, or "Unknown")
+function isUnknownPlayer(player: { name: string | null } | null | undefined): boolean {
+  return !player?.name || player.name === 'Unknown'
 }
 
 // Extract content hash from video URL (e.g., "0235165c" from "..._0235165c.mp4")
@@ -85,6 +106,7 @@ interface FoundFootyBrowserProps {
   fixtures: Fixture[]
   completedFixtures: Fixture[]
   isConnected: boolean
+  isLoading: boolean  // True until first SSE data received
   lastUpdate: Date | null
   initialVideo?: InitialVideoParams | null  // From URL params
 }
@@ -94,6 +116,7 @@ export function FoundFootyBrowser({
   fixtures, 
   completedFixtures, 
   isConnected: _isConnected,
+  isLoading,
   initialVideo
 }: FoundFootyBrowserProps) {
   const [expandedFixture, setExpandedFixture] = useState<number | null>(null)
@@ -101,6 +124,9 @@ export function FoundFootyBrowser({
   const [videoModal, setVideoModal] = useState<VideoInfo | null>(null)
   const initialVideoProcessed = useRef(false)
   const { mode, formatTime, getTimezoneAbbr } = useTimezone()
+  
+  // Memoize close handler to prevent VideoModal re-renders
+  const closeVideoModal = useCallback(() => setVideoModal(null), [])
 
   // Custom sort: fixtures with _last_activity first (by activity DESC), then fixtures without (by kickoff ASC)
   const sortFixturesCustom = (fixtureList: Fixture[]) => {
@@ -158,17 +184,23 @@ export function FoundFootyBrowser({
         setExpandedEvent(event._event_id)
         
         // If hash provided, try to find and open that specific video
+        // Defer modal opening to next frame to prevent UI freeze on slower devices
         if (initialVideo.hash) {
           const videos = event._s3_videos || []
           // Find video by content hash in URL
           const video = videos.find(v => getVideoHash(v.url) === initialVideo.hash)
           
           if (video) {
-            setVideoModal({
-              url: video.url,
-              title: generateEventTitle(fixture, event),
-              subtitle: generateEventSubtitle(event),
-              eventId: event._event_id
+            // Use double rAF to ensure DOM has updated before opening modal
+            requestAnimationFrame(() => {
+              requestAnimationFrame(() => {
+                setVideoModal({
+                  url: video.url,
+                  title: generateEventTitle(fixture, event),
+                  subtitle: generateEventSubtitle(event),
+                  eventId: event._event_id
+                })
+              })
             })
           }
           // If hash not found, video was removed - just show expanded event (no modal)
@@ -258,7 +290,11 @@ export function FoundFootyBrowser({
 
       {/* Fixtures list with date separators */}
       <div className="space-y-1">
-        {!hasFixtures ? (
+        {isLoading ? (
+          <div className="text-corpo-text/50 py-8 text-center">
+            <span className="animate-pulse">Loading fixtures...</span>
+          </div>
+        ) : !hasFixtures ? (
           <div className="text-corpo-text/50 py-8 text-center">
             No fixtures available
           </div>
@@ -313,7 +349,7 @@ export function FoundFootyBrowser({
           title={videoModal.title}
           subtitle={videoModal.subtitle}
           eventId={videoModal.eventId}
-          onClose={() => setVideoModal(null)} 
+          onClose={closeVideoModal} 
         />
       )}
     </div>
@@ -494,7 +530,7 @@ function FixtureItem({
   
   // Check if any event in this fixture is still scanning
   const hasActiveScanning = sortedEvents.some(e => !e._twitter_complete)
-  const hasValidating = sortedEvents.some(e => !e._monitor_complete)
+  const hasValidating = sortedEvents.some(e => !e._monitor_complete && !isUnknownPlayer(e.player))
   const hasExtracting = sortedEvents.some(e => e._monitor_complete && !e._twitter_complete)
 
   return (
@@ -562,13 +598,13 @@ function FixtureItem({
           
         </span>
         
-        {/* Scanning indicator */}
+        {/* Status indicator - only show one icon at fixture level, priority: extracting > validating */}
         {hasActiveScanning && (
           <span className="text-lavender/70 flex-shrink-0">
-            {hasValidating ? (
-              <ValidatingIcon className="w-4 h-4" />
-            ) : hasExtracting ? (
+            {hasExtracting ? (
               <ExtractingIcon className="w-4 h-4" />
+            ) : hasValidating ? (
+              <ValidatingIcon className="w-4 h-4" />
             ) : null}
           </span>
         )}
@@ -654,7 +690,9 @@ function EventItem({ event, fixture, isExpanded, onToggle, onOpenVideo }: EventI
   // - _monitor_complete = false: Debounce/validating (event just detected, waiting for stability)
   // - _monitor_complete = true && _twitter_complete = false: Extracting clips from Twitter
   // - Both true: All scanning complete
-  const isValidating = !event._monitor_complete
+  // - Unknown player: No debouncing, goes straight to extraction
+  const hasUnknownPlayer = isUnknownPlayer(event.player)
+  const isValidating = !event._monitor_complete && !hasUnknownPlayer
   const isExtracting = event._monitor_complete === true && !event._twitter_complete
   const isStillScanning = isValidating || isExtracting
 
@@ -723,7 +761,12 @@ function EventItem({ event, fixture, isExpanded, onToggle, onOpenVideo }: EventI
             <span className="truncate">
               <HighlightedText text={generateEventTitle(fixture, event)} />
             </span>
-            {/* Scanning indicator - right of title */}
+            {/* Status indicators - right of title */}
+            {hasUnknownPlayer && (
+              <span className="text-corpo-text/50 flex-shrink-0" title="Unknown player - no debouncing">
+                <UnknownPlayerIcon className="w-4 h-4" />
+              </span>
+            )}
             {isStillScanning && (
               <span className="text-lavender/70 flex-shrink-0" title={isValidating ? "Validating event..." : "Extracting clips..."}>
                 {isValidating ? (
@@ -1120,10 +1163,11 @@ const MemoizedVideoModal = memo(function VideoModal({ url, title, subtitle, even
         {/* Video player with unmute overlay - outer div has black bg to mask any flicker */}
         <div className="relative bg-black">
           <video
+            key={url} // Stable key prevents re-mounting on state changes
             ref={videoRef}
             src={url}
             playsInline
-            preload="metadata"
+            preload="auto"
             crossOrigin="anonymous"
             className="w-full border border-corpo-border"
             style={{ maxHeight: '80vh', backgroundColor: '#000' }}

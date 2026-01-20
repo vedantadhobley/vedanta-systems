@@ -79,7 +79,7 @@ const markdownComponents: Components = {
     <h3 className="text-base font-mono text-corpo-text mb-2 mt-4">{children}</h3>
   ),
   p: ({ children }) => (
-    <p className="text-corpo-text/80 font-mono text-sm mb-3 leading-relaxed">{children}</p>
+    <p className="text-corpo-text/80 font-mono text-sm mb-3 leading-relaxed break-words">{children}</p>
   ),
   a: ({ href, children }) => (
     <a href={href} target="_blank" rel="noopener noreferrer" className="text-lavender hover:underline">
@@ -101,7 +101,7 @@ const markdownComponents: Components = {
     
     if (isInline) {
       return (
-        <code className="text-lavender bg-corpo-border/40 px-1.5 py-0.5 rounded text-sm font-mono">
+        <code className="text-lavender bg-corpo-border/40 px-1.5 py-0.5 rounded text-sm font-mono break-words">
           {children}
         </code>
       )
@@ -115,7 +115,7 @@ const markdownComponents: Components = {
     
     // Regular code block
     return (
-      <code className="block text-sm font-mono whitespace-pre text-corpo-text/90">
+      <code className="block text-sm font-mono whitespace-pre-wrap break-words md:whitespace-pre text-corpo-text/90">
         {content}
       </code>
     )
@@ -127,7 +127,7 @@ const markdownComponents: Components = {
       return <>{children}</>
     }
     return (
-      <pre className="bg-black/50 border border-corpo-border rounded p-4 mb-4 overflow-x-auto">
+      <pre className="bg-black/50 border border-corpo-border rounded p-3 md:p-4 mb-4 overflow-x-auto max-w-full text-xs md:text-sm">
         {children}
       </pre>
     )
@@ -201,17 +201,19 @@ export function ReadmeViewer({ isOpen, onClose, content, isLoading }: ReadmeView
           </button>
         </div>
         
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6">
+        {/* Content - overflow-x-hidden prevents horizontal scroll on mobile */}
+        <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-6">
           {isLoading ? (
             <div className="text-corpo-text/50 font-mono">Loading...</div>
           ) : (
-            <ReactMarkdown 
-              remarkPlugins={[remarkGfm]}
-              components={markdownComponents}
-            >
-              {content || ''}
-            </ReactMarkdown>
+            <div className="max-w-full overflow-hidden">
+              <ReactMarkdown 
+                remarkPlugins={[remarkGfm]}
+                components={markdownComponents}
+              >
+                {content || ''}
+              </ReactMarkdown>
+            </div>
           )}
         </div>
       </div>

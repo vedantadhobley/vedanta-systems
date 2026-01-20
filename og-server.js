@@ -1,26 +1,72 @@
 /**
- * OG Meta Tag Server
+ * OG Meta Tag Server + Data Injection Server
  * 
- * Lightweight server that generates dynamic HTML with Open Graph meta tags
- * for social media crawlers. Runs alongside nginx in the frontend container.
+ * Lightweight server that:
+ * 1. Generates dynamic HTML with Open Graph meta tags for social media crawlers
+ * 2. Injects fixture data into HTML for regular users (SSR-like data preloading)
  * 
  * Usage:
- * - Nginx detects crawler User-Agent and proxies to this server
- * - Server fetches data from API and returns HTML with dynamic OG tags
- * - Regular users get served by nginx directly (SPA)
+ * - Nginx proxies crawler requests here for dynamic OG tags
+ * - Nginx proxies Found Footy page requests here for data injection
+ * - Server fetches data from API and injects it into HTML
  */
 
 const http = require('http');
 const https = require('https');
+const fs = require('fs');
+const path = require('path');
 
 const PORT = 3002;
 const API_BASE = process.env.API_URL || 'http://vedanta-systems-prod-api:3001';
+const DIST_DIR = '/app/dist';
 
-// Fetch JSON from URL
+// Cache the index.html template
+let indexHtmlTemplate = null;
+function getIndexHtml() {
+  if (!indexHtmlTemplate) {
+    try {
+      indexHtmlTemplate = fs.readFileSync(path.join(DIST_DIR, 'index.html'), 'utf8');
+    } catch (e) {
+      console.error('[OG Server] Failed to read index.html:', e);
+      return null;
+    }
+  }
+  return indexHtmlTemplate;
+}
+
+// Fetch all fixtures for injection
+async function fetchFixtures() {
+  try {
+    const data = await fetchJson(`${API_BASE}/api/found-footy/fixtures`);
+    return {
+      staging: data.staging || [],
+      active: data.active || [],
+      completed: data.completed || [],
+      timestamp: new Date().toISOString()
+    };
+  } catch (e) {
+    console.error('[OG Server] Failed to fetch fixtures:', e);
+    return null;
+  }
+}
+
+// Inject fixture data into HTML for instant loading
+function injectDataIntoHtml(html, fixtureData) {
+  if (!fixtureData) return html;
+  
+  // Inject data as a script tag before </head>
+  const script = `<script>window.__FOOTY_INITIAL_DATA__=${JSON.stringify(fixtureData)};</script>`;
+  return html.replace('</head>', `${script}\n</head>`);
+}
+
+// Fetch JSON from URL with timeout
+const FETCH_TIMEOUT_MS = 5000; // 5 second timeout
+
 function fetchJson(url) {
   return new Promise((resolve, reject) => {
     const protocol = url.startsWith('https') ? https : http;
-    protocol.get(url, (res) => {
+    
+    const req = protocol.get(url, (res) => {
       let data = '';
       res.on('data', chunk => data += chunk);
       res.on('end', () => {
@@ -30,7 +76,15 @@ function fetchJson(url) {
           reject(e);
         }
       });
-    }).on('error', reject);
+    });
+    
+    req.on('error', reject);
+    
+    // Add timeout
+    req.setTimeout(FETCH_TIMEOUT_MS, () => {
+      req.destroy();
+      reject(new Error(`Fetch timeout after ${FETCH_TIMEOUT_MS}ms: ${url}`));
+    });
   });
 }
 
@@ -230,23 +284,60 @@ const server = http.createServer(async (req, res) => {
     const path = url.pathname;
     const eventId = url.searchParams.get('v');
     const videoHash = url.searchParams.get('h');
+    const isCrawler = req.headers['x-is-crawler'] === '1';
+    const wantsDataInjection = req.headers['x-inject-data'] === '1';
     
-    console.log(`[OG Server] ${req.method} ${path}?v=${eventId}&h=${videoHash}`);
+    console.log(`[OG Server] ${req.method} ${path} crawler=${isCrawler} inject=${wantsDataInjection}`);
     
     let html;
     
-    if (eventId) {
-      // Try to find the event and generate dynamic OG tags
-      const result = await findEvent(eventId);
-      if (result) {
-        html = generateVideoOgHtml(result.fixture, result.event, videoHash);
+    // For crawlers, generate OG meta tags HTML
+    if (isCrawler) {
+      if (eventId) {
+        // Try to find the event and generate dynamic OG tags
+        const result = await findEvent(eventId);
+        if (result) {
+          html = generateVideoOgHtml(result.fixture, result.event, videoHash);
+        } else {
+          html = generateDefaultOgHtml(path);
+        }
       } else {
-        // Event not found, use default
         html = generateDefaultOgHtml(path);
       }
-    } else {
-      // No event ID, use default OG tags
-      html = generateDefaultOgHtml(path);
+    } 
+    // For regular users wanting data injection, serve index.html with injected data
+    else if (wantsDataInjection) {
+      const indexHtml = getIndexHtml();
+      if (!indexHtml) {
+        // Critical failure - can't even read index.html
+        res.writeHead(500, { 'Content-Type': 'text/plain' });
+        res.end('Failed to load page template');
+        return;
+      }
+      
+      // Try to fetch fixture data, but don't block on failure
+      let fixtureData = null;
+      try {
+        fixtureData = await fetchFixtures();
+      } catch (e) {
+        console.error('[OG Server] Fixture fetch failed, serving without data:', e.message);
+      }
+      
+      html = injectDataIntoHtml(indexHtml, fixtureData);
+      console.log(`[OG Server] Injected ${fixtureData ? 'fixture data' : 'no data (fetch failed)'} into HTML`);
+    }
+    // Fallback (shouldn't normally happen)
+    else {
+      if (eventId) {
+        const result = await findEvent(eventId);
+        if (result) {
+          html = generateVideoOgHtml(result.fixture, result.event, videoHash);
+        } else {
+          html = generateDefaultOgHtml(path);
+        }
+      } else {
+        html = generateDefaultOgHtml(path);
+      }
     }
     
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });

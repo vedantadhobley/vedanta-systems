@@ -56,7 +56,13 @@ export function createFoundFootyRouter(config: FoundFootyConfig): Router {
     if (!isConfigured || !config.mongoUri) return null
     
     if (!mongoClient) {
-      mongoClient = new MongoClient(config.mongoUri)
+      mongoClient = new MongoClient(config.mongoUri, {
+        maxPoolSize: 5,           // Limit pool size (default is 100)
+        minPoolSize: 1,           // Keep at least 1 connection warm
+        maxIdleTimeMS: 60000,     // Close idle connections after 60s
+        serverSelectionTimeoutMS: 5000,  // Fail fast on connection issues
+        heartbeatFrequencyMS: 30000,    // Reduce topology monitoring (default 10s)
+      })
       await mongoClient.connect()
       db = mongoClient.db('found_footy')
       console.log('✅ [found-footy] Connected to MongoDB')

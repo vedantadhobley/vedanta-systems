@@ -5,7 +5,8 @@ import { GitHubContributionGraph } from '@/components/github-contribution-graph'
 import { Header, BottomNav } from '@/components/header'
 import { PathSegment } from '@/components/filesystem-nav'
 import { PhotoGallery } from '@/components/photo-gallery'
-import { MoonBackground } from '@/components/moon-background'
+// TODO: Re-enable moon background video when performance issues are resolved
+// import { MoonBackground } from '@/components/moon-background'
 import { FoundFootyBrowser } from '@/components/found-footy-browser'
 import { ProjectStatus } from '@/components/project-status'
 import { FootyStreamProvider, useFootyStream } from '@/contexts/FootyStreamContext'
@@ -280,7 +281,7 @@ function DirectoryListing() {
 
 // FoundFooty content component - rendered inside DirectoryListing
 function FoundFootyContent() {
-  const { stagingFixtures, fixtures, completedFixtures, isConnected, lastUpdate } = useFootyStream()
+  const { stagingFixtures, fixtures, completedFixtures, isConnected, isLoading, lastUpdate } = useFootyStream()
   const location = useLocation()
   
   // Parse URL params for deep linking (e.g., ?v=event_id&h=video_hash)
@@ -301,6 +302,7 @@ function FoundFootyContent() {
         fixtures={fixtures}
         completedFixtures={completedFixtures}
         isConnected={isConnected}
+        isLoading={isLoading}
         lastUpdate={lastUpdate}
         initialVideo={initialVideo}
       />
@@ -312,7 +314,8 @@ function App() {
   return (
     <TimezoneProvider>
       <FootyStreamProvider>
-        <MoonBackground />
+        {/* TODO: Re-enable moon background video when performance issues are resolved */}
+        {/* <MoonBackground /> */}
         <Routes>
           <Route path="*" element={<DirectoryListing />} />
         </Routes>
