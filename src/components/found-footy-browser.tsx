@@ -834,9 +834,14 @@ const MemoizedVideoModal = memo(function VideoModal({ url, title, subtitle, even
   const videoRef = useRef<HTMLVideoElement>(null)
   const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const isTouchRef = useRef(false)
+  const mountedAtRef = useRef(Date.now())
   
   // Show controls with auto-hide after 3 seconds (direct DOM manipulation to avoid re-renders)
   const revealControls = useCallback(() => {
+    // Ignore events in the first 300ms after mount to prevent immediate reveal
+    // when mouse is already over the video area when modal opens
+    if (Date.now() - mountedAtRef.current < 300) return
+    
     if (videoRef.current) {
       videoRef.current.controls = true
     }
