@@ -363,9 +363,7 @@ interface StagingFixtureItemProps {
 }
 
 function StagingFixtureItem({ fixture, formatKickoff }: StagingFixtureItemProps) {
-  const [isHovered, setIsHovered] = useState(false)
   const [countdown, setCountdown] = useState<string>('')
-  const recentTouchRef = useRef(false)
   
   const { teams, fixture: fixtureInfo, league } = fixture
   const kickoffTime = formatKickoff(fixtureInfo.date)
@@ -415,22 +413,12 @@ function StagingFixtureItem({ fixture, formatKickoff }: StagingFixtureItemProps)
   return (
     <div className="border border-corpo-border">
       <div
-        className={cn(
-          "w-full flex items-center gap-2 px-3 py-2 text-left transition-none",
-          isHovered ? "text-corpo-light" : "text-corpo-text"
-        )}
+        className="group w-full flex items-center gap-2 px-3 py-2 text-left transition-none text-corpo-text hover:text-corpo-light"
         style={{ fontSize: 'var(--text-size-base)' }}
-        onMouseEnter={() => { if (!recentTouchRef.current) setIsHovered(true) }}
-        onMouseLeave={() => { if (!recentTouchRef.current) setIsHovered(false) }}
-        onTouchStart={() => { recentTouchRef.current = true; setIsHovered(false) }}
-        onTouchEnd={() => { setIsHovered(false); setTimeout(() => { recentTouchRef.current = false }, 300) }}
       >
-        {/* Hourglass icon for pending fixtures */}
-        {isHovered ? (
-          <RiHourglass2Fill className="w-4 h-4 flex-shrink-0 text-corpo-text/50" />
-        ) : (
-          <RiHourglass2Line className="w-4 h-4 flex-shrink-0 text-corpo-text/50" />
-        )}
+        {/* Hourglass icon for pending fixtures - filled on hover via CSS */}
+        <RiHourglass2Line className="w-4 h-4 flex-shrink-0 text-corpo-text/50 group-hover:hidden" />
+        <RiHourglass2Fill className="w-4 h-4 flex-shrink-0 text-corpo-text/50 hidden group-hover:block" />
         
         {/* Fixture info - two lines like active fixtures */}
         <span className="flex-1 flex flex-col min-w-0">
@@ -502,9 +490,6 @@ function FixtureItem({
   onToggleEvent,
   onOpenVideo 
 }: FixtureItemProps) {
-  const [isHovered, setIsHovered] = useState(false)
-  const [isActive, setIsActive] = useState(false)
-  const recentTouchRef = useRef(false)
   
   const { teams, goals, score, fixture: fixtureInfo, events, league } = fixture
   const isLive = ['1H', '2H', 'HT', 'ET', 'BT', 'P', 'SUSP', 'INT', 'LIVE'].includes(fixtureInfo.status.short)
@@ -538,45 +523,20 @@ function FixtureItem({
       {/* Fixture header */}
       <button
         onClick={onToggle}
-        onMouseEnter={() => { if (!recentTouchRef.current) setIsHovered(true) }}
-        onMouseLeave={() => { if (!recentTouchRef.current) { setIsHovered(false); setIsActive(false) } }}
-        onMouseDown={() => setIsActive(true)}
-        onMouseUp={() => setIsActive(false)}
-        onTouchStart={() => { recentTouchRef.current = true; setIsActive(true); setIsHovered(false) }}
-        onTouchEnd={() => { setIsActive(false); setIsHovered(false); setTimeout(() => { recentTouchRef.current = false }, 300) }}
-        onTouchCancel={() => { setIsActive(false); setIsHovered(false); setTimeout(() => { recentTouchRef.current = false }, 300) }}
-        className={cn(
-          "w-full flex items-center gap-2 px-3 py-2 text-left transition-none",
-          isActive ? "text-lavender" : isHovered ? "text-corpo-light" : "text-corpo-text"
-        )}
+        className="group w-full flex items-center gap-2 px-3 py-2 text-left transition-none text-corpo-text hover:text-corpo-light active:text-lavender"
         style={{ fontSize: 'var(--text-size-base)' }}
       >
+        {/* Icons: Line version by default, Fill version on hover/active via CSS */}
         {isExpanded ? (
-          isActive || isHovered ? (
-            <RiContractUpDownFill 
-              className={cn(
-                "w-4 h-4 transition-none flex-shrink-0",
-                isActive ? "text-lavender" : "text-corpo-light"
-              )} 
-            />
-          ) : (
-            <RiContractUpDownLine 
-              className="w-4 h-4 transition-none flex-shrink-0 text-corpo-text/50" 
-            />
-          )
+          <>
+            <RiContractUpDownLine className="w-4 h-4 transition-none flex-shrink-0 text-corpo-text/50 group-hover:hidden group-active:hidden" />
+            <RiContractUpDownFill className="w-4 h-4 transition-none flex-shrink-0 hidden group-hover:block group-hover:text-corpo-light group-active:block group-active:text-lavender" />
+          </>
         ) : (
-          isActive || isHovered ? (
-            <RiExpandUpDownFill 
-              className={cn(
-                "w-4 h-4 transition-none flex-shrink-0",
-                isActive ? "text-lavender" : "text-corpo-light"
-              )} 
-            />
-          ) : (
-            <RiExpandUpDownLine 
-              className="w-4 h-4 transition-none flex-shrink-0 text-corpo-text/50" 
-            />
-          )
+          <>
+            <RiExpandUpDownLine className="w-4 h-4 transition-none flex-shrink-0 text-corpo-text/50 group-hover:hidden group-active:hidden" />
+            <RiExpandUpDownFill className="w-4 h-4 transition-none flex-shrink-0 hidden group-hover:block group-hover:text-corpo-light group-active:block group-active:text-lavender" />
+          </>
         )}
         
         {/* Fixture title with scanning indicator on right */}
@@ -675,9 +635,6 @@ interface EventItemProps {
 }
 
 function EventItem({ event, fixture, isExpanded, onToggle, onOpenVideo }: EventItemProps) {
-  const [isHovered, setIsHovered] = useState(false)
-  const [isActive, setIsActive] = useState(false)
-  const recentTouchRef = useRef(false)
   
   // Get videos - prefer ranked _s3_videos, fall back to legacy _s3_urls
   const rankedVideos: (RankedVideo | { url: string; rank: number; perceptual_hash?: string })[] = event._s3_videos 
@@ -713,45 +670,20 @@ function EventItem({ event, fixture, isExpanded, onToggle, onOpenVideo }: EventI
       {/* Event header - two lines: title and subtitle */}
       <button
         onClick={onToggle}
-        onMouseEnter={() => { if (!recentTouchRef.current) setIsHovered(true) }}
-        onMouseLeave={() => { if (!recentTouchRef.current) { setIsHovered(false); setIsActive(false) } }}
-        onMouseDown={() => setIsActive(true)}
-        onMouseUp={() => setIsActive(false)}
-        onTouchStart={() => { recentTouchRef.current = true; setIsActive(true); setIsHovered(false) }}
-        onTouchEnd={() => { setIsActive(false); setIsHovered(false); setTimeout(() => { recentTouchRef.current = false }, 300) }}
-        onTouchCancel={() => { setIsActive(false); setIsHovered(false); setTimeout(() => { recentTouchRef.current = false }, 300) }}
-        className={cn(
-          "w-full flex items-center gap-2 px-3 py-2 text-left transition-none",
-          isActive ? "text-lavender" : isHovered ? "text-corpo-light" : "text-corpo-text"
-        )}
+        className="group w-full flex items-center gap-2 px-3 py-2 text-left transition-none text-corpo-text hover:text-corpo-light active:text-lavender"
         style={{ fontSize: 'var(--text-size-base)' }}
       >
+        {/* Icons: Line version by default, Fill version on hover/active via CSS */}
         {isExpanded ? (
-          isActive || isHovered ? (
-            <RiContractUpDownFill 
-              className={cn(
-                "w-4 h-4 transition-none flex-shrink-0",
-                isActive ? "text-lavender" : "text-corpo-light"
-              )} 
-            />
-          ) : (
-            <RiContractUpDownLine 
-              className="w-4 h-4 transition-none flex-shrink-0 text-corpo-text/50" 
-            />
-          )
+          <>
+            <RiContractUpDownLine className="w-4 h-4 transition-none flex-shrink-0 text-corpo-text/50 group-hover:hidden group-active:hidden" />
+            <RiContractUpDownFill className="w-4 h-4 transition-none flex-shrink-0 hidden group-hover:block group-hover:text-corpo-light group-active:block group-active:text-lavender" />
+          </>
         ) : (
-          isActive || isHovered ? (
-            <RiExpandUpDownFill 
-              className={cn(
-                "w-4 h-4 transition-none flex-shrink-0",
-                isActive ? "text-lavender" : "text-corpo-light"
-              )} 
-            />
-          ) : (
-            <RiExpandUpDownLine 
-              className="w-4 h-4 transition-none flex-shrink-0 text-corpo-text/50" 
-            />
-          )
+          <>
+            <RiExpandUpDownLine className="w-4 h-4 transition-none flex-shrink-0 text-corpo-text/50 group-hover:hidden group-active:hidden" />
+            <RiExpandUpDownFill className="w-4 h-4 transition-none flex-shrink-0 hidden group-hover:block group-hover:text-corpo-light group-active:block group-active:text-lavender" />
+          </>
         )}
         
         {/* Two-line content: title on top, subtitle below */}
@@ -862,29 +794,16 @@ interface ClipButtonProps {
 }
 
 function ClipButton({ index, isBest, onClick }: ClipButtonProps) {
-  const [isHovered, setIsHovered] = useState(false)
-  const [isActive, setIsActive] = useState(false)
-  const recentTouchRef = useRef(false)
-  
   return (
     <button
       onClick={onClick}
-      onMouseEnter={() => { if (!recentTouchRef.current) setIsHovered(true) }}
-      onMouseLeave={() => { if (!recentTouchRef.current) { setIsHovered(false); setIsActive(false) } }}
-      onMouseDown={() => setIsActive(true)}
-      onMouseUp={() => setIsActive(false)}
-      onTouchStart={() => { recentTouchRef.current = true; setIsActive(true); setIsHovered(false) }}
-      onTouchEnd={() => { setIsActive(false); setIsHovered(false); setTimeout(() => { recentTouchRef.current = false }, 300) }}
-      onTouchCancel={() => { setIsActive(false); setIsHovered(false); setTimeout(() => { recentTouchRef.current = false }, 300) }}
       className={cn(
         "w-7 h-7 border flex items-center justify-center transition-none font-mono leading-none",
-        isActive 
-          ? "border-lavender text-lavender bg-lavender/10" 
-          : isHovered 
-            ? "border-corpo-light text-corpo-light" 
-            : isBest
-              ? "border-lavender/50 text-lavender"  // Highlight best clip
-              : "border-corpo-border text-corpo-text/60"
+        "hover:border-corpo-light hover:text-corpo-light",
+        "active:border-lavender active:text-lavender active:bg-lavender/10",
+        isBest
+          ? "border-lavender/50 text-lavender"  // Highlight best clip
+          : "border-corpo-border text-corpo-text/60"
       )}
       style={{ fontSize: 'var(--text-size-base)' }}
     >

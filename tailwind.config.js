@@ -5,6 +5,11 @@ export default {
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",
   ],
+  // Make hover: only apply on devices that support hover (not touch-only)
+  // This prevents "sticky hover" on mobile after tapping
+  future: {
+    hoverOnlyWhenSupported: true,
+  },
   theme: {
   	extend: {
   		colors: {
