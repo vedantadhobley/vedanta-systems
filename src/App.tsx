@@ -167,7 +167,10 @@ function DirectoryListing() {
 
           {/* Other project pages - just show GitHub link */}
           {fsPath !== '~/workspace/found-footy' && projectGithubLinks[fsPath] && (
-            <ProjectStatus githubUrl={projectGithubLinks[fsPath]} />
+            <ProjectStatus 
+              githubUrl={projectGithubLinks[fsPath]} 
+              comingSoon={fsPath === '~/workspace/vedanta-systems' || fsPath === '~/workspace/legal-tender'}
+            />
           )}
 
           {/* Folder Contents - Terminal style listing */}

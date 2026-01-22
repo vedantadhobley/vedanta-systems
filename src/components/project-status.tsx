@@ -6,9 +6,10 @@ import { useState, useRef } from 'react'
 interface ProjectStatusProps {
   githubUrl: string
   isConnected?: boolean  // Optional - only show connection status if provided
+  comingSoon?: boolean   // Optional - show "interface coming soon" message
 }
 
-export function ProjectStatus({ githubUrl, isConnected }: ProjectStatusProps) {
+export function ProjectStatus({ githubUrl, isConnected, comingSoon }: ProjectStatusProps) {
   const showConnection = isConnected !== undefined
   const { showReadme, setShowReadme, readme, loadingReadme, fetchReadme } = useReadme(githubUrl)
   const [repoHovered, setRepoHovered] = useState(false)
@@ -99,6 +100,13 @@ export function ProjectStatus({ githubUrl, isConnected }: ProjectStatusProps) {
           <span className="uppercase tracking-wider text-xs md:text-sm">repository</span>
         </a>
       </div>
+
+      {/* Coming soon message for projects without interfaces */}
+      {comingSoon && (
+        <div className="text-corpo-text/40 font-mono font-light mb-6" style={{ fontSize: 'var(--text-size-base)' }}>
+          interface under construction
+        </div>
+      )}
 
       {/* README Modal */}
       <ReadmeViewer
