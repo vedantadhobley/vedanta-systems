@@ -4,7 +4,6 @@ import { RiFolder2Line, RiFolder2Fill } from '@remixicon/react'
 import { GitHubContributionGraph } from '@/components/github-contribution-graph'
 import { Header, BottomNav } from '@/components/header'
 import { PathSegment } from '@/components/filesystem-nav'
-import { PhotoGallery } from '@/components/photo-gallery'
 // TODO: Re-enable moon background video when performance issues are resolved
 // import { MoonBackground } from '@/components/moon-background'
 import { FoundFootyBrowser } from '@/components/found-footy-browser'
@@ -15,22 +14,22 @@ import './App.css'
 
 // Project GitHub links - maps project paths to their repos
 const projectGithubLinks: Record<string, string> = {
-  '~/projects/found-footy': 'https://github.com/vedantadhobley/found-footy',
-  '~/projects/vedanta-systems': 'https://github.com/vedantadhobley/vedanta-systems',
+  '~/workspace/found-footy': 'https://github.com/vedantadhobley/found-footy',
+  '~/workspace/vedanta-systems': 'https://github.com/vedantadhobley/vedanta-systems',
   // Add more projects here as needed
 }
 
-// Project descriptions for the projects page
+// Project descriptions for the workspace page
 const projectDescriptions: Record<string, { name: string; blurb: string }> = {
-  '~/projects/vedanta-systems': {
+  '~/workspace/vedanta-systems': {
     name: 'vedanta-systems',
     blurb: 'System monitoring dashboard and project hub. Displays real-time btop metrics, service status, and hosted project interfaces.'
   },
-  '~/projects/found-footy': {
+  '~/workspace/found-footy': {
     name: 'found-footy',
     blurb: 'Automated football goal clip aggregator. Monitors live fixtures, detects goals, and automatically finds and archives video clips from social media.'
   },
-  '~/projects/legal-tender': {
+  '~/workspace/legal-tender': {
     name: 'legal-tender',
     blurb: 'AI-driven political influence analysis. Connects campaign finance, lobbying, and voting records to expose money in US politics.'
   },
@@ -44,20 +43,14 @@ interface FolderContent {
 
 const folderContents: Record<string, FolderContent[]> = {
   '~': [
-    { name: 'projects', path: '~/projects', type: 'folder' },
-    { name: 'music', path: '~/music', type: 'folder' },
-    { name: 'photos', path: '~/photos', type: 'folder' },
+    { name: 'workspace', path: '~/workspace', type: 'folder' },
     { name: 'about', path: '~/about', type: 'folder' },
   ],
-  '~/projects': [
-    { name: 'vedanta-systems', path: '~/projects/vedanta-systems', type: 'folder' },
-    { name: 'found-footy', path: '~/projects/found-footy', type: 'folder' },
-    { name: 'legal-tender', path: '~/projects/legal-tender', type: 'folder' },
+  '~/workspace': [
+    { name: 'vedanta-systems', path: '~/workspace/vedanta-systems', type: 'folder' },
+    { name: 'found-footy', path: '~/workspace/found-footy', type: 'folder' },
+    { name: 'legal-tender', path: '~/workspace/legal-tender', type: 'folder' },
   ],
-  '~/photos': [
-    { name: 'nepal-2024', path: '~/photos/nepal-2024', type: 'folder' },
-  ],
-  '~/photos/nepal-2024': [], // Photos will be displayed by PhotoGallery component
 }
 
 // Convert URL path to file system path
@@ -82,37 +75,24 @@ function getPathSegmentsFromUrl(url: string): PathSegment[] {
     '~': [
       { name: '~', path: '~', icon: 'home' }
     ],
-    '~/projects': [
+    '~/workspace': [
       { name: '~', path: '~', icon: 'home' },
-      { name: 'projects', path: '~/projects', icon: 'folder' }
+      { name: 'workspace', path: '~/workspace', icon: 'folder' }
     ],
-    '~/projects/vedanta-systems': [
+    '~/workspace/vedanta-systems': [
       { name: '~', path: '~', icon: 'home' },
-      { name: 'projects', path: '~/projects', icon: 'folder' },
-      { name: 'vedanta-systems', path: '~/projects/vedanta-systems', icon: 'folder' }
+      { name: 'workspace', path: '~/workspace', icon: 'folder' },
+      { name: 'vedanta-systems', path: '~/workspace/vedanta-systems', icon: 'folder' }
     ],
-    '~/projects/legal-tender': [
+    '~/workspace/legal-tender': [
       { name: '~', path: '~', icon: 'home' },
-      { name: 'projects', path: '~/projects', icon: 'folder' },
-      { name: 'legal-tender', path: '~/projects/legal-tender', icon: 'folder' }
+      { name: 'workspace', path: '~/workspace', icon: 'folder' },
+      { name: 'legal-tender', path: '~/workspace/legal-tender', icon: 'folder' }
     ],
-    '~/projects/found-footy': [
+    '~/workspace/found-footy': [
       { name: '~', path: '~', icon: 'home' },
-      { name: 'projects', path: '~/projects', icon: 'folder' },
-      { name: 'found-footy', path: '~/projects/found-footy', icon: 'folder' }
-    ],
-    '~/music': [
-      { name: '~', path: '~', icon: 'home' },
-      { name: 'music', path: '~/music', icon: 'folder' }
-    ],
-    '~/photos': [
-      { name: '~', path: '~', icon: 'home' },
-      { name: 'photos', path: '~/photos', icon: 'folder' }
-    ],
-    '~/photos/nepal-2024': [
-      { name: '~', path: '~', icon: 'home' },
-      { name: 'photos', path: '~/photos', icon: 'folder' },
-      { name: 'nepal-2024', path: '~/photos/nepal-2024', icon: 'folder' }
+      { name: 'workspace', path: '~/workspace', icon: 'folder' },
+      { name: 'found-footy', path: '~/workspace/found-footy', icon: 'folder' }
     ],
     '~/about': [
       { name: '~', path: '~', icon: 'home' },
@@ -123,20 +103,7 @@ function getPathSegmentsFromUrl(url: string): PathSegment[] {
   return pathMap[fsPath] || pathMap['~']
 }
 
-// Photo albums configuration
-const photoAlbums: Record<string, string[]> = {
-  '~/photos/nepal-2024': [
-    'DSCF0363.JPG',
-    'DSCF0438.JPG',
-    'DSCF0455.JPG',
-    'DSCF0478.JPG',
-    'DSCF0564.JPG',
-    'DSCF0581.JPG',
-    'DSCF0633.JPG',
-    'DSCF0697.JPG',
-    'DSCF0810.JPG',
-  ],
-}
+
 
 function DirectoryListing() {
   const location = useLocation()
@@ -193,25 +160,14 @@ function DirectoryListing() {
         </div>
         
         <div className="w-full max-w-[1140px] mx-auto px-4 md:px-8 pt-4 pb-8">
-          {/* Found Footy Browser - ~/projects/found-footy */}
-          {fsPath === '~/projects/found-footy' && (
+          {/* Found Footy Browser - ~/workspace/found-footy */}
+          {fsPath === '~/workspace/found-footy' && (
             <FoundFootyContent />
           )}
 
           {/* Other project pages - just show GitHub link */}
-          {fsPath !== '~/projects/found-footy' && projectGithubLinks[fsPath] && (
+          {fsPath !== '~/workspace/found-footy' && projectGithubLinks[fsPath] && (
             <ProjectStatus githubUrl={projectGithubLinks[fsPath]} />
-          )}
-
-          {/* Photo Gallery - if current path is a photo album */}
-          {photoAlbums[fsPath] && (
-            <PhotoGallery
-              photos={photoAlbums[fsPath].map(filename => ({
-                filename,
-                path: `/photos/nepal-2024/${filename}`
-              }))}
-              albumName={currentPath[currentPath.length - 1].name}
-            />
           )}
 
           {/* Folder Contents - Terminal style listing */}

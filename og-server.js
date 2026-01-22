@@ -184,8 +184,8 @@ function generateVideoOgHtml(fixture, event, videoHash) {
   // Use site OG image as fallback (we could generate thumbnails later)
   const imageUrl = 'https://vedanta.systems/og-image.png?v=3';
   const pageUrl = videoHash 
-    ? `https://vedanta.systems/projects/found-footy?v=${event._event_id}&h=${videoHash}`
-    : `https://vedanta.systems/projects/found-footy?v=${event._event_id}`;
+    ? `https://vedanta.systems/workspace/found-footy?v=${event._event_id}&h=${videoHash}`
+    : `https://vedanta.systems/workspace/found-footy?v=${event._event_id}`;
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -228,10 +228,10 @@ function generateVideoOgHtml(fixture, event, videoHash) {
 function generateDefaultOgHtml(path) {
   let title = 'Vedanta Systems';
   
-  if (path.includes('/projects/found-footy')) {
+  if (path.includes('/workspace/found-footy')) {
     title = 'Found Footy | Vedanta Systems';
-  } else if (path.includes('/projects')) {
-    title = 'Projects | Vedanta Systems';
+  } else if (path.includes('/workspace')) {
+    title = 'Workspace | Vedanta Systems';
   }
   
   const pageUrl = `https://vedanta.systems${path}`;

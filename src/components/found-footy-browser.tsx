@@ -218,12 +218,12 @@ export function FoundFootyBrowser({
       // Use content hash from video URL for sharing
       const hash = getVideoHash(videoModal.url)
       const shareUrl = hash 
-        ? `/projects/found-footy?v=${videoModal.eventId}&h=${hash}`
-        : `/projects/found-footy?v=${videoModal.eventId}`
+        ? `/workspace/found-footy?v=${videoModal.eventId}&h=${hash}`
+        : `/workspace/found-footy?v=${videoModal.eventId}`
       window.history.replaceState(null, '', shareUrl)
     } else if (hasOpenedVideoRef.current) {
       // Only reset URL if user previously opened a video
-      window.history.replaceState(null, '', '/projects/found-footy')
+      window.history.replaceState(null, '', '/workspace/found-footy')
     }
   }, [videoModal])
 
@@ -914,8 +914,8 @@ const MemoizedVideoModal = memo(function VideoModal({ url, title, subtitle, even
     const hash = getVideoHash(url)
     const baseUrl = window.location.origin
     return hash 
-      ? `${baseUrl}/projects/found-footy?v=${eventId}&h=${hash}`
-      : `${baseUrl}/projects/found-footy?v=${eventId}`
+      ? `${baseUrl}/workspace/found-footy?v=${eventId}&h=${hash}`
+      : `${baseUrl}/workspace/found-footy?v=${eventId}`
   }
 
   const handleShare = async () => {

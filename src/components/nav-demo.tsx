@@ -9,15 +9,13 @@ interface FolderContent {
 
 const folderContents: Record<string, FolderContent[]> = {
   '~': [
-    { name: 'projects', path: '~/projects', type: 'folder' },
-    { name: 'music', path: '~/music', type: 'folder' },
-    { name: 'photos', path: '~/photos', type: 'folder' },
+    { name: 'workspace', path: '~/workspace', type: 'folder' },
     { name: 'about', path: '~/about', type: 'folder' },
   ],
-  '~/projects': [
-    { name: 'vedanta-systems', path: '~/projects/vedanta-systems', type: 'folder' },
-    { name: 'legal-tender', path: '~/projects/legal-tender', type: 'folder' },
-    { name: 'found-footy', path: '~/projects/found-footy', type: 'folder' },
+  '~/workspace': [
+    { name: 'vedanta-systems', path: '~/workspace/vedanta-systems', type: 'folder' },
+    { name: 'legal-tender', path: '~/workspace/legal-tender', type: 'folder' },
+    { name: 'found-footy', path: '~/workspace/found-footy', type: 'folder' },
   ],
 }
 
@@ -31,32 +29,24 @@ export function NavDemo() {
       '~': [
         { name: '~', path: '~', icon: 'home' }
       ],
-      '~/projects': [
+      '~/workspace': [
         { name: '~', path: '~', icon: 'home' },
-        { name: 'projects', path: '~/projects', icon: 'folder' }
+        { name: 'workspace', path: '~/workspace', icon: 'folder' }
       ],
-      '~/projects/vedanta-systems': [
+      '~/workspace/vedanta-systems': [
         { name: '~', path: '~', icon: 'home' },
-        { name: 'projects', path: '~/projects', icon: 'folder' },
-        { name: 'vedanta-systems', path: '~/projects/vedanta-systems', icon: 'folder' }
+        { name: 'workspace', path: '~/workspace', icon: 'folder' },
+        { name: 'vedanta-systems', path: '~/workspace/vedanta-systems', icon: 'folder' }
       ],
-      '~/projects/legal-tender': [
+      '~/workspace/legal-tender': [
         { name: '~', path: '~', icon: 'home' },
-        { name: 'projects', path: '~/projects', icon: 'folder' },
-        { name: 'legal-tender', path: '~/projects/legal-tender', icon: 'folder' }
+        { name: 'workspace', path: '~/workspace', icon: 'folder' },
+        { name: 'legal-tender', path: '~/workspace/legal-tender', icon: 'folder' }
       ],
-      '~/projects/found-footy': [
+      '~/workspace/found-footy': [
         { name: '~', path: '~', icon: 'home' },
-        { name: 'projects', path: '~/projects', icon: 'folder' },
-        { name: 'found-footy', path: '~/projects/found-footy', icon: 'folder' }
-      ],
-      '~/music': [
-        { name: '~', path: '~', icon: 'home' },
-        { name: 'music', path: '~/music', icon: 'folder' }
-      ],
-      '~/photos': [
-        { name: '~', path: '~', icon: 'home' },
-        { name: 'photos', path: '~/photos', icon: 'folder' }
+        { name: 'workspace', path: '~/workspace', icon: 'folder' },
+        { name: 'found-footy', path: '~/workspace/found-footy', icon: 'folder' }
       ],
       '~/about': [
         { name: '~', path: '~', icon: 'home' },
