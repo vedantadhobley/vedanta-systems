@@ -7,6 +7,7 @@ import { PathSegment } from '@/components/filesystem-nav'
 // TODO: Re-enable moon background video when performance issues are resolved
 // import { MoonBackground } from '@/components/moon-background'
 import { FoundFootyBrowser } from '@/components/found-footy-browser'
+import { ResumeViewer } from '@/components/resume-viewer'
 import { ProjectStatus } from '@/components/project-status'
 import { FootyStreamProvider, useFootyStream } from '@/contexts/FootyStreamContext'
 import { TimezoneProvider } from '@/contexts/timezone-context'
@@ -165,6 +166,11 @@ function DirectoryListing() {
             <FoundFootyContent />
           )}
 
+          {/* About page - Resume */}
+          {fsPath === '~/about' && (
+            <AboutContent />
+          )}
+
           {/* Other project pages - just show GitHub link */}
           {fsPath !== '~/workspace/found-footy' && projectGithubLinks[fsPath] && (
             <ProjectStatus 
@@ -235,6 +241,13 @@ function DirectoryListing() {
       
       <BottomNav currentPath={currentPath} onNavigate={handleNavigate} />
     </>
+  )
+}
+
+// About page content component
+function AboutContent() {
+  return (
+    <ResumeViewer pdfUrl="/Vedanta_Dhobley_Resume_20260121.pdf" />
   )
 }
 
