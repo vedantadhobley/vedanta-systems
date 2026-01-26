@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { RiCloseLine } from '@remixicon/react'
+import { RiCloseLine, RiCloseFill } from '@remixicon/react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import type { Components } from 'react-markdown'
@@ -195,9 +195,12 @@ export function ReadmeViewer({ isOpen, onClose, content, isLoading }: ReadmeView
           <span className="font-mono text-corpo-text/60 uppercase tracking-wider text-sm">readme.md</span>
           <button
             onClick={onClose}
-            className="text-corpo-text/60 hover:text-corpo-light transition-none"
+            onTouchStart={() => {}} // Required for iOS :active to work
+            className="nav-btn p-1"
+            aria-label="Close"
           >
-            <RiCloseLine className="w-5 h-5" />
+            <RiCloseLine className="icon-line w-5 h-5" />
+            <RiCloseFill className="icon-fill w-5 h-5" />
           </button>
         </div>
         
