@@ -117,18 +117,48 @@ export function GitHubContributionGraph({
   }, [hasBeenRevealed])
 
   // Continuous fade animation - runs independently of wave movement
+  // Fully stops interval when tab is hidden to save CPU/battery/memory
   useEffect(() => {
-    const frameRate = 60 // 60fps for smooth fade updates
+    const frameRate = 15 // 15fps is enough for fade animation (reduced from 30)
     
-    fadeAnimationRef.current = setInterval(() => {
-      setRenderTick(tick => tick + 1) // Force re-render to update fade calculations
-    }, 1000 / frameRate) as unknown as number
+    const runAnimation = () => {
+      setRenderTick(tick => tick + 1)
+    }
+    
+    const startAnimation = () => {
+      if (fadeAnimationRef.current === null) {
+        fadeAnimationRef.current = setInterval(runAnimation, 1000 / frameRate) as unknown as number
+      }
+    }
+    
+    const stopAnimation = () => {
+      if (fadeAnimationRef.current !== null) {
+        clearInterval(fadeAnimationRef.current)
+        fadeAnimationRef.current = null
+      }
+    }
+    
+    // Start/stop based on visibility
+    const handleVisibility = () => {
+      if (document.hidden) {
+        stopAnimation()
+      } else {
+        startAnimation()
+      }
+    }
+    
+    document.addEventListener('visibilitychange', handleVisibility)
+    
+    // Only start if visible
+    if (!document.hidden) {
+      startAnimation()
+    }
     
     return () => {
-      if (fadeAnimationRef.current) clearInterval(fadeAnimationRef.current)
+      stopAnimation()
+      document.removeEventListener('visibilitychange', handleVisibility)
     }
-  }, []) // Run once on mount, never stop
-
+  }, []) // Run once on mount
   // Calculate weeks to show based on available width
   useEffect(() => {
     const calculateWeeks = () => {

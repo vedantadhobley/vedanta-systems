@@ -253,7 +253,24 @@ function AboutContent() {
 
 // FoundFooty content component - rendered inside DirectoryListing
 function FoundFootyContent() {
-  const { stagingFixtures, fixtures, completedFixtures, isConnected, isLoading, lastUpdate } = useFootyStream()
+  const { 
+    stagingFixtures, 
+    activeFixtures,
+    completedFixtures, 
+    isBackendOnline, 
+    isLoading,
+    isChangingDate,
+    lastUpdate, 
+    pauseStream, 
+    resumeStream,
+    currentDate,
+    availableDates,
+    setDate,
+    goToToday,
+    goToPreviousDate,
+    goToNextDate,
+    navigateToEvent
+  } = useFootyStream()
   const location = useLocation()
   
   // Parse URL params for deep linking (e.g., ?v=event_id&h=video_hash)
@@ -267,16 +284,26 @@ function FoundFootyContent() {
     <>
       <ProjectStatus 
         githubUrl="https://github.com/vedantadhobley/found-footy"
-        isConnected={isConnected}
+        isConnected={isBackendOnline}
       />
       <FoundFootyBrowser 
         stagingFixtures={stagingFixtures}
-        fixtures={fixtures}
+        fixtures={activeFixtures}
         completedFixtures={completedFixtures}
-        isConnected={isConnected}
+        isConnected={isBackendOnline}
         isLoading={isLoading}
+        isChangingDate={isChangingDate}
         lastUpdate={lastUpdate}
         initialVideo={initialVideo}
+        onPauseStream={pauseStream}
+        onResumeStream={resumeStream}
+        currentDate={currentDate}
+        availableDates={availableDates}
+        onDateChange={setDate}
+        onGoToToday={goToToday}
+        onPreviousDate={goToPreviousDate}
+        onNextDate={goToNextDate}
+        onNavigateToEvent={navigateToEvent}
       />
     </>
   )

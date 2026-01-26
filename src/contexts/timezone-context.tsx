@@ -9,6 +9,10 @@ interface TimezoneContextType {
   formatTime: (date: Date, includeSeconds?: boolean) => string
   formatTimeWithZone: (date: Date, includeSeconds?: boolean) => string
   getTimezoneAbbr: () => string
+  // Timezone-aware date utilities
+  getDateForTimestamp: (isoTimestamp: string) => string  // Returns YYYY-MM-DD in current mode
+  getToday: () => string      // Today's date in current mode
+  getTomorrow: () => string   // Tomorrow's date in current mode
 }
 
 const TimezoneContext = createContext<TimezoneContextType | undefined>(undefined)
@@ -60,6 +64,41 @@ export function TimezoneProvider({ children }: { children: ReactNode }) {
     return `${formatTime(date, includeSeconds)} ${getTimezoneAbbr()}`
   }
 
+  // Get YYYY-MM-DD for a timestamp in current timezone mode
+  const getDateForTimestamp = (isoTimestamp: string): string => {
+    const date = new Date(isoTimestamp)
+    if (mode === 'utc') {
+      return date.toISOString().slice(0, 10)
+    } else {
+      // Use en-CA locale which gives YYYY-MM-DD format in local timezone
+      return date.toLocaleDateString('en-CA')
+    }
+  }
+
+  // Get today's date in current timezone mode
+  const getToday = (): string => {
+    const now = new Date()
+    if (mode === 'utc') {
+      return now.toISOString().slice(0, 10)
+    } else {
+      return now.toLocaleDateString('en-CA')
+    }
+  }
+
+  // Get tomorrow's date in current timezone mode
+  const getTomorrow = (): string => {
+    const now = new Date()
+    if (mode === 'utc') {
+      const tomorrow = new Date(now)
+      tomorrow.setUTCDate(tomorrow.getUTCDate() + 1)
+      return tomorrow.toISOString().slice(0, 10)
+    } else {
+      const tomorrow = new Date(now)
+      tomorrow.setDate(tomorrow.getDate() + 1)
+      return tomorrow.toLocaleDateString('en-CA')
+    }
+  }
+
   return (
     <TimezoneContext.Provider value={{ 
       mode, 
@@ -67,7 +106,10 @@ export function TimezoneProvider({ children }: { children: ReactNode }) {
       localTimezone, 
       formatTime, 
       formatTimeWithZone,
-      getTimezoneAbbr
+      getTimezoneAbbr,
+      getDateForTimestamp,
+      getToday,
+      getTomorrow
     }}>
       {children}
     </TimezoneContext.Provider>

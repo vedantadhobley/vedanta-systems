@@ -20,6 +20,34 @@ export interface FoundFootyConfig {
   }
 }
 
+// Transform video URLs to be fully qualified API proxy URLs
+// Done server-side so clients don't have to process this
+function transformVideoUrl(url: string): string {
+  if (url.startsWith('/video/')) {
+    return `/api/found-footy${url}`
+  }
+  return url
+}
+
+function transformFixtureUrls(fixture: any): any {
+  if (!fixture.events) return fixture
+  return {
+    ...fixture,
+    events: fixture.events.map((event: any) => ({
+      ...event,
+      _s3_urls: event._s3_urls?.map(transformVideoUrl) || [],
+      _s3_videos: event._s3_videos?.map((video: any) => ({
+        ...video,
+        url: transformVideoUrl(video.url)
+      }))
+    }))
+  }
+}
+
+function transformFixtures(fixtures: any[]): any[] {
+  return fixtures.map(transformFixtureUrls)
+}
+
 // Factory function to create Found Footy router with configuration
 export function createFoundFootyRouter(config: FoundFootyConfig): Router {
   const router = Router()
@@ -167,30 +195,188 @@ export function createFoundFootyRouter(config: FoundFootyConfig): Router {
     }
   }
 
-  // Helper to fetch all fixtures
+  // Helper to fetch all fixtures (with URLs pre-transformed for clients)
   async function fetchAllFixtures() {
     const database = await connectMongo()
     if (!database) return { staging: [], active: [], completed: [] }
     
+    // Projection: only fetch fields we actually use on the client
+    // This significantly reduces data transfer size
+    const projection = {
+      _id: 1,
+      'fixture.id': 1,
+      'fixture.date': 1,
+      'fixture.status': 1,
+      'league.name': 1,
+      'league.country': 1,
+      'league.round': 1,
+      'teams.home.name': 1,
+      'teams.home.winner': 1,
+      'teams.away.name': 1,
+      'teams.away.winner': 1,
+      'goals.home': 1,
+      'goals.away': 1,
+      'score.penalty': 1,
+      '_last_activity': 1,
+      // Event fields - we need all of these for display
+      'events._event_id': 1,
+      'events.type': 1,
+      'events.detail': 1,
+      'events.time': 1,
+      'events.player': 1,
+      'events.assist': 1,
+      'events._score_after': 1,
+      'events._scoring_team': 1,
+      'events._monitor_complete': 1,
+      'events._twitter_complete': 1,
+      'events._first_seen': 1,
+      'events._s3_urls': 1,
+      'events._s3_videos': 1,
+    }
+    
     // Staging: upcoming fixtures, sorted by kickoff time ascending (earliest first)
     const stagingFixtures = await database.collection('fixtures_staging')
-      .find({})
+      .find({}, { projection })
       .sort({ 'fixture.date': 1 })
       .toArray()
     
     // Active: live fixtures, sorted by last activity descending (most recent activity first)
     const activeFixtures = await database.collection('fixtures_active')
-      .find({})
+      .find({}, { projection })
       .sort({ '_last_activity': -1, 'fixture.date': -1 })
       .toArray()
     
     // Completed: finished fixtures, sorted by match date descending (most recent first)
     const completedFixtures = await database.collection('fixtures_completed')
-      .find({})
+      .find({}, { projection })
       .sort({ 'fixture.date': -1 })
       .toArray()
     
-    return { staging: stagingFixtures, active: activeFixtures, completed: completedFixtures }
+    // Transform video URLs server-side (so clients don't have to)
+    return { 
+      staging: stagingFixtures,  // No videos in staging
+      active: transformFixtures(activeFixtures), 
+      completed: transformFixtures(completedFixtures) 
+    }
+  }
+
+  // Helper to get start/end of a day in UTC
+  function getDayBounds(dateStr: string): { start: Date; end: Date } {
+    const date = new Date(dateStr + 'T00:00:00Z')
+    const start = new Date(date)
+    const end = new Date(date)
+    end.setUTCDate(end.getUTCDate() + 1)
+    return { start, end }
+  }
+
+  // Helper to fetch fixtures for a specific date
+  async function fetchFixturesForDate(dateStr: string) {
+    const database = await connectMongo()
+    if (!database) return { staging: [], active: [], completed: [] }
+    
+    const { start, end } = getDayBounds(dateStr)
+    const dateFilter = {
+      'fixture.date': { $gte: start.toISOString(), $lt: end.toISOString() }
+    }
+    
+    // Projection: only fetch fields we actually use on the client
+    const projection = {
+      _id: 1,
+      'fixture.id': 1,
+      'fixture.date': 1,
+      'fixture.status': 1,
+      'league.name': 1,
+      'league.country': 1,
+      'league.round': 1,
+      'teams.home.name': 1,
+      'teams.home.winner': 1,
+      'teams.away.name': 1,
+      'teams.away.winner': 1,
+      'goals.home': 1,
+      'goals.away': 1,
+      'score.penalty': 1,
+      '_last_activity': 1,
+      'events._event_id': 1,
+      'events.type': 1,
+      'events.detail': 1,
+      'events.time': 1,
+      'events.team': 1,
+      'events.player': 1,
+      'events.assist': 1,
+      'events._scoring_team': 1,
+      'events._score_after': 1,
+      'events._monitor_complete': 1,
+      'events._twitter_complete': 1,
+      'events._first_seen': 1,
+      'events._s3_urls': 1,
+      'events._s3_videos': 1,
+    }
+    
+    // Staging: upcoming fixtures for this date
+    const stagingFixtures = await database.collection('fixtures_staging')
+      .find(dateFilter, { projection })
+      .sort({ 'fixture.date': 1 })
+      .toArray()
+    
+    // Active: live fixtures for this date
+    const activeFixtures = await database.collection('fixtures_active')
+      .find(dateFilter, { projection })
+      .sort({ '_last_activity': -1, 'fixture.date': -1 })
+      .toArray()
+    
+    // Completed: finished fixtures for this date
+    const completedFixtures = await database.collection('fixtures_completed')
+      .find(dateFilter, { projection })
+      .sort({ 'fixture.date': -1 })
+      .toArray()
+    
+    return { 
+      staging: stagingFixtures,
+      active: transformFixtures(activeFixtures), 
+      completed: transformFixtures(completedFixtures),
+      date: dateStr
+    }
+  }
+
+  // Helper to get list of dates that have completed fixtures (for calendar navigation)
+  async function getAvailableDates(): Promise<string[]> {
+    const database = await connectMongo()
+    if (!database) return []
+    
+    // Get distinct dates from completed fixtures
+    const completedDates = await database.collection('fixtures_completed')
+      .aggregate([
+        { $project: { date: { $substr: ['$fixture.date', 0, 10] } } },
+        { $group: { _id: '$date' } },
+        { $sort: { _id: -1 } },
+        { $limit: 90 } // Last 90 days max
+      ])
+      .toArray()
+    
+    // Get distinct dates from active fixtures  
+    const activeDates = await database.collection('fixtures_active')
+      .aggregate([
+        { $project: { date: { $substr: ['$fixture.date', 0, 10] } } },
+        { $group: { _id: '$date' } }
+      ])
+      .toArray()
+    
+    // Get distinct dates from staging fixtures
+    const stagingDates = await database.collection('fixtures_staging')
+      .aggregate([
+        { $project: { date: { $substr: ['$fixture.date', 0, 10] } } },
+        { $group: { _id: '$date' } }
+      ])
+      .toArray()
+    
+    // Combine and dedupe
+    const allDates = new Set([
+      ...completedDates.map(d => d._id),
+      ...activeDates.map(d => d._id),
+      ...stagingDates.map(d => d._id)
+    ])
+    
+    return Array.from(allDates).sort().reverse()
   }
 
   // ============ ROUTES ============
@@ -205,11 +391,66 @@ export function createFoundFootyRouter(config: FoundFootyConfig): Router {
     })
   })
 
-  // GET /fixtures - all fixtures
-  router.get('/fixtures', async (_req: Request, res: Response) => {
+  // GET /dates - list of dates with fixtures (for calendar navigation)
+  router.get('/dates', async (_req: Request, res: Response) => {
     try {
-      const fixtures = await fetchAllFixtures()
-      res.json(fixtures)
+      const dates = await getAvailableDates()
+      res.json({ dates })
+    } catch (error) {
+      console.error('[found-footy] Error fetching dates:', error)
+      res.status(500).json({ error: 'Failed to fetch dates' })
+    }
+  })
+
+  // GET /event/:eventId - look up which date an event belongs to (for shared links)
+  router.get('/event/:eventId', async (req: Request, res: Response) => {
+    try {
+      const eventId = req.params.eventId
+      const database = await connectMongo()
+      if (!database) {
+        return res.status(503).json({ error: 'Database unavailable' })
+      }
+
+      // Search all collections for the event
+      const collections = ['fixtures_staging', 'fixtures_active', 'fixtures_completed']
+      
+      for (const collectionName of collections) {
+        const fixture = await database.collection(collectionName).findOne(
+          { 'events._event_id': eventId },
+          { projection: { 'fixture.date': 1 } }
+        )
+        
+        if (fixture?.fixture?.date) {
+          const date = fixture.fixture.date.substring(0, 10) // YYYY-MM-DD
+          return res.json({ eventId, date, found: true })
+        }
+      }
+      
+      // Event not found
+      res.json({ eventId, found: false })
+    } catch (error) {
+      console.error('[found-footy] Error looking up event:', error)
+      res.status(500).json({ error: 'Failed to look up event' })
+    }
+  })
+
+  // GET /fixtures - fixtures, optionally filtered by date
+  // Query params:
+  //   ?date=2026-01-25  - get fixtures for specific date only
+  //   (no date param)   - get ALL fixtures (legacy behavior, avoid on mobile)
+  router.get('/fixtures', async (req: Request, res: Response) => {
+    try {
+      const dateParam = req.query.date as string | undefined
+      
+      if (dateParam) {
+        // Date-filtered request (new, efficient)
+        const fixtures = await fetchFixturesForDate(dateParam)
+        res.json(fixtures)
+      } else {
+        // Legacy: fetch all (kept for backwards compat, but heavy)
+        const fixtures = await fetchAllFixtures()
+        res.json(fixtures)
+      }
     } catch (error) {
       console.error('[found-footy] Error fetching fixtures:', error)
       res.status(500).json({ error: 'Failed to fetch fixtures' })

@@ -1,5 +1,5 @@
-import { useState, useCallback, useEffect, useRef, memo } from 'react'
-import { RiCloseLine, RiCloseFill, RiShareBoxLine, RiShareBoxFill, RiDownload2Line, RiDownload2Fill, RiCheckLine, RiVidiconFill, RiScan2Line, RiHourglass2Line, RiHourglass2Fill, RiExpandUpDownLine, RiExpandUpDownFill, RiContractUpDownLine, RiContractUpDownFill, RiVolumeMuteLine, RiVolumeUpFill, RiErrorWarningLine } from '@remixicon/react'
+import { useState, useCallback, useEffect, useRef, memo, useMemo } from 'react'
+import { RiCloseLine, RiCloseFill, RiShareBoxLine, RiShareBoxFill, RiDownload2Line, RiDownload2Fill, RiCheckLine, RiVidiconFill, RiScan2Line, RiHourglass2Line, RiHourglass2Fill, RiExpandUpDownLine, RiExpandUpDownFill, RiContractUpDownLine, RiContractUpDownFill, RiVolumeMuteLine, RiVolumeUpFill, RiErrorWarningLine, RiArrowLeftSLine, RiArrowRightSLine, RiCalendarCheckLine } from '@remixicon/react'
 import type { Fixture, GoalEvent, RankedVideo } from '@/types/found-footy'
 import { cn } from '@/lib/utils'
 import { useTimezone } from '@/contexts/timezone-context'
@@ -47,25 +47,78 @@ function generateEventSubtitle(event: GoalEvent): string {
   return `${timeStr} ${eventType} - <<${scorerName}>>`
 }
 
-// Tailwind's animate-pulse duration is 2000ms
+// Global pulse sync - all icons share the same opacity controlled by CSS custom property
+// This guarantees perfect sync regardless of when components mount
 const PULSE_DURATION_MS = 2000
 
-// Module-level constant: captured once when module loads, shared by ALL icons
-// This ensures every icon calculates the exact same offset
-const PAGE_LOAD_TIME = Date.now()
-const SYNCED_PULSE_OFFSET = PAGE_LOAD_TIME % PULSE_DURATION_MS
-const SYNCED_PULSE_STYLE: React.CSSProperties = { animationDelay: `-${SYNCED_PULSE_OFFSET}ms` }
+// Set up global pulse animation that updates CSS custom property
+let pulseSetupDone = false
 
-// Animated icons for scanning states - synced across all instances
+let pulseAnimationId: number | null = null
+
+function setupGlobalPulse() {
+  if (pulseSetupDone || typeof window === 'undefined') return
+  pulseSetupDone = true
+  
+  const updatePulse = () => {
+    const elapsed = Date.now() % PULSE_DURATION_MS
+    const progress = elapsed / PULSE_DURATION_MS
+    // Match Tailwind's animate-pulse: cubic-bezier(0.4, 0, 0.6, 1)
+    // Goes from opacity 1 -> 0.5 -> 1
+    // Use sine wave that matches: peaks at 0 and 1, trough at 0.5
+    const opacity = 0.75 + 0.25 * Math.cos(progress * Math.PI * 2)
+    document.documentElement.style.setProperty('--synced-pulse-opacity', opacity.toString())
+    pulseAnimationId = requestAnimationFrame(updatePulse)
+  }
+  
+  const startPulse = () => {
+    if (pulseAnimationId === null) {
+      updatePulse()
+    }
+  }
+  
+  const stopPulse = () => {
+    if (pulseAnimationId !== null) {
+      cancelAnimationFrame(pulseAnimationId)
+      pulseAnimationId = null
+    }
+  }
+  
+  // Stop completely when hidden, restart when visible
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      stopPulse()
+    } else {
+      startPulse()
+    }
+  })
+  
+  // Only start if visible
+  if (!document.hidden) {
+    startPulse()
+  }
+}
+
+// Animated icons for scanning states - perfectly synced via CSS variable
 function ValidatingIcon({ className }: { className?: string }) {
+  // Ensure global pulse is running
+  useEffect(() => { setupGlobalPulse() }, [])
   return (
-    <RiScan2Line className={cn("animate-pulse", className)} style={SYNCED_PULSE_STYLE} />
+    <RiScan2Line 
+      className={className} 
+      style={{ opacity: 'var(--synced-pulse-opacity, 1)' }} 
+    />
   )
 }
 
 function ExtractingIcon({ className }: { className?: string }) {
+  // Ensure global pulse is running
+  useEffect(() => { setupGlobalPulse() }, [])
   return (
-    <RiVidiconFill className={cn("animate-pulse", className)} style={SYNCED_PULSE_STYLE} />
+    <RiVidiconFill 
+      className={className} 
+      style={{ opacity: 'var(--synced-pulse-opacity, 1)' }} 
+    />
   )
 }
 
@@ -107,8 +160,19 @@ interface FoundFootyBrowserProps {
   completedFixtures: Fixture[]
   isConnected: boolean
   isLoading: boolean  // True until first SSE data received
+  isChangingDate?: boolean  // True during date navigation (prevents scroll reset)
   lastUpdate: Date | null
   initialVideo?: InitialVideoParams | null  // From URL params
+  onPauseStream?: () => void   // Called when video modal opens
+  onResumeStream?: () => void  // Called when video modal closes
+  // Calendar navigation
+  currentDate: string          // YYYY-MM-DD format
+  availableDates: string[]     // List of dates with fixtures (descending order)
+  onDateChange: (date: string) => void
+  onGoToToday: () => void
+  onPreviousDate: () => void
+  onNextDate: () => void
+  onNavigateToEvent?: (eventId: string) => Promise<boolean>  // Navigate to event's date (for shared links)
 }
 
 export function FoundFootyBrowser({ 
@@ -117,16 +181,84 @@ export function FoundFootyBrowser({
   completedFixtures, 
   isConnected: _isConnected,
   isLoading,
-  initialVideo
+  isChangingDate,
+  initialVideo,
+  onPauseStream,
+  onResumeStream,
+  currentDate,
+  availableDates,
+  onDateChange: _onDateChange,  // Kept for future date picker
+  onGoToToday,
+  onPreviousDate,
+  onNextDate,
+  onNavigateToEvent
 }: FoundFootyBrowserProps) {
   const [expandedFixture, setExpandedFixture] = useState<number | null>(null)
   const [expandedEvent, setExpandedEvent] = useState<string | null>(null)
   const [videoModal, setVideoModal] = useState<VideoInfo | null>(null)
   const initialVideoProcessed = useRef(false)
-  const { mode, formatTime, getTimezoneAbbr } = useTimezone()
+  const initialVideoNavigated = useRef(false)  // Track if we've navigated to the event's date
+  const { mode, formatTime, getTimezoneAbbr, getDateForTimestamp, getToday, getTomorrow } = useTimezone()
+  
+  // Format date for display (e.g., "Sat, Jan 25") - respects timezone mode
+  const formatDateDisplay = useCallback((dateStr: string): string => {
+    const date = new Date(dateStr + 'T12:00:00Z')
+    return date.toLocaleDateString('en-US', {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+      timeZone: mode === 'utc' ? 'UTC' : undefined
+    })
+  }, [mode])
+  
+  // Check if viewing today (timezone-aware)
+  const isToday = currentDate === getToday()
+  const today = getToday()
+  const tomorrow = getTomorrow()
+  
+  // Only allow navigation between dates that have fixtures AND are within today/tomorrow range
+  // We fetch extra days as buffer, but only display today and tomorrow
+  const availableDatesInMode = useMemo(() => {
+    const dates = new Set<string>()
+    
+    // Add dates from availableDates (these are UTC dates from API)
+    // But only include dates that are <= tomorrow in the current timezone
+    availableDates.forEach(d => {
+      if (d <= tomorrow) {
+        dates.add(d)
+      }
+    })
+    
+    // Also ensure today and tomorrow are navigable if they're in the available window
+    if (availableDates.some(d => d >= today && d <= tomorrow)) {
+      dates.add(today)
+    }
+    if (availableDates.some(d => d >= tomorrow)) {
+      dates.add(tomorrow)
+    }
+    
+    return Array.from(dates).sort().reverse()
+  }, [availableDates, today, tomorrow])
+  
+  // Check if we can navigate (have dates to navigate to, capped at tomorrow)
+  const currentIndex = availableDatesInMode.indexOf(currentDate)
+  // Can only go to next (newer) date if it's <= tomorrow
+  const canGoNext = (currentIndex > 0 || (currentIndex === -1 && availableDatesInMode.some(d => d > currentDate))) && currentDate < tomorrow
+  const canGoPrevious = currentIndex < availableDatesInMode.length - 1 || (currentIndex === -1 && availableDatesInMode.some(d => d < currentDate))
   
   // Memoize close handler to prevent VideoModal re-renders
-  const closeVideoModal = useCallback(() => setVideoModal(null), [])
+  const closeVideoModal = useCallback(() => {
+    setVideoModal(null)
+    // Resume SSE connection when video closes
+    onResumeStream?.()
+  }, [onResumeStream])
+  
+  // Open video modal and pause SSE to reduce memory pressure
+  const openVideoModal = useCallback((info: VideoInfo) => {
+    // Pause SSE connection when video opens
+    onPauseStream?.()
+    setVideoModal(info)
+  }, [onPauseStream])
 
   // Custom sort: fixtures with _last_activity first (by activity DESC), then fixtures without (by kickoff ASC)
   const sortFixturesCustom = (fixtureList: Fixture[]) => {
@@ -168,11 +300,26 @@ export function FoundFootyBrowser({
     setExpandedEvent(prev => prev === eventId ? null : eventId)
   }, [])
 
-  // Handle opening video from URL params (shared link) - only run once
+  // Handle navigating to the correct date for shared video links
+  useEffect(() => {
+    if (!initialVideo || initialVideoNavigated.current || !onNavigateToEvent) return
+    
+    // Mark as navigated immediately to prevent multiple calls
+    initialVideoNavigated.current = true
+    
+    // Look up the event's date and navigate there
+    onNavigateToEvent(initialVideo.eventId).then(found => {
+      if (!found) {
+        console.warn('[FoundFooty] Shared video event not found')
+      }
+    })
+  }, [initialVideo, onNavigateToEvent])
+
+  // Handle opening video from URL params (shared link) - runs after date navigation
   useEffect(() => {
     if (!initialVideo || allFixtures.length === 0 || initialVideoProcessed.current) return
     
-    // Find the fixture and event
+    // Find the fixture and event in the current fixtures
     for (const fixture of allFixtures) {
       const event = fixture.events?.find(e => e._event_id === initialVideo.eventId)
       if (event) {
@@ -194,6 +341,8 @@ export function FoundFootyBrowser({
             // Use double rAF to ensure DOM has updated before opening modal
             requestAnimationFrame(() => {
               requestAnimationFrame(() => {
+                // Pause SSE before opening video modal
+                onPauseStream?.()
                 setVideoModal({
                   url: video.url,
                   title: generateEventTitle(fixture, event),
@@ -208,7 +357,7 @@ export function FoundFootyBrowser({
         break
       }
     }
-  }, [initialVideo, allFixtures])
+  }, [initialVideo, allFixtures, onPauseStream])
 
   // Update URL when video modal changes - only after user interaction
   const hasOpenedVideoRef = useRef(false)
@@ -233,42 +382,33 @@ export function FoundFootyBrowser({
     return `${formatTime(date)} ${getTimezoneAbbr()}`
   }, [mode, formatTime, getTimezoneAbbr])
 
-  // Format date like "Tuesday 17 December"
-  const formatDate = (date: Date) => {
-    return date.toLocaleDateString('en-GB', {
-      weekday: 'long',
-      day: 'numeric',
-      month: 'long'
-    })
+  // Filter fixtures to only those matching currentDate in the current timezone mode
+  const filterFixturesByDate = useCallback((fixtureList: Fixture[]) => {
+    return fixtureList.filter(f => getDateForTimestamp(f.fixture.date) === currentDate)
+  }, [getDateForTimestamp, currentDate])
+  
+  // All fixtures for this date, filtered by timezone and sorted
+  const filteredStaging = useMemo(() => filterFixturesByDate(stagingFixtures), [filterFixturesByDate, stagingFixtures])
+  const filteredActive = useMemo(() => filterFixturesByDate(sortedFixtures), [filterFixturesByDate, sortedFixtures])
+  const filteredCompleted = useMemo(() => filterFixturesByDate(sortedCompleted), [filterFixturesByDate, sortedCompleted])
+  
+  const currentFilteredFixtures = sortFixturesCustom([...filteredStaging, ...filteredActive, ...filteredCompleted])
+  
+  // Keep a ref of the last non-empty fixtures to show during date transitions
+  // This prevents layout collapse when filtering returns 0 results during date change
+  const lastFixturesRef = useRef<Fixture[]>([])
+  if (currentFilteredFixtures.length > 0 && !isChangingDate) {
+    lastFixturesRef.current = currentFilteredFixtures
   }
+  
+  // During date change, show old fixtures to prevent layout collapse
+  // Once new data arrives (isChangingDate becomes false), show new fixtures
+  const allDateFixtures = isChangingDate && currentFilteredFixtures.length === 0 
+    ? lastFixturesRef.current 
+    : currentFilteredFixtures
 
-  // Group ALL fixtures (staging + active + completed) by date
-  const allFixturesForGrouping = [...stagingFixtures, ...sortedFixtures, ...sortedCompleted]
-  const fixturesByDate = allFixturesForGrouping.reduce((acc, fixture) => {
-    // Use fixture.date for grouping (the kickoff date)
-    const dateStr = fixture.fixture?.date
-    if (!dateStr) return acc
-    
-    const date = new Date(dateStr)
-    const dateKey = date.toISOString().split('T')[0]
-    
-    if (!acc[dateKey]) {
-      acc[dateKey] = { date, fixtures: [] }
-    }
-    acc[dateKey].fixtures.push(fixture)
-    return acc
-  }, {} as Record<string, { date: Date; fixtures: Fixture[] }>)
-
-  // Sort fixtures within each date group: started fixtures (_last_activity) above upcoming
-  Object.keys(fixturesByDate).forEach(dateKey => {
-    fixturesByDate[dateKey].fixtures = sortFixturesCustom(fixturesByDate[dateKey].fixtures)
-  })
-
-  // Sort dates descending (most recent first)
-  const sortedDates = Object.keys(fixturesByDate).sort((a, b) => b.localeCompare(a))
-
-  // Check if we have any fixtures at all
-  const hasFixtures = sortedDates.length > 0
+  // Check if we have any fixtures for this date
+  const hasFixtures = allDateFixtures.length > 0
 
   return (
     <div className="font-mono" style={{ fontSize: 'var(--text-size-base)' }}>
@@ -288,54 +428,90 @@ export function FoundFootyBrowser({
         </div>
       </div>
 
-      {/* Fixtures list with date separators */}
+      {/* Calendar navigation */}
+      <div className="mb-4 flex items-center justify-between border border-corpo-border bg-corpo-bg/50 px-3 py-2">
+        {/* Previous button */}
+        <button
+          type="button"
+          onClick={onPreviousDate}
+          disabled={!canGoPrevious}
+          className={cn(
+            "p-1 transition-colors",
+            canGoPrevious 
+              ? "text-corpo-text hover:text-corpo-light" 
+              : "text-corpo-text/20 cursor-not-allowed"
+          )}
+          aria-label="Previous date"
+        >
+          <RiArrowLeftSLine className="w-5 h-5" />
+        </button>
+        
+        {/* Current date display and Today button */}
+        <div className="flex items-center gap-3">
+          <span className="text-corpo-text font-medium">
+            {formatDateDisplay(currentDate)}
+          </span>
+          {!isToday && (
+            <button
+              type="button"
+              onClick={onGoToToday}
+              className="flex items-center gap-1 px-2 py-0.5 text-xs border border-corpo-border text-corpo-text/70 hover:text-corpo-light hover:border-corpo-text/50 transition-colors"
+            >
+              <RiCalendarCheckLine className="w-3.5 h-3.5" />
+              Today
+            </button>
+          )}
+        </div>
+        
+        {/* Next button */}
+        <button
+          type="button"
+          onClick={onNextDate}
+          disabled={!canGoNext}
+          className={cn(
+            "p-1 transition-colors",
+            canGoNext 
+              ? "text-corpo-text hover:text-corpo-light" 
+              : "text-corpo-text/20 cursor-not-allowed"
+          )}
+          aria-label="Next date"
+        >
+          <RiArrowRightSLine className="w-5 h-5" />
+        </button>
+      </div>
+
+      {/* Fixtures list for current date */}
       <div className="space-y-1">
         {isLoading ? (
           <div className="text-corpo-text/50 py-8 text-center">
             <span className="animate-pulse">Loading fixtures...</span>
           </div>
-        ) : !hasFixtures ? (
+        ) : !hasFixtures && !isChangingDate ? (
           <div className="text-corpo-text/50 py-8 text-center">
-            No fixtures available
+            No fixtures for {formatDateDisplay(currentDate)}
           </div>
         ) : (
           <>
-            {/* All fixtures grouped by date */}
-            {sortedDates.map(dateKey => {
-              const dateFixtures = fixturesByDate[dateKey].fixtures
-              const fixtureCount = dateFixtures.length
+            {allDateFixtures.map(fixture => {
+              // Check if fixture is still pending (not started)
+              const isPending = fixture.fixture.status.short === 'NS'
               
-              return (
-                <DateSection
-                  key={dateKey}
-                  dateKey={dateKey}
-                  date={fixturesByDate[dateKey].date}
-                  fixtureCount={fixtureCount}
-                  formatDate={formatDate}
-                >
-                  {dateFixtures.map(fixture => {
-                    // Check if fixture is still pending (not started)
-                    const isPending = fixture.fixture.status.short === 'NS'
-                    
-                    return isPending ? (
-                      <StagingFixtureItem
-                        key={fixture._id}
-                        fixture={fixture}
-                        formatKickoff={formatKickoff}
-                      />
-                    ) : (
-                      <FixtureItem
-                        key={fixture._id}
-                        fixture={fixture}
-                        isExpanded={expandedFixture === fixture._id}
-                        expandedEvent={expandedEvent}
-                        onToggle={() => toggleFixture(fixture._id)}
-                        onToggleEvent={toggleEvent}
-                        onOpenVideo={(info) => setVideoModal(info)}
-                      />
-                    )
-                  })}
-                </DateSection>
+              return isPending ? (
+                <StagingFixtureItem
+                  key={fixture._id}
+                  fixture={fixture}
+                  formatKickoff={formatKickoff}
+                />
+              ) : (
+                <FixtureItem
+                  key={fixture._id}
+                  fixture={fixture}
+                  isExpanded={expandedFixture === fixture._id}
+                  expandedEvent={expandedEvent}
+                  onToggle={() => toggleFixture(fixture._id)}
+                  onToggleEvent={toggleEvent}
+                  onOpenVideo={openVideoModal}
+                />
               )
             })}
           </>
@@ -444,34 +620,16 @@ function StagingFixtureItem({ fixture, formatKickoff }: StagingFixtureItemProps)
   )
 }
 
-// Date section header (non-collapsible)
-interface DateSectionProps {
-  dateKey: string
-  date: Date
-  fixtureCount: number
-  formatDate: (date: Date) => string
-  children: React.ReactNode
-}
-
-function DateSection({ date, fixtureCount, formatDate, children }: DateSectionProps) {
-  return (
-    <div className="mt-12 first:mt-0">
-      {/* Date header */}
-      <div
-        className="flex items-center gap-2 pt-4 pb-1 text-corpo-text/50 font-light"
-        style={{ fontSize: 'var(--text-size-base)' }}
-      >
-        <span>{formatDate(date)}</span>
-        <span className="text-corpo-text/30">({fixtureCount})</span>
-      </div>
-      
-      {/* Fixtures */}
-      <div className="space-y-1">
-        {children}
-      </div>
-    </div>
-  )
-}
+// Date section header - UNUSED since calendar nav shows one day at a time
+// Keeping for potential future use with week view
+// interface DateSectionProps {
+//   dateKey: string
+//   date: Date
+//   fixtureCount: number
+//   formatDate: (date: Date) => string
+//   children: React.ReactNode
+// }
+// function DateSection({ date, fixtureCount, formatDate, children }: DateSectionProps) { ... }
 
 interface FixtureItemProps {
   fixture: Fixture
@@ -861,6 +1019,14 @@ const MemoizedVideoModal = memo(function VideoModal({ url, title, subtitle, even
       if (controlsTimeoutRef.current) {
         clearTimeout(controlsTimeoutRef.current)
       }
+      // CRITICAL: Stop video and clear src on unmount to release media session
+      // This fixes iOS thinking a video is still playing after modal closes
+      const video = videoRef.current
+      if (video) {
+        video.pause()
+        video.src = ''
+        video.load() // Forces browser to release media resources
+      }
     }
   }, [])
   
@@ -1098,6 +1264,19 @@ const MemoizedVideoModal = memo(function VideoModal({ url, title, subtitle, even
             onMouseEnter={revealControls}
             onMouseMove={revealControls}
             onTouchStart={revealControls}
+            onError={(e) => {
+              const video = e.currentTarget
+              const mediaError = video.error
+              console.error('[VideoModal] Video error:', {
+                code: mediaError?.code,
+                message: mediaError?.message,
+                networkState: video.networkState,
+                readyState: video.readyState,
+                src: video.src?.substring(0, 100)
+              })
+            }}
+            onStalled={() => console.warn('[VideoModal] Video stalled - waiting for data')}
+            onWaiting={() => console.log('[VideoModal] Video waiting for data')}
           />
           {/* Unmute button - shows when video is muted (not during initial load) */}
           {isMuted === true && (

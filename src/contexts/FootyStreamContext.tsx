@@ -1,151 +1,210 @@
-import { createContext, useContext, useState, useEffect, useRef, type ReactNode } from 'react'
+import { createContext, useContext, useState, useEffect, useRef, useCallback, type ReactNode } from 'react'
 import type { Fixture } from '@/types/found-footy'
 
 const API_BASE = import.meta.env.VITE_FOOTY_API_URL || 'http://localhost:4001/api/found-footy'
 
-// Check for server-injected initial data (preloaded by server for instant display)
-interface PreloadedData {
-  staging?: Fixture[]
-  active?: Fixture[]
-  completed?: Fixture[]
-  timestamp?: string
+// Get today's date in YYYY-MM-DD format (UTC)
+function getTodayDate(): string {
+  return new Date().toISOString().slice(0, 10)
 }
 
-declare global {
-  interface Window {
-    __FOOTY_INITIAL_DATA__?: PreloadedData
-  }
-}
-
-// Transform a single video URL to be fully qualified
-function transformUrl(url: string): string {
-  if (url.startsWith('/video/')) {
-    return `${API_BASE}${url}`
-  }
-  return url
-}
-
-// Transform video URLs to be fully qualified API proxy URLs
-function transformVideoUrls(fixtures: Fixture[]): Fixture[] {
-  return fixtures.map(fixture => ({
-    ...fixture,
-    events: fixture.events?.map(event => ({
-      ...event,
-      _s3_urls: event._s3_urls?.map(transformUrl) || [],
-      _s3_videos: event._s3_videos?.map(video => ({
-        ...video,
-        url: transformUrl(video.url)
-      }))
-    })) || []
-  }))
-}
-
-// Get initial state - use preloaded data if available
-function getInitialState(): FootyStreamState {
-  const preloaded = window.__FOOTY_INITIAL_DATA__
+interface FootyState {
+  // Current view date
+  currentDate: string
+  availableDates: string[]
   
-  if (preloaded) {
-    console.log('[FootyStream] Using preloaded data from server')
-    return {
-      stagingFixtures: preloaded.staging || [],
-      fixtures: preloaded.active ? transformVideoUrls(preloaded.active) : [],
-      completedFixtures: preloaded.completed ? transformVideoUrls(preloaded.completed) : [],
-      isConnected: false,
-      isLoading: false,  // Not loading - we have data!
-      error: null,
-      lastUpdate: preloaded.timestamp ? new Date(preloaded.timestamp) : new Date()
-    }
-  }
-  
-  // No preloaded data - start in loading state
-  return {
-    stagingFixtures: [],
-    fixtures: [],
-    completedFixtures: [],
-    isConnected: false,
-    isLoading: true,
-    error: null,
-    lastUpdate: null
-  }
-}
-
-interface FootyStreamState {
+  // Fixtures for current date
   stagingFixtures: Fixture[]
-  fixtures: Fixture[]
+  activeFixtures: Fixture[]
   completedFixtures: Fixture[]
-  isConnected: boolean
-  isLoading: boolean  // True until first data received
+  
+  // Connection state
+  isConnected: boolean      // SSE connected (only when viewing today)
+  isBackendOnline: boolean  // Backend API reachable (persists across date changes)
+  isLoading: boolean        // Initial load only
+  isChangingDate: boolean   // True during date navigation (doesn't show loading UI)
   error: string | null
   lastUpdate: Date | null
 }
 
-const FootyStreamContext = createContext<FootyStreamState | null>(null)
+interface FootyContextValue extends FootyState {
+  // Navigation
+  setDate: (date: string) => void
+  goToToday: () => void
+  goToPreviousDate: () => void
+  goToNextDate: () => void
+  
+  // For backwards compatibility
+  fixtures: Fixture[]  // alias for activeFixtures
+  
+  // SSE control (for video modal)
+  pauseStream: () => void
+  resumeStream: () => void
+  
+  // Event lookup (for shared links)
+  navigateToEvent: (eventId: string) => Promise<boolean>
+}
+
+const FootyStreamContext = createContext<FootyContextValue | null>(null)
 
 export function FootyStreamProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<FootyStreamState>(getInitialState)
+  const [state, setState] = useState<FootyState>({
+    currentDate: getTodayDate(),
+    availableDates: [],
+    stagingFixtures: [],
+    activeFixtures: [],
+    completedFixtures: [],
+    isConnected: false,
+    isBackendOnline: false,
+    isLoading: true,
+    isChangingDate: false,
+    error: null,
+    lastUpdate: null
+  })
   
   const eventSourceRef = useRef<EventSource | null>(null)
-  const initialFetchDone = useRef(false)
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const reconnectAttempts = useRef(0)
+  const isPausedRef = useRef(false)
+  const currentDateRef = useRef(state.currentDate)
+  
+  // Keep ref in sync with state
+  useEffect(() => {
+    currentDateRef.current = state.currentDate
+  }, [state.currentDate])
 
-  // Fetch fresh data from REST API
-  const fetchFreshData = async () => {
+  // Check if viewing today
+  const isViewingToday = useCallback(() => {
+    return currentDateRef.current === getTodayDate()
+  }, [])
+
+  // Fetch available dates (for calendar navigation)
+  const fetchAvailableDates = useCallback(async () => {
     try {
-      const res = await fetch(`${API_BASE}/fixtures`)
+      const res = await fetch(`${API_BASE}/dates`)
       const data = await res.json()
-      setState(s => ({
-        ...s,
-        stagingFixtures: data.staging || [],
-        fixtures: data.active ? transformVideoUrls(data.active) : [],
-        completedFixtures: data.completed ? transformVideoUrls(data.completed) : [],
-        isLoading: false,
-        lastUpdate: new Date()
-      }))
-      console.log('[FootyStream] Fetched fresh data')
+      setState(s => ({ ...s, availableDates: data.dates || [] }))
     } catch (err) {
-      console.warn('[FootyStream] Failed to fetch fresh data:', err)
+      console.warn('[FootyStream] Failed to fetch available dates:', err)
     }
+  }, [])
+
+  // Get the next day in UTC
+  const getNextUtcDate = (dateStr: string): string => {
+    const date = new Date(dateStr + 'T12:00:00Z')
+    date.setUTCDate(date.getUTCDate() + 1)
+    return date.toISOString().slice(0, 10)
   }
 
-  // Create or reconnect SSE connection
-  const connectSSE = () => {
+  // Fetch fixtures for a specific date (fetches 2 consecutive UTC days to cover timezone boundaries)
+  const fetchFixturesForDate = useCallback(async (date: string, isInitial = false) => {
+    // Only show loading spinner on initial load
+    // For date changes, isChangingDate is already set by setDate() atomically with currentDate
+    if (isInitial) {
+      setState(s => ({ ...s, isLoading: true }))
+    }
+    // Note: Don't clear fixtures here - keep old ones visible until new data arrives
+    
+    try {
+      // Fetch 2 consecutive UTC days to handle timezone boundary cases
+      // E.g., when user in EST views "Jan 26 local", we need UTC Jan 26 + Jan 27
+      const nextDate = getNextUtcDate(date)
+      const [res1, res2] = await Promise.all([
+        fetch(`${API_BASE}/fixtures?date=${date}`),
+        fetch(`${API_BASE}/fixtures?date=${nextDate}`)
+      ])
+      const [data1, data2] = await Promise.all([res1.json(), res2.json()])
+      
+      // Merge fixtures from both days
+      const mergeFixtures = (arr1: Fixture[], arr2: Fixture[]) => {
+        const seen = new Set<number>()
+        const result: Fixture[] = []
+        for (const f of [...arr1, ...arr2]) {
+          if (!seen.has(f._id)) {
+            seen.add(f._id)
+            result.push(f)
+          }
+        }
+        return result
+      }
+      
+      setState(s => ({
+        ...s,
+        stagingFixtures: mergeFixtures(data1.staging || [], data2.staging || []),
+        activeFixtures: mergeFixtures(data1.active || [], data2.active || []),
+        completedFixtures: mergeFixtures(data1.completed || [], data2.completed || []),
+        isLoading: false,
+        isChangingDate: false,
+        isBackendOnline: true,  // API responded successfully
+        lastUpdate: new Date(),
+        error: null
+      }))
+      console.log(`[FootyStream] Fetched fixtures for ${date} and ${nextDate}`)
+    } catch (err) {
+      console.error('[FootyStream] Failed to fetch fixtures:', err)
+      setState(s => ({ 
+        ...s, 
+        isLoading: false,
+        isChangingDate: false,
+        isBackendOnline: false,  // API unreachable
+        error: 'Failed to load fixtures' 
+      }))
+    }
+  }, [])
+
+  // Connect to SSE (only when viewing today)
+  const connectSSE = useCallback(() => {
+    // Don't connect if not viewing today or paused
+    if (!isViewingToday() || isPausedRef.current) {
+      console.log('[FootyStream] Skipping SSE - not today or paused')
+      return
+    }
+    
     // Clean up existing connection
     if (eventSourceRef.current) {
       eventSourceRef.current.close()
       eventSourceRef.current = null
     }
 
+    console.log('[FootyStream] Connecting to SSE for live updates...')
     const eventSource = new EventSource(`${API_BASE}/stream`)
     eventSourceRef.current = eventSource
     
     eventSource.onopen = () => {
       console.log('[FootyStream] SSE connected')
-      reconnectAttempts.current = 0 // Reset on successful connection
-      setState(s => ({ ...s, isConnected: true, error: null }))
+      reconnectAttempts.current = 0
+      setState(s => ({ ...s, isConnected: true, isBackendOnline: true, error: null }))
     }
     
     eventSource.onmessage = (e) => {
+      // Ignore SSE updates if not viewing today
+      if (!isViewingToday()) return
+      
       try {
         const event = JSON.parse(e.data)
         
         switch (event.type) {
           case 'initial':
-          case 'refresh':
-            // Handle both naming conventions (stagingFixtures vs staging, etc.)
-            const staging = event.stagingFixtures ?? event.staging ?? []
-            const active = event.fixtures ?? event.active ?? []
-            const completed = event.completedFixtures ?? event.completed ?? []
+          case 'refresh': {
+            // Filter to only today's fixtures from the broadcast
+            const today = getTodayDate()
+            const filterByDate = (fixtures: Fixture[]) => 
+              fixtures.filter(f => f.fixture?.date?.startsWith(today))
+            
+            const staging = filterByDate(event.stagingFixtures ?? event.staging ?? [])
+            const active = filterByDate(event.fixtures ?? event.active ?? [])
+            const completed = filterByDate(event.completedFixtures ?? event.completed ?? [])
             
             setState(s => ({
               ...s,
               stagingFixtures: staging,
-              fixtures: active.length > 0 ? transformVideoUrls(active) : [],
-              completedFixtures: completed.length > 0 ? transformVideoUrls(completed) : [],
+              activeFixtures: active,
+              completedFixtures: completed,
               isLoading: false,
               lastUpdate: new Date()
             }))
             break
+          }
           case 'heartbeat':
             // Connection alive
             break
@@ -164,61 +223,151 @@ export function FootyStreamProvider({ children }: { children: ReactNode }) {
       eventSourceRef.current?.close()
       eventSourceRef.current = null
       
-      // Exponential backoff reconnection (1s, 2s, 4s, 8s, max 30s)
+      // Don't reconnect if paused or not viewing today
+      if (isPausedRef.current || !isViewingToday()) {
+        return
+      }
+      
+      // Exponential backoff (1s, 2s, 4s, 8s, max 30s)
       const delay = Math.min(1000 * Math.pow(2, reconnectAttempts.current), 30000)
       reconnectAttempts.current++
       
-      console.log(`[FootyStream] Reconnecting in ${delay}ms (attempt ${reconnectAttempts.current})`)
+      console.log(`[FootyStream] Reconnecting in ${delay}ms`)
       reconnectTimeoutRef.current = setTimeout(connectSSE, delay)
     }
-  }
+  }, [isViewingToday])
 
-  // Initial setup and visibility change handling
-  useEffect(() => {
-    // Prefetch data immediately via REST (faster than waiting for SSE initial event)
-    if (!initialFetchDone.current && state.isLoading) {
-      initialFetchDone.current = true
-      fetch(`${API_BASE}/fixtures`)
-        .then(res => res.json())
-        .then(data => {
-          // Only use this if we're still loading (SSE hasn't delivered yet)
-          setState(s => {
-            if (!s.isLoading) return s // SSE already delivered, skip
-            console.log('[FootyStream] Using prefetched data')
-            return {
-              ...s,
-              stagingFixtures: data.staging || [],
-              fixtures: data.active ? transformVideoUrls(data.active) : [],
-              completedFixtures: data.completed ? transformVideoUrls(data.completed) : [],
-              isLoading: false,
-              lastUpdate: new Date()
-            }
-          })
-        })
-        .catch(err => {
-          console.warn('[FootyStream] Prefetch failed, waiting for SSE:', err)
-          setTimeout(() => {
-            setState(s => {
-              if (!s.isLoading) return s
-              console.warn('[FootyStream] SSE also failed, clearing loading state')
-              return { ...s, isLoading: false }
-            })
-          }, 10000)
-        })
+  // Disconnect SSE
+  const disconnectSSE = useCallback(() => {
+    if (reconnectTimeoutRef.current) {
+      clearTimeout(reconnectTimeoutRef.current)
+      reconnectTimeoutRef.current = null
     }
+    if (eventSourceRef.current) {
+      eventSourceRef.current.close()
+      eventSourceRef.current = null
+    }
+    setState(s => ({ ...s, isConnected: false }))
+  }, [])
 
-    // Start SSE connection
+  // Navigation: set specific date
+  const setDate = useCallback((date: string) => {
+    const wasToday = currentDateRef.current === getTodayDate()
+    const willBeToday = date === getTodayDate()
+    
+    // Set currentDate AND isChangingDate atomically to prevent layout collapse
+    // The component will see both changes at once, preventing brief "no fixtures" flash
+    setState(s => ({ ...s, currentDate: date, isChangingDate: true }))
+    currentDateRef.current = date
+    
+    // Fetch fixtures for the new date (not initial load)
+    fetchFixturesForDate(date, false)
+    
+    // Handle SSE connection based on whether we're viewing today
+    if (wasToday && !willBeToday) {
+      // Leaving today - disconnect SSE
+      console.log('[FootyStream] Leaving today, disconnecting SSE')
+      disconnectSSE()
+    } else if (!wasToday && willBeToday) {
+      // Going to today - connect SSE
+      console.log('[FootyStream] Going to today, connecting SSE')
+      connectSSE()
+    }
+  }, [fetchFixturesForDate, connectSSE, disconnectSSE])
+
+  // Navigation helpers
+  const goToToday = useCallback(() => {
+    setDate(getTodayDate())
+  }, [setDate])
+
+  const goToPreviousDate = useCallback(() => {
+    const { availableDates, currentDate } = state
+    const currentIndex = availableDates.indexOf(currentDate)
+    // Dates are sorted descending, so "previous" means higher index (older)
+    if (currentIndex < availableDates.length - 1) {
+      setDate(availableDates[currentIndex + 1])
+    } else if (currentIndex === -1 && availableDates.length > 0) {
+      // Current date not in list, find nearest older date
+      const olderDates = availableDates.filter(d => d < currentDate)
+      if (olderDates.length > 0) {
+        setDate(olderDates[0]) // Most recent older date
+      }
+    }
+  }, [state, setDate])
+
+  const goToNextDate = useCallback(() => {
+    const { availableDates, currentDate } = state
+    const currentIndex = availableDates.indexOf(currentDate)
+    // Dates are sorted descending, so "next" means lower index (newer)
+    if (currentIndex > 0) {
+      setDate(availableDates[currentIndex - 1])
+    } else if (currentIndex === -1) {
+      // Current date not in list, find nearest newer date
+      const newerDates = availableDates.filter(d => d > currentDate)
+      if (newerDates.length > 0) {
+        setDate(newerDates[newerDates.length - 1]) // Oldest newer date
+      }
+    }
+  }, [state, setDate, goToToday])
+
+  // Navigate to a specific event (for shared links) - looks up date and navigates there
+  const navigateToEvent = useCallback(async (eventId: string): Promise<boolean> => {
+    try {
+      console.log(`[FootyStream] Looking up event ${eventId}`)
+      const res = await fetch(`${API_BASE}/event/${eventId}`)
+      const data = await res.json()
+      
+      if (data.found && data.date) {
+        console.log(`[FootyStream] Event found on date ${data.date}`)
+        // Navigate to that date
+        setDate(data.date)
+        return true
+      } else {
+        console.warn(`[FootyStream] Event ${eventId} not found`)
+        return false
+      }
+    } catch (err) {
+      console.error('[FootyStream] Failed to look up event:', err)
+      return false
+    }
+  }, [setDate])
+
+  // Pause/resume for video modal
+  const pauseStream = useCallback(() => {
+    if (isPausedRef.current) return
+    isPausedRef.current = true
+    console.log('[FootyStream] Pausing SSE')
+    disconnectSSE()
+  }, [disconnectSSE])
+
+  const resumeStream = useCallback(() => {
+    if (!isPausedRef.current) return
+    isPausedRef.current = false
+    console.log('[FootyStream] Resuming SSE')
+    if (isViewingToday()) {
+      reconnectAttempts.current = 0
+      connectSSE()
+    }
+  }, [connectSSE, isViewingToday])
+
+  // Initial setup
+  useEffect(() => {
+    // Fetch available dates
+    fetchAvailableDates()
+    
+    // Fetch fixtures for today (initial load)
+    fetchFixturesForDate(getTodayDate(), true)
+    
+    // Connect SSE for live updates (since we start on today)
     connectSSE()
 
-    // Handle visibility changes (mobile background/foreground)
+    // Handle visibility changes
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        console.log('[FootyStream] Tab became visible, refreshing...')
-        // Immediately fetch fresh data (faster than waiting for SSE)
-        fetchFreshData()
-        // Reconnect SSE if it's not connected
+      if (document.visibilityState === 'visible' && isViewingToday() && !isPausedRef.current) {
+        console.log('[FootyStream] Tab visible, refreshing today...')
+        fetchFixturesForDate(getTodayDate(), false)
         if (!eventSourceRef.current || eventSourceRef.current.readyState !== EventSource.OPEN) {
-          reconnectAttempts.current = 0 // Reset backoff on manual reconnect
+          reconnectAttempts.current = 0
           connectSSE()
         }
       }
@@ -228,22 +377,30 @@ export function FootyStreamProvider({ children }: { children: ReactNode }) {
 
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange)
-      if (reconnectTimeoutRef.current) {
-        clearTimeout(reconnectTimeoutRef.current)
-      }
-      eventSourceRef.current?.close()
-      eventSourceRef.current = null
+      disconnectSSE()
     }
-  }, [])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const contextValue: FootyContextValue = {
+    ...state,
+    fixtures: state.activeFixtures,  // backwards compat alias
+    setDate,
+    goToToday,
+    goToPreviousDate,
+    goToNextDate,
+    pauseStream,
+    resumeStream,
+    navigateToEvent
+  }
 
   return (
-    <FootyStreamContext.Provider value={state}>
+    <FootyStreamContext.Provider value={contextValue}>
       {children}
     </FootyStreamContext.Provider>
   )
 }
 
-export function useFootyStream(): FootyStreamState {
+export function useFootyStream(): FootyContextValue {
   const context = useContext(FootyStreamContext)
   if (!context) {
     throw new Error('useFootyStream must be used within a FootyStreamProvider')

@@ -305,7 +305,7 @@ const server = http.createServer(async (req, res) => {
         html = generateDefaultOgHtml(path);
       }
     } 
-    // For regular users wanting data injection, serve index.html with injected data
+    // For regular users (data injection disabled - now using date-based API)
     else if (wantsDataInjection) {
       const indexHtml = getIndexHtml();
       if (!indexHtml) {
@@ -315,16 +315,10 @@ const server = http.createServer(async (req, res) => {
         return;
       }
       
-      // Try to fetch fixture data, but don't block on failure
-      let fixtureData = null;
-      try {
-        fixtureData = await fetchFixtures();
-      } catch (e) {
-        console.error('[OG Server] Fixture fetch failed, serving without data:', e.message);
-      }
-      
-      html = injectDataIntoHtml(indexHtml, fixtureData);
-      console.log(`[OG Server] Injected ${fixtureData ? 'fixture data' : 'no data (fetch failed)'} into HTML`);
+      // No longer inject fixture data - client now fetches date-specific data
+      // This was causing 1.5MB+ payloads that crashed iOS tabs
+      html = indexHtml;
+      console.log(`[OG Server] Serving index.html (no data injection)`);
     }
     // Fallback (shouldn't normally happen)
     else {
