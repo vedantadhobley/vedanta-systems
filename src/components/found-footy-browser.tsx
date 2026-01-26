@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef, memo, useMemo } from 'react'
-import { RiCloseLine, RiCloseFill, RiShareBoxLine, RiShareBoxFill, RiDownload2Line, RiDownload2Fill, RiCheckLine, RiVidiconFill, RiScan2Line, RiHourglass2Line, RiHourglass2Fill, RiExpandUpDownLine, RiExpandUpDownFill, RiContractUpDownLine, RiContractUpDownFill, RiVolumeMuteLine, RiVolumeUpFill, RiErrorWarningLine, RiArrowLeftSLine, RiArrowRightSLine, RiCalendarCheckLine } from '@remixicon/react'
+import { RiCloseLine, RiCloseFill, RiShareBoxLine, RiShareBoxFill, RiDownload2Line, RiDownload2Fill, RiCheckFill, RiVidiconFill, RiScan2Line, RiHourglass2Line, RiHourglass2Fill, RiExpandUpDownLine, RiExpandUpDownFill, RiContractUpDownLine, RiContractUpDownFill, RiVolumeMuteLine, RiVolumeUpFill, RiErrorWarningLine, RiArrowLeftSLine, RiArrowLeftSFill, RiArrowRightSLine, RiArrowRightSFill, RiArrowGoBackLine, RiArrowGoBackFill, RiArrowGoForwardLine, RiArrowGoForwardFill } from '@remixicon/react'
 import type { Fixture, GoalEvent, RankedVideo } from '@/types/found-footy'
 import { cn } from '@/lib/utils'
 import { useTimezone } from '@/contexts/timezone-context'
@@ -198,6 +198,7 @@ export function FoundFootyBrowser({
   const [videoModal, setVideoModal] = useState<VideoInfo | null>(null)
   const initialVideoProcessed = useRef(false)
   const initialVideoNavigated = useRef(false)  // Track if we've navigated to the event's date
+  
   const { mode, formatTime, getTimezoneAbbr, getDateForTimestamp, getToday, getTomorrow } = useTimezone()
   
   // Format date for display (e.g., "Sat, Jan 25") - respects timezone mode
@@ -397,9 +398,24 @@ export function FoundFootyBrowser({
   // Keep a ref of the last non-empty fixtures to show during date transitions
   // This prevents layout collapse when filtering returns 0 results during date change
   const lastFixturesRef = useRef<Fixture[]>([])
-  if (currentFilteredFixtures.length > 0 && !isChangingDate) {
-    lastFixturesRef.current = currentFilteredFixtures
-  }
+  
+  // Update lastFixturesRef when we have new data, clear old ref to free memory
+  useEffect(() => {
+    if (!isChangingDate && currentFilteredFixtures.length > 0) {
+      // Replace ref content entirely (don't accumulate)
+      lastFixturesRef.current = currentFilteredFixtures
+    } else if (isChangingDate) {
+      // When starting a date change, we keep the old fixtures for display
+      // but they'll be replaced when new data arrives
+    }
+  }, [isChangingDate, currentFilteredFixtures])
+  
+  // Close expanded fixture and video when date changes to prevent stale references
+  useEffect(() => {
+    setExpandedFixture(null)
+    setExpandedEvent(null)
+    // Don't close video modal - let user finish watching
+  }, [currentDate])
   
   // During date change, show old fixtures to prevent layout collapse
   // Once new data arrives (isChangingDate becomes false), show new fixtures
@@ -428,22 +444,18 @@ export function FoundFootyBrowser({
         </div>
       </div>
 
-      {/* Calendar navigation */}
+      {/* Calendar navigation - uses global .nav-btn CSS from header.tsx */}
       <div className="mb-4 flex items-center justify-between border border-corpo-border bg-corpo-bg/50 px-3 py-2">
         {/* Previous button */}
         <button
-          type="button"
           onClick={onPreviousDate}
+          onTouchStart={() => {}} // Required for iOS :active to work
           disabled={!canGoPrevious}
-          className={cn(
-            "p-1 transition-colors",
-            canGoPrevious 
-              ? "text-corpo-text hover:text-corpo-light" 
-              : "text-corpo-text/20 cursor-not-allowed"
-          )}
+          className="nav-btn flex items-center p-1"
           aria-label="Previous date"
         >
-          <RiArrowLeftSLine className="w-5 h-5" />
+          <RiArrowLeftSLine className="icon-line w-5 h-5" />
+          <RiArrowLeftSFill className="icon-fill w-5 h-5" />
         </button>
         
         {/* Current date display and Today button */}
@@ -451,32 +463,45 @@ export function FoundFootyBrowser({
           <span className="text-corpo-text font-medium">
             {formatDateDisplay(currentDate)}
           </span>
-          {!isToday && (
+          {isToday ? (
+            <span className="p-1 text-lavender" aria-label="Currently on today">
+              <RiCheckFill className="w-4 h-4" />
+            </span>
+          ) : currentDate < today ? (
+            // Viewing past: arrow points forward to today
             <button
-              type="button"
               onClick={onGoToToday}
-              className="flex items-center gap-1 px-2 py-0.5 text-xs border border-corpo-border text-corpo-text/70 hover:text-corpo-light hover:border-corpo-text/50 transition-colors"
+              onTouchStart={() => {}} // Required for iOS :active to work
+              className="nav-btn flex items-center p-1"
+              aria-label="Go to today"
             >
-              <RiCalendarCheckLine className="w-3.5 h-3.5" />
-              Today
+              <RiArrowGoForwardLine className="icon-line w-4 h-4" />
+              <RiArrowGoForwardFill className="icon-fill w-4 h-4" />
+            </button>
+          ) : (
+            // Viewing future: arrow points back to today
+            <button
+              onClick={onGoToToday}
+              onTouchStart={() => {}} // Required for iOS :active to work
+              className="nav-btn flex items-center p-1"
+              aria-label="Go to today"
+            >
+              <RiArrowGoBackLine className="icon-line w-4 h-4" />
+              <RiArrowGoBackFill className="icon-fill w-4 h-4" />
             </button>
           )}
         </div>
         
         {/* Next button */}
         <button
-          type="button"
           onClick={onNextDate}
+          onTouchStart={() => {}} // Required for iOS :active to work
           disabled={!canGoNext}
-          className={cn(
-            "p-1 transition-colors",
-            canGoNext 
-              ? "text-corpo-text hover:text-corpo-light" 
-              : "text-corpo-text/20 cursor-not-allowed"
-          )}
+          className="nav-btn flex items-center p-1"
           aria-label="Next date"
         >
-          <RiArrowRightSLine className="w-5 h-5" />
+          <RiArrowRightSLine className="icon-line w-5 h-5" />
+          <RiArrowRightSFill className="icon-fill w-5 h-5" />
         </button>
       </div>
 
@@ -980,18 +1005,9 @@ interface VideoModalProps {
 
 const MemoizedVideoModal = memo(function VideoModal({ url, title, subtitle, eventId, onClose }: VideoModalProps) {
   const [copied, setCopied] = useState(false)
-  const [shareHovered, setShareHovered] = useState(false)
-  const [shareActive, setShareActive] = useState(false)
-  const [downloadHovered, setDownloadHovered] = useState(false)
-  const [downloadActive, setDownloadActive] = useState(false)
-  const [closeHovered, setCloseHovered] = useState(false)
-  const [closeActive, setCloseActive] = useState(false)
   const [isMuted, setIsMuted] = useState<boolean | null>(null) // null = not yet determined
-  const [volumeHovered, setVolumeHovered] = useState(false)
-  const [volumeActive, setVolumeActive] = useState(false)
   const videoRef = useRef<HTMLVideoElement>(null)
   const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-  const isTouchRef = useRef(false)
   const mountedAtRef = useRef(Date.now())
   
   // Show controls with auto-hide after 3 seconds (direct DOM manipulation to avoid re-renders)
@@ -1013,22 +1029,30 @@ const MemoizedVideoModal = memo(function VideoModal({ url, title, subtitle, even
     }, 3000)
   }, [])
   
-  // Cleanup timeout on unmount
+  // Cleanup video resources on unmount AND when URL changes
   useEffect(() => {
+    const video = videoRef.current
+    
     return () => {
       if (controlsTimeoutRef.current) {
         clearTimeout(controlsTimeoutRef.current)
+        controlsTimeoutRef.current = null
       }
-      // CRITICAL: Stop video and clear src on unmount to release media session
-      // This fixes iOS thinking a video is still playing after modal closes
-      const video = videoRef.current
+      // CRITICAL: Aggressively release video resources
+      // iOS Safari is notorious for holding onto video memory
       if (video) {
+        // Stop playback
         video.pause()
-        video.src = ''
-        video.load() // Forces browser to release media resources
+        // Clear all sources
+        video.removeAttribute('src')
+        while (video.firstChild) {
+          video.removeChild(video.firstChild)
+        }
+        // Force browser to release media resources
+        video.load()
       }
     }
-  }, [])
+  }, [url]) // Re-run cleanup when URL changes
   
   // Handle autoplay - try unmuted first, fall back to muted if browser blocks
   useEffect(() => {
@@ -1089,8 +1113,6 @@ const MemoizedVideoModal = memo(function VideoModal({ url, title, subtitle, even
     try {
       await navigator.clipboard.writeText(shareUrl)
       setCopied(true)
-      setShareActive(false)
-      setShareHovered(false)
       setTimeout(() => setCopied(false), 5000)
     } catch (err) {
       console.error('Failed to copy:', err)
@@ -1149,103 +1171,38 @@ const MemoizedVideoModal = memo(function VideoModal({ url, title, subtitle, even
             {/* Share button */}
           <button
             onClick={handleShare}
-            onMouseEnter={() => { if (!isTouchRef.current) setShareHovered(true) }}
-            onMouseLeave={() => { if (!isTouchRef.current) { setShareHovered(false); setShareActive(false) } }}
-            onMouseDown={() => { if (!isTouchRef.current) setShareActive(true) }}
-            onMouseUp={() => { if (!isTouchRef.current) setShareActive(false) }}
-            onTouchStart={() => { 
-              isTouchRef.current = true
-              setShareActive(true)
-              setShareHovered(false)
-            }}
-            onTouchEnd={() => { 
-              setShareActive(false)
-              setShareHovered(false)
-              setTimeout(() => { isTouchRef.current = false }, 300)
-            }}
-            onTouchCancel={() => { 
-              setShareActive(false)
-              setShareHovered(false)
-              setTimeout(() => { isTouchRef.current = false }, 300)
-            }}
-            className={cn(
-              "p-1 transition-none",
-              copied ? "text-lavender" : shareActive ? "text-lavender" : shareHovered ? "text-corpo-light" : "text-corpo-text"
-            )}
+            onTouchStart={() => {}} // Required for iOS :active to work
+            className={copied ? "p-1 text-lavender" : "nav-btn p-1"}
+            aria-label="Copy share link"
           >
             {copied ? (
-              <RiCheckLine className="w-5 h-5" />
-            ) : shareActive || shareHovered ? (
-              <RiShareBoxFill className="w-5 h-5" />
+              <RiCheckFill className="w-5 h-5" />
             ) : (
-              <RiShareBoxLine className="w-5 h-5" />
+              <>
+                <RiShareBoxLine className="icon-line w-5 h-5" />
+                <RiShareBoxFill className="icon-fill w-5 h-5" />
+              </>
             )}
           </button>
           {/* Download button */}
           <button
             onClick={handleDownload}
-            onMouseEnter={() => { if (!isTouchRef.current) setDownloadHovered(true) }}
-            onMouseLeave={() => { if (!isTouchRef.current) { setDownloadHovered(false); setDownloadActive(false) } }}
-            onMouseDown={() => setDownloadActive(true)}
-            onMouseUp={() => { if (!isTouchRef.current) setDownloadActive(false) }}
-            onTouchStart={() => { 
-              isTouchRef.current = true
-              setDownloadActive(true)
-              setDownloadHovered(false)
-            }}
-            onTouchEnd={() => { 
-              setDownloadActive(false)
-              setDownloadHovered(false)
-              setTimeout(() => { isTouchRef.current = false }, 300)
-            }}
-            onTouchCancel={() => { 
-              setDownloadActive(false)
-              setDownloadHovered(false)
-              setTimeout(() => { isTouchRef.current = false }, 300)
-            }}
-            className={cn(
-              "p-1 transition-none",
-              downloadActive ? "text-lavender" : downloadHovered ? "text-corpo-light" : "text-corpo-text"
-            )}
+            onTouchStart={() => {}} // Required for iOS :active to work
+            className="nav-btn p-1"
+            aria-label="Download video"
           >
-            {downloadActive || downloadHovered ? (
-              <RiDownload2Fill className="w-5 h-5" />
-            ) : (
-              <RiDownload2Line className="w-5 h-5" />
-            )}
+            <RiDownload2Line className="icon-line w-5 h-5" />
+            <RiDownload2Fill className="icon-fill w-5 h-5" />
           </button>
           {/* Close button */}
           <button
             onClick={onClose}
-            onMouseEnter={() => { if (!isTouchRef.current) setCloseHovered(true) }}
-            onMouseLeave={() => { if (!isTouchRef.current) { setCloseHovered(false); setCloseActive(false) } }}
-            onMouseDown={() => { if (!isTouchRef.current) setCloseActive(true) }}
-            onMouseUp={() => { if (!isTouchRef.current) setCloseActive(false) }}
-            onTouchStart={() => { 
-              isTouchRef.current = true
-              setCloseActive(true)
-              setCloseHovered(false)
-            }}
-            onTouchEnd={() => { 
-              setCloseActive(false)
-              setCloseHovered(false)
-              setTimeout(() => { isTouchRef.current = false }, 300)
-            }}
-            onTouchCancel={() => { 
-              setCloseActive(false)
-              setCloseHovered(false)
-              setTimeout(() => { isTouchRef.current = false }, 300)
-            }}
-            className={cn(
-              "p-1 transition-none",
-              closeActive ? "text-lavender" : closeHovered ? "text-corpo-light" : "text-corpo-text"
-            )}
+            onTouchStart={() => {}} // Required for iOS :active to work
+            className="nav-btn p-1"
+            aria-label="Close video"
           >
-            {closeActive || closeHovered ? (
-              <RiCloseFill className="w-6 h-6" />
-            ) : (
-              <RiCloseLine className="w-6 h-6" />
-            )}
+            <RiCloseLine className="icon-line w-6 h-6" />
+            <RiCloseFill className="icon-fill w-6 h-6" />
           </button>
           </div>
         </div>
@@ -1257,7 +1214,7 @@ const MemoizedVideoModal = memo(function VideoModal({ url, title, subtitle, even
             ref={videoRef}
             src={url}
             playsInline
-            preload="auto"
+            preload="metadata"
             crossOrigin="anonymous"
             className="w-full border border-corpo-border"
             style={{ maxHeight: '80vh', backgroundColor: '#000' }}
@@ -1282,35 +1239,12 @@ const MemoizedVideoModal = memo(function VideoModal({ url, title, subtitle, even
           {isMuted === true && (
             <button
               onClick={handleUnmute}
-              onMouseEnter={() => { if (!isTouchRef.current) setVolumeHovered(true) }}
-              onMouseLeave={() => { if (!isTouchRef.current) { setVolumeHovered(false); setVolumeActive(false) } }}
-              onMouseDown={() => { if (!isTouchRef.current) setVolumeActive(true) }}
-              onMouseUp={() => { if (!isTouchRef.current) setVolumeActive(false) }}
-              onTouchStart={() => { 
-                isTouchRef.current = true
-                setVolumeActive(true)
-                setVolumeHovered(false)
-              }}
-              onTouchEnd={() => { 
-                setVolumeActive(false)
-                setVolumeHovered(false)
-                setTimeout(() => { isTouchRef.current = false }, 300)
-              }}
-              onTouchCancel={() => { 
-                setVolumeActive(false)
-                setVolumeHovered(false)
-                setTimeout(() => { isTouchRef.current = false }, 300)
-              }}
-              className={cn(
-                "absolute bottom-4 left-4 p-3 rounded-full bg-black/70 transition-none",
-                volumeActive ? "text-lavender" : volumeHovered ? "text-corpo-light" : "text-corpo-text"
-              )}
+              onTouchStart={() => {}} // Required for iOS :active to work
+              className="nav-btn absolute bottom-4 left-4 p-3 rounded-full bg-black/70"
+              aria-label="Unmute video"
             >
-              {volumeActive || volumeHovered ? (
-                <RiVolumeUpFill className="w-6 h-6" />
-              ) : (
-                <RiVolumeMuteLine className="w-6 h-6" />
-              )}
+              <RiVolumeMuteLine className="icon-line w-6 h-6" />
+              <RiVolumeUpFill className="icon-fill w-6 h-6" />
             </button>
           )}
         </div>

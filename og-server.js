@@ -34,14 +34,21 @@ function getIndexHtml() {
   return indexHtmlTemplate;
 }
 
-// Fetch all fixtures for injection
+// Get today's date in YYYY-MM-DD format (UTC)
+function getTodayDate() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+// Fetch only today's fixtures for injection (much smaller than all fixtures)
 async function fetchFixtures() {
   try {
-    const data = await fetchJson(`${API_BASE}/api/found-footy/fixtures`);
+    const today = getTodayDate();
+    const data = await fetchJson(`${API_BASE}/api/found-footy/fixtures?date=${today}`);
     return {
       staging: data.staging || [],
       active: data.active || [],
       completed: data.completed || [],
+      date: today,
       timestamp: new Date().toISOString()
     };
   } catch (e) {

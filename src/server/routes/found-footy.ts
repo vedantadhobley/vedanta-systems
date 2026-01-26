@@ -177,9 +177,11 @@ export function createFoundFootyRouter(config: FoundFootyConfig): Router {
   }
 
   // Broadcast refresh with updated fixture data to all SSE clients
+  // Only sends today's fixtures (SSE is only connected when viewing today)
   async function broadcastRefresh() {
     try {
-      const fixtures = await fetchAllFixtures()
+      const today = new Date().toISOString().slice(0, 10)
+      const fixtures = await fetchFixturesForDate(today)
       const message = `data: ${JSON.stringify({ 
         type: 'refresh', 
         stagingFixtures: fixtures.staging,
@@ -189,7 +191,7 @@ export function createFoundFootyRouter(config: FoundFootyConfig): Router {
       sseClients.forEach(client => {
         client.write(message)
       })
-      console.log(`📡 [found-footy] Broadcasted refresh with ${fixtures.staging.length} staging, ${fixtures.active.length} active, ${fixtures.completed.length} completed fixtures to ${sseClients.size} clients`)
+      console.log(`📡 [found-footy] Broadcasted refresh (${today}) with ${fixtures.staging.length} staging, ${fixtures.active.length} active, ${fixtures.completed.length} completed fixtures to ${sseClients.size} clients`)
     } catch (err) {
       console.error('[found-footy] Failed to broadcast refresh:', err)
     }
@@ -475,8 +477,9 @@ export function createFoundFootyRouter(config: FoundFootyConfig): Router {
     sseClients.add(res)
     
     try {
-      // Send initial data
-      const fixtures = await fetchAllFixtures()
+      // Send initial data (today's fixtures only - client only connects SSE for today)
+      const today = new Date().toISOString().slice(0, 10)
+      const fixtures = await fetchFixturesForDate(today)
       res.write(`data: ${JSON.stringify({ 
         type: 'initial', 
         stagingFixtures: fixtures.staging,

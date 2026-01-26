@@ -7,7 +7,7 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 
 export interface PathSegment {
   name: string
@@ -21,12 +21,7 @@ interface FileSystemNavProps {
 }
 
 export function FileSystemNav({ currentPath, onNavigate }: FileSystemNavProps) {
-  const [hoveredPath, setHoveredPath] = useState<string | null>(null)
-  const [activePath, setActivePath] = useState<string | null>(null)
-  const [hoveredText, setHoveredText] = useState<string | null>(null)
-  const [activeText, setActiveText] = useState<string | null>(null)
   const [iconSize, setIconSize] = useState(window.innerWidth >= 768 ? 20 : 16)
-  const recentTouchRef = useRef(false)
 
   // Update icon size on resize
   useEffect(() => {
@@ -37,21 +32,11 @@ export function FileSystemNav({ currentPath, onNavigate }: FileSystemNavProps) {
     return () => window.removeEventListener('resize', handleResize)
   }, [])
 
-  // Clear hover state when path changes
-  useEffect(() => {
-    setHoveredPath(null)
-    setActivePath(null)
-    setHoveredText(null)
-    setActiveText(null)
-  }, [currentPath])
-
   return (
     <Breadcrumb key={currentPath.map(s => s.path).join('/')}>
       <BreadcrumbList className="font-mono" style={{ fontSize: 'var(--text-size-base)' }}>
         {currentPath.map((segment, index) => {
           const isLast = index === currentPath.length - 1
-          const isHovered = hoveredPath === segment.path
-          const isActive = activePath === segment.path
           const isHome = segment.icon === 'home'
           const isFolder = segment.icon === 'folder'
 
@@ -67,78 +52,22 @@ export function FileSystemNav({ currentPath, onNavigate }: FileSystemNavProps) {
                 ) : (
                   <BreadcrumbLink
                     onClick={() => onNavigate(segment.path)}
-                    onMouseEnter={() => {
-                      if (recentTouchRef.current) return
-                      setHoveredPath(segment.path)
-                      setHoveredText(segment.path)
-                    }}
-                    onMouseLeave={() => {
-                      if (recentTouchRef.current) return
-                      setHoveredPath(null)
-                      setActivePath(null)
-                      setHoveredText(null)
-                      setActiveText(null)
-                    }}
-                    onMouseDown={() => {
-                      setActivePath(segment.path)
-                      setActiveText(segment.path)
-                    }}
-                    onMouseUp={() => {
-                      setActivePath(null)
-                      setActiveText(null)
-                    }}
-                    onTouchStart={() => {
-                      recentTouchRef.current = true
-                      setActivePath(segment.path)
-                      setActiveText(segment.path)
-                      setHoveredPath(null)
-                      setHoveredText(null)
-                    }}
-                    onTouchEnd={() => {
-                      setActivePath(null)
-                      setActiveText(null)
-                      setHoveredPath(null)
-                      setHoveredText(null)
-                      setTimeout(() => { recentTouchRef.current = false }, 300)
-                    }}
-                    onTouchCancel={() => {
-                      setActivePath(null)
-                      setActiveText(null)
-                      setHoveredPath(null)
-                      setHoveredText(null)
-                      setTimeout(() => { recentTouchRef.current = false }, 300)
-                    }}
-                    className="flex items-center gap-1.5 cursor-pointer transition-none"
+                    onTouchStart={() => {}} // Required for iOS :active to work
+                    className="nav-btn flex items-center gap-1.5 cursor-pointer"
                   >
                     {isHome && (
-                      isActive ? (
-                        <RiHome6Fill size={iconSize} className="text-lavender" />
-                      ) : isHovered ? (
-                        <RiHome6Fill size={iconSize} className="text-corpo-light" />
-                      ) : (
-                        <RiHome6Line size={iconSize} className="text-corpo-text" />
-                      )
+                      <>
+                        <RiHome6Line size={iconSize} className="icon-line" />
+                        <RiHome6Fill size={iconSize} className="icon-fill" />
+                      </>
                     )}
                     {isFolder && (
-                      isActive ? (
-                        <RiFolderFill size={iconSize} className="text-lavender" />
-                      ) : isHovered ? (
-                        <RiFolderFill size={iconSize} className="text-corpo-light" />
-                      ) : (
-                        <RiFolderLine size={iconSize} className="text-corpo-text" />
-                      )
+                      <>
+                        <RiFolderLine size={iconSize} className="icon-line" />
+                        <RiFolderFill size={iconSize} className="icon-fill" />
+                      </>
                     )}
-                    <span 
-                      className={`transition-none ${
-                        activeText === segment.path 
-                          ? 'text-lavender' 
-                          : hoveredText === segment.path 
-                            ? 'text-corpo-light' 
-                            : 'text-corpo-text'
-                      }`}
-                    >
-                      {segment.name}
-                    </span>
+                    <span>{segment.name}</span>
                   </BreadcrumbLink>
                 )}
               </BreadcrumbItem>

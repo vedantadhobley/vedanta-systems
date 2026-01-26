@@ -186,14 +186,10 @@ export function FootyStreamProvider({ children }: { children: ReactNode }) {
         switch (event.type) {
           case 'initial':
           case 'refresh': {
-            // Filter to only today's fixtures from the broadcast
-            const today = getTodayDate()
-            const filterByDate = (fixtures: Fixture[]) => 
-              fixtures.filter(f => f.fixture?.date?.startsWith(today))
-            
-            const staging = filterByDate(event.stagingFixtures ?? event.staging ?? [])
-            const active = filterByDate(event.fixtures ?? event.active ?? [])
-            const completed = filterByDate(event.completedFixtures ?? event.completed ?? [])
+            // Server already filters to today's fixtures
+            const staging = event.stagingFixtures ?? event.staging ?? []
+            const active = event.fixtures ?? event.active ?? []
+            const completed = event.completedFixtures ?? event.completed ?? []
             
             setState(s => ({
               ...s,
@@ -361,15 +357,21 @@ export function FootyStreamProvider({ children }: { children: ReactNode }) {
     // Connect SSE for live updates (since we start on today)
     connectSSE()
 
-    // Handle visibility changes
+    // Handle visibility changes - disconnect SSE when hidden to reduce memory
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible' && isViewingToday() && !isPausedRef.current) {
-        console.log('[FootyStream] Tab visible, refreshing today...')
-        fetchFixturesForDate(getTodayDate(), false)
-        if (!eventSourceRef.current || eventSourceRef.current.readyState !== EventSource.OPEN) {
-          reconnectAttempts.current = 0
-          connectSSE()
+      if (document.visibilityState === 'visible') {
+        if (isViewingToday() && !isPausedRef.current) {
+          console.log('[FootyStream] Tab visible, refreshing today...')
+          fetchFixturesForDate(getTodayDate(), false)
+          if (!eventSourceRef.current || eventSourceRef.current.readyState !== EventSource.OPEN) {
+            reconnectAttempts.current = 0
+            connectSSE()
+          }
         }
+      } else {
+        // Tab hidden - disconnect SSE to reduce memory pressure
+        console.log('[FootyStream] Tab hidden, disconnecting SSE')
+        disconnectSSE()
       }
     }
 
