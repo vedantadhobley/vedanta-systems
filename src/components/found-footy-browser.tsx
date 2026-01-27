@@ -1009,11 +1009,16 @@ const MemoizedVideoModal = memo(function VideoModal({ url, title, subtitle, even
   const [controlsEnabled, setControlsEnabled] = useState(false) // Start with controls hidden
   const videoRef = useRef<HTMLVideoElement>(null)
   const mountedAtRef = useRef(Date.now())
+  const lastUnmuteRef = useRef(0) // Timestamp of last unmute click
   
   // Enable controls on first user interaction with the video
   // Ignores events in first 300ms to prevent tap "bleed-through" from the fixture card
+  // Also ignores events within 300ms of unmute button click
   const enableControls = useCallback(() => {
-    if (!controlsEnabled && Date.now() - mountedAtRef.current > 300) {
+    const now = Date.now()
+    if (!controlsEnabled && 
+        now - mountedAtRef.current > 300 && 
+        now - lastUnmuteRef.current > 300) {
       setControlsEnabled(true)
     }
   }, [controlsEnabled])
@@ -1111,7 +1116,10 @@ const MemoizedVideoModal = memo(function VideoModal({ url, title, subtitle, even
     window.open(downloadUrl, '_blank')
   }
 
-  const handleUnmute = () => {
+  const handleUnmute = (e: React.MouseEvent) => {
+    e.stopPropagation() // Prevent click from bubbling
+    lastUnmuteRef.current = Date.now() // Prevent enableControls for 300ms
+    
     const video = videoRef.current
     if (!video) return
     
