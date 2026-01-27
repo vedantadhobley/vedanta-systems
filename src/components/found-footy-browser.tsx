@@ -1221,19 +1221,6 @@ const MemoizedVideoModal = memo(function VideoModal({ url, title, subtitle, even
             onMouseEnter={revealControls}
             onMouseMove={revealControls}
             onTouchStart={revealControls}
-            onError={(e) => {
-              const video = e.currentTarget
-              const mediaError = video.error
-              console.error('[VideoModal] Video error:', {
-                code: mediaError?.code,
-                message: mediaError?.message,
-                networkState: video.networkState,
-                readyState: video.readyState,
-                src: video.src?.substring(0, 100)
-              })
-            }}
-            onStalled={() => console.warn('[VideoModal] Video stalled - waiting for data')}
-            onWaiting={() => console.log('[VideoModal] Video waiting for data')}
           />
           {/* Unmute button - shows when video is muted (not during initial load) */}
           {isMuted === true && (
@@ -1253,19 +1240,8 @@ const MemoizedVideoModal = memo(function VideoModal({ url, title, subtitle, even
   )
 // Custom comparison - only re-render if url/title/subtitle/eventId change (ignore onClose function reference)
 }, (prevProps, nextProps) => {
-  const shouldSkipRender = prevProps.url === nextProps.url &&
+  return prevProps.url === nextProps.url &&
          prevProps.title === nextProps.title &&
          prevProps.subtitle === nextProps.subtitle &&
          prevProps.eventId === nextProps.eventId
-  
-  if (!shouldSkipRender) {
-    console.log('[VideoModal] Re-rendering because props changed:', {
-      urlChanged: prevProps.url !== nextProps.url,
-      titleChanged: prevProps.title !== nextProps.title,
-      subtitleChanged: prevProps.subtitle !== nextProps.subtitle,
-      eventIdChanged: prevProps.eventId !== nextProps.eventId
-    })
-  }
-  
-  return shouldSkipRender
 })

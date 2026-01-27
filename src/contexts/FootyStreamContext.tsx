@@ -156,7 +156,6 @@ export function FootyStreamProvider({ children }: { children: ReactNode }) {
   const connectSSE = useCallback(() => {
     // Don't connect if not viewing today or paused
     if (!isViewingToday() || isPausedRef.current) {
-      console.log('[FootyStream] Skipping SSE - not today or paused')
       return
     }
     
@@ -166,12 +165,10 @@ export function FootyStreamProvider({ children }: { children: ReactNode }) {
       eventSourceRef.current = null
     }
 
-    console.log('[FootyStream] Connecting to SSE for live updates...')
     const eventSource = new EventSource(`${API_BASE}/stream`)
     eventSourceRef.current = eventSource
     
     eventSource.onopen = () => {
-      console.log('[FootyStream] SSE connected')
       reconnectAttempts.current = 0
       setState(s => ({ ...s, isConnected: true, isBackendOnline: true, error: null }))
     }
@@ -214,7 +211,6 @@ export function FootyStreamProvider({ children }: { children: ReactNode }) {
     }
     
     eventSource.onerror = () => {
-      console.warn('[FootyStream] SSE connection error')
       setState(s => ({ ...s, isConnected: false }))
       eventSourceRef.current?.close()
       eventSourceRef.current = null
@@ -262,11 +258,9 @@ export function FootyStreamProvider({ children }: { children: ReactNode }) {
     // Handle SSE connection based on whether we're viewing today
     if (wasToday && !willBeToday) {
       // Leaving today - disconnect SSE
-      console.log('[FootyStream] Leaving today, disconnecting SSE')
       disconnectSSE()
     } else if (!wasToday && willBeToday) {
       // Going to today - connect SSE
-      console.log('[FootyStream] Going to today, connecting SSE')
       connectSSE()
     }
   }, [fetchFixturesForDate, connectSSE, disconnectSSE])
@@ -332,14 +326,12 @@ export function FootyStreamProvider({ children }: { children: ReactNode }) {
   const pauseStream = useCallback(() => {
     if (isPausedRef.current) return
     isPausedRef.current = true
-    console.log('[FootyStream] Pausing SSE')
     disconnectSSE()
   }, [disconnectSSE])
 
   const resumeStream = useCallback(() => {
     if (!isPausedRef.current) return
     isPausedRef.current = false
-    console.log('[FootyStream] Resuming SSE')
     if (isViewingToday()) {
       reconnectAttempts.current = 0
       connectSSE()
@@ -361,7 +353,6 @@ export function FootyStreamProvider({ children }: { children: ReactNode }) {
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
         if (isViewingToday() && !isPausedRef.current) {
-          console.log('[FootyStream] Tab visible, refreshing today...')
           fetchFixturesForDate(getTodayDate(), false)
           if (!eventSourceRef.current || eventSourceRef.current.readyState !== EventSource.OPEN) {
             reconnectAttempts.current = 0
@@ -370,7 +361,6 @@ export function FootyStreamProvider({ children }: { children: ReactNode }) {
         }
       } else {
         // Tab hidden - disconnect SSE to reduce memory pressure
-        console.log('[FootyStream] Tab hidden, disconnecting SSE')
         disconnectSSE()
       }
     }

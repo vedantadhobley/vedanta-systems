@@ -191,7 +191,6 @@ export function createFoundFootyRouter(config: FoundFootyConfig): Router {
       sseClients.forEach(client => {
         client.write(message)
       })
-      console.log(`📡 [found-footy] Broadcasted refresh (${today}) with ${fixtures.staging.length} staging, ${fixtures.active.length} active, ${fixtures.completed.length} completed fixtures to ${sseClients.size} clients`)
     } catch (err) {
       console.error('[found-footy] Failed to broadcast refresh:', err)
     }
@@ -473,7 +472,6 @@ export function createFoundFootyRouter(config: FoundFootyConfig): Router {
     res.setHeader('X-Accel-Buffering', 'no') // Disable nginx buffering
     res.flushHeaders() // Flush headers immediately
     
-    console.log('🔌 [found-footy] Client connected to SSE stream')
     sseClients.add(res)
     
     try {
@@ -498,7 +496,6 @@ export function createFoundFootyRouter(config: FoundFootyConfig): Router {
       
       // Cleanup on disconnect
       req.on('close', () => {
-        console.log('🔌 [found-footy] Client disconnected')
         clearInterval(heartbeat)
         sseClients.delete(res)
       })
@@ -512,7 +509,6 @@ export function createFoundFootyRouter(config: FoundFootyConfig): Router {
 
   // POST /refresh - called by found-footy backend after monitor/download cycles
   router.post('/refresh', async (_req: Request, res: Response) => {
-    console.log('🔄 [found-footy] Refresh triggered')
     await broadcastRefresh()
     res.json({ success: true, clientsNotified: sseClients.size })
   })
@@ -526,8 +522,6 @@ export function createFoundFootyRouter(config: FoundFootyConfig): Router {
     try {
       const bucket = req.params.bucket
       const objectPath = req.params[0]
-      
-      console.log(`🎬 [found-footy] Proxying video: ${bucket}/${objectPath}`)
       
       // Get object stats first
       const stat = await minioClient.statObject(bucket, objectPath)
@@ -590,8 +584,6 @@ export function createFoundFootyRouter(config: FoundFootyConfig): Router {
       const bucket = req.params.bucket
       const objectPath = req.params[0]
       const filename = objectPath.split('/').pop() || 'video.mp4'
-      
-      console.log(`📥 [found-footy] Download request: ${bucket}/${objectPath}`)
       
       // Get object stats
       const stat = await minioClient.statObject(bucket, objectPath)
