@@ -190,58 +190,20 @@ export function FootyStreamProvider({ children }: { children: ReactNode }) {
         const event = JSON.parse(e.data)
         
         switch (event.type) {
-          case 'initial':
-          case 'refresh': {
-            // SSE only sends fixtures for 1 UTC day, but we need multiple UTC days
-            // to cover timezone boundaries. MERGE SSE data with existing fixtures
-            // instead of replacing - this preserves fixtures from adjacent UTC days
-            // that were loaded by fetchFixturesForDate.
-            const sseStaging = event.stagingFixtures ?? event.staging ?? []
-            const sseActive = event.fixtures ?? event.active ?? []
-            const sseCompleted = event.completedFixtures ?? event.completed ?? []
-            
-            setState(s => {
-              // Merge function: update existing fixtures, add new ones, keep ones not in SSE
-              const mergeFixtures = (existing: Fixture[], incoming: Fixture[]): Fixture[] => {
-                const incomingMap = new Map(incoming.map(f => [f._id, f]))
-                const result: Fixture[] = []
-                const seen = new Set<number>()
-                
-                // First, add all existing fixtures (updated if in incoming)
-                for (const f of existing) {
-                  if (incomingMap.has(f._id)) {
-                    // Update with fresh data from SSE
-                    result.push(incomingMap.get(f._id)!)
-                  } else {
-                    // Keep existing fixture (from adjacent UTC day)
-                    result.push(f)
-                  }
-                  seen.add(f._id)
-                }
-                
-                // Then add any new fixtures from incoming that weren't in existing
-                for (const f of incoming) {
-                  if (!seen.has(f._id)) {
-                    result.push(f)
-                  }
-                }
-                
-                return result
-              }
-              
-              return {
-                ...s,
-                stagingFixtures: mergeFixtures(s.stagingFixtures, sseStaging),
-                activeFixtures: mergeFixtures(s.activeFixtures, sseActive),
-                completedFixtures: mergeFixtures(s.completedFixtures, sseCompleted),
-                isLoading: false,
-                lastUpdate: new Date()
-              }
-            })
+          case 'connected':
+            // SSE connected - we already have data from REST API
+            console.log('[FootyStream] SSE connected')
             break
-          }
+          case 'refresh':
+            // Lightweight refresh signal - refetch via REST API
+            console.log('[FootyStream] SSE refresh signal, refetching...')
+            fetchFixturesForDate(currentDateRef.current)
+            break
           case 'heartbeat':
             // Connection alive
+            break
+          case 'health':
+            // Backend health status update
             break
           case 'error':
             setState(s => ({ ...s, error: event.message || 'Stream error' }))

@@ -176,21 +176,18 @@ export function createFoundFootyRouter(config: FoundFootyConfig): Router {
     })
   }
 
-  // Broadcast refresh with updated fixture data to all SSE clients
-  // Only sends today's fixtures (SSE is only connected when viewing today)
+  // Broadcast lightweight refresh signal to all SSE clients
+  // Client will refetch via REST API - keeps SSE payload tiny (~50 bytes)
   async function broadcastRefresh() {
     try {
-      const today = new Date().toISOString().slice(0, 10)
-      const fixtures = await fetchFixturesForDate(today)
       const message = `data: ${JSON.stringify({ 
-        type: 'refresh', 
-        stagingFixtures: fixtures.staging,
-        fixtures: fixtures.active, 
-        completedFixtures: fixtures.completed 
+        type: 'refresh',
+        timestamp: Date.now()
       })}\n\n`
       sseClients.forEach(client => {
         client.write(message)
       })
+      console.log(`[found-footy] Broadcast refresh to ${sseClients.size} clients`)
     } catch (err) {
       console.error('[found-footy] Failed to broadcast refresh:', err)
     }
@@ -475,14 +472,10 @@ export function createFoundFootyRouter(config: FoundFootyConfig): Router {
     sseClients.add(res)
     
     try {
-      // Send initial data (today's fixtures only - client only connects SSE for today)
-      const today = new Date().toISOString().slice(0, 10)
-      const fixtures = await fetchFixturesForDate(today)
+      // Send lightweight connected signal - client already has data from REST API
       res.write(`data: ${JSON.stringify({ 
-        type: 'initial', 
-        stagingFixtures: fixtures.staging,
-        fixtures: fixtures.active, 
-        completedFixtures: fixtures.completed 
+        type: 'connected',
+        timestamp: Date.now()
       })}\n\n`)
       
       // Send initial health status
