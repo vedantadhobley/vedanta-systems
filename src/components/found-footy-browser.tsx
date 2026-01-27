@@ -47,78 +47,25 @@ function generateEventSubtitle(event: GoalEvent): string {
   return `${timeStr} ${eventType} - <<${scorerName}>>`
 }
 
-// Global pulse sync - all icons share the same opacity controlled by CSS custom property
-// This guarantees perfect sync regardless of when components mount
+// Tailwind's animate-pulse duration is 2000ms
 const PULSE_DURATION_MS = 2000
 
-// Set up global pulse animation that updates CSS custom property
-let pulseSetupDone = false
+// Module-level constant: captured once when module loads, shared by ALL icons
+// This ensures every icon calculates the exact same offset (pure CSS, no JS loop)
+const PAGE_LOAD_TIME = Date.now()
+const SYNCED_PULSE_OFFSET = PAGE_LOAD_TIME % PULSE_DURATION_MS
+const SYNCED_PULSE_STYLE: React.CSSProperties = { animationDelay: `-${SYNCED_PULSE_OFFSET}ms` }
 
-let pulseAnimationId: number | null = null
-
-function setupGlobalPulse() {
-  if (pulseSetupDone || typeof window === 'undefined') return
-  pulseSetupDone = true
-  
-  const updatePulse = () => {
-    const elapsed = Date.now() % PULSE_DURATION_MS
-    const progress = elapsed / PULSE_DURATION_MS
-    // Match Tailwind's animate-pulse: cubic-bezier(0.4, 0, 0.6, 1)
-    // Goes from opacity 1 -> 0.5 -> 1
-    // Use sine wave that matches: peaks at 0 and 1, trough at 0.5
-    const opacity = 0.75 + 0.25 * Math.cos(progress * Math.PI * 2)
-    document.documentElement.style.setProperty('--synced-pulse-opacity', opacity.toString())
-    pulseAnimationId = requestAnimationFrame(updatePulse)
-  }
-  
-  const startPulse = () => {
-    if (pulseAnimationId === null) {
-      updatePulse()
-    }
-  }
-  
-  const stopPulse = () => {
-    if (pulseAnimationId !== null) {
-      cancelAnimationFrame(pulseAnimationId)
-      pulseAnimationId = null
-    }
-  }
-  
-  // Stop completely when hidden, restart when visible
-  document.addEventListener('visibilitychange', () => {
-    if (document.hidden) {
-      stopPulse()
-    } else {
-      startPulse()
-    }
-  })
-  
-  // Only start if visible
-  if (!document.hidden) {
-    startPulse()
-  }
-}
-
-// Animated icons for scanning states - perfectly synced via CSS variable
+// Animated icons for scanning states - synced across all instances via CSS
 function ValidatingIcon({ className }: { className?: string }) {
-  // Ensure global pulse is running
-  useEffect(() => { setupGlobalPulse() }, [])
   return (
-    <RiScan2Line 
-      className={className} 
-      style={{ opacity: 'var(--synced-pulse-opacity, 1)' }} 
-    />
+    <RiScan2Line className={cn("animate-pulse", className)} style={SYNCED_PULSE_STYLE} />
   )
 }
 
 function ExtractingIcon({ className }: { className?: string }) {
-  // Ensure global pulse is running
-  useEffect(() => { setupGlobalPulse() }, [])
   return (
-    <RiVidiconFill 
-      className={className} 
-      style={{ opacity: 'var(--synced-pulse-opacity, 1)' }} 
-    />
+    <RiVidiconFill className={cn("animate-pulse", className)} style={SYNCED_PULSE_STYLE} />
   )
 }
 
