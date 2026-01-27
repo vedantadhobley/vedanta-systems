@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef, memo, useMemo } from 'react'
-import { RiCloseLine, RiCloseFill, RiShareBoxLine, RiShareBoxFill, RiDownload2Line, RiDownload2Fill, RiCheckFill, RiVidiconFill, RiScan2Line, RiHourglass2Line, RiHourglass2Fill, RiExpandUpDownLine, RiExpandUpDownFill, RiContractUpDownLine, RiContractUpDownFill, RiVolumeMuteLine, RiVolumeUpFill, RiErrorWarningLine, RiArrowLeftSLine, RiArrowLeftSFill, RiArrowRightSLine, RiArrowRightSFill, RiArrowGoBackLine, RiArrowGoBackFill, RiArrowGoForwardLine, RiArrowGoForwardFill } from '@remixicon/react'
+import { RiCloseLine, RiCloseFill, RiShareBoxLine, RiShareBoxFill, RiDownload2Line, RiDownload2Fill, RiCheckFill, RiVidiconFill, RiScan2Line, RiHourglass2Line, RiHourglass2Fill, RiExpandUpDownLine, RiExpandUpDownFill, RiContractUpDownLine, RiContractUpDownFill, RiVolumeMuteLine, RiErrorWarningLine, RiArrowLeftSLine, RiArrowLeftSFill, RiArrowRightSLine, RiArrowRightSFill, RiArrowGoBackLine, RiArrowGoBackFill, RiArrowGoForwardLine, RiArrowGoForwardFill } from '@remixicon/react'
 import type { Fixture, GoalEvent, RankedVideo } from '@/types/found-footy'
 import { cn } from '@/lib/utils'
 import { useTimezone } from '@/contexts/timezone-context'
@@ -1208,7 +1208,7 @@ const MemoizedVideoModal = memo(function VideoModal({ url, title, subtitle, even
         </div>
         
         {/* Video player with unmute overlay - outer div has black bg to mask any flicker */}
-        <div className="relative bg-black">
+        <div className="relative bg-black overflow-hidden">
           <video
             key={url} // Stable key prevents re-mounting on state changes
             ref={videoRef}
@@ -1216,22 +1216,21 @@ const MemoizedVideoModal = memo(function VideoModal({ url, title, subtitle, even
             playsInline
             preload="metadata"
             crossOrigin="anonymous"
-            className="w-full border border-corpo-border"
+            className="w-full border border-corpo-border block"
             style={{ maxHeight: '80vh', backgroundColor: '#000' }}
             onMouseEnter={revealControls}
             onMouseMove={revealControls}
             onTouchStart={revealControls}
           />
-          {/* Unmute button - shows when video is muted (not during initial load) */}
+          {/* Unmute button overlay - square to bottom-left corner */}
           {isMuted === true && (
             <button
               onClick={handleUnmute}
               onTouchStart={() => {}} // Required for iOS :active to work
-              className="nav-btn absolute bottom-4 left-4 p-3 rounded-full bg-black/70"
+              className="absolute bottom-2 left-2 p-1.5 rounded bg-black/70 text-corpo-text/70 hover:text-corpo-text active:text-lavender transition-colors"
               aria-label="Unmute video"
             >
-              <RiVolumeMuteLine className="icon-line w-6 h-6" />
-              <RiVolumeUpFill className="icon-fill w-6 h-6" />
+              <RiVolumeMuteLine className="w-4 h-4" />
             </button>
           )}
         </div>
