@@ -184,7 +184,8 @@
         });
         
         // Show visual debug panel if there were suspicious loads (more than just the current one)
-        if (suspiciousLoads.length > 1 || (suspiciousLoads.length === 1 && !suspiciousLoads[0].freshSession)) {
+        // DISABLED: Debug panel no longer needed, but keeping code for future debugging
+        if (false && (suspiciousLoads.length > 1 || (suspiciousLoads.length === 1 && !suspiciousLoads[0].freshSession))) {
           // Wait for DOM to be ready
           var showDebug = function() {
             var panel = document.createElement('div');
