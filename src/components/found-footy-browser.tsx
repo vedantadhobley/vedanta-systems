@@ -1006,38 +1006,23 @@ interface VideoModalProps {
 const MemoizedVideoModal = memo(function VideoModal({ url, title, subtitle, eventId, onClose }: VideoModalProps) {
   const [copied, setCopied] = useState(false)
   const [isMuted, setIsMuted] = useState<boolean | null>(null) // null = not yet determined
+  const [controlsEnabled, setControlsEnabled] = useState(false) // Start with controls hidden
   const videoRef = useRef<HTMLVideoElement>(null)
-  const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const mountedAtRef = useRef(Date.now())
   
-  // Show controls with auto-hide after 3 seconds (direct DOM manipulation to avoid re-renders)
-  const revealControls = useCallback(() => {
-    // Ignore events in the first 300ms after mount to prevent immediate reveal
-    // when mouse is already over the video area when modal opens
-    if (Date.now() - mountedAtRef.current < 300) return
-    
-    if (videoRef.current) {
-      videoRef.current.controls = true
+  // Enable controls on first user interaction with the video
+  // Ignores events in first 300ms to prevent tap "bleed-through" from the fixture card
+  const enableControls = useCallback(() => {
+    if (!controlsEnabled && Date.now() - mountedAtRef.current > 300) {
+      setControlsEnabled(true)
     }
-    if (controlsTimeoutRef.current) {
-      clearTimeout(controlsTimeoutRef.current)
-    }
-    controlsTimeoutRef.current = setTimeout(() => {
-      if (videoRef.current) {
-        videoRef.current.controls = false
-      }
-    }, 3000)
-  }, [])
+  }, [controlsEnabled])
   
   // Cleanup video resources on unmount AND when URL changes
   useEffect(() => {
     const video = videoRef.current
     
     return () => {
-      if (controlsTimeoutRef.current) {
-        clearTimeout(controlsTimeoutRef.current)
-        controlsTimeoutRef.current = null
-      }
       // CRITICAL: Aggressively release video resources
       // iOS Safari is notorious for holding onto video memory
       if (video) {
@@ -1213,14 +1198,15 @@ const MemoizedVideoModal = memo(function VideoModal({ url, title, subtitle, even
             key={url} // Stable key prevents re-mounting on state changes
             ref={videoRef}
             src={url}
+            controls={controlsEnabled}
             playsInline
             preload="metadata"
             crossOrigin="anonymous"
+            disableRemotePlayback // Hide Chromecast button
             className="w-full border border-corpo-border block"
             style={{ maxHeight: '80vh', backgroundColor: '#000' }}
-            onMouseEnter={revealControls}
-            onMouseMove={revealControls}
-            onTouchStart={revealControls}
+            onMouseEnter={enableControls}
+            onClick={enableControls}
           />
           {/* Unmute button overlay - square to bottom-left corner */}
           {isMuted === true && (
