@@ -1113,7 +1113,7 @@ const MemoizedVideoModal = memo(function VideoModal({ url, title, subtitle, even
     try {
       await navigator.clipboard.writeText(shareUrl)
       setCopied(true)
-      setTimeout(() => setCopied(false), 5000)
+      setTimeout(() => setCopied(false), 3000)
     } catch (err) {
       console.error('Failed to copy:', err)
     }
