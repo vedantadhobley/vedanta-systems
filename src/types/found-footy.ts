@@ -56,10 +56,10 @@ export interface GoalEvent {
   _s3_videos?: RankedVideo[]  // New: ranked videos with metadata
   _perceptual_hashes: string[]
   _monitor_complete: boolean
-  _twitter_complete: boolean
+  _download_complete: boolean
   _removed: boolean
   _first_seen: string
-  _twitter_completed_at?: string
+  _download_completed_at?: string
 }
 
 export interface FixtureStatus {

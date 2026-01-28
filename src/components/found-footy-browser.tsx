@@ -644,9 +644,9 @@ function FixtureItem({
   })
   
   // Check if any event in this fixture is still scanning
-  const hasActiveScanning = sortedEvents.some(e => !e._twitter_complete)
+  const hasActiveScanning = sortedEvents.some(e => !e._download_complete)
   const hasValidating = sortedEvents.some(e => !e._monitor_complete && !isUnknownPlayer(e.player))
-  const hasExtracting = sortedEvents.some(e => e._monitor_complete && !e._twitter_complete)
+  const hasExtracting = sortedEvents.some(e => e._monitor_complete && !e._download_complete)
 
   return (
     <div className="border border-corpo-border">
@@ -775,12 +775,12 @@ function EventItem({ event, fixture, isExpanded, onToggle, onOpenVideo }: EventI
   
   // Scanning states:
   // - _monitor_complete = false: Debounce/validating (event just detected, waiting for stability)
-  // - _monitor_complete = true && _twitter_complete = false: Extracting clips from Twitter
+  // - _monitor_complete = true && _download_complete = false: Extracting clips from Twitter
   // - Both true: All scanning complete
   // - Unknown player: No debouncing, goes straight to extraction
   const hasUnknownPlayer = isUnknownPlayer(event.player)
   const isValidating = !event._monitor_complete && !hasUnknownPlayer
-  const isExtracting = event._monitor_complete === true && !event._twitter_complete
+  const isExtracting = event._monitor_complete === true && !event._download_complete
   const isStillScanning = isValidating || isExtracting
 
   // Use generated display strings for video modal
