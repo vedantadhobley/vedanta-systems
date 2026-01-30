@@ -47,26 +47,21 @@ function generateEventSubtitle(event: GoalEvent): string {
   return `${timeStr} ${eventType} - <<${scorerName}>>`
 }
 
-// Tailwind's animate-pulse duration is 2000ms
+// Synced pulse animation using pure CSS
+// Calculate animationDelay at render time to sync to wall clock - no JS timers
 const PULSE_DURATION_MS = 2000
 
-// Module-level constant: captured once when module loads, shared by ALL icons
-// This ensures every icon calculates the exact same offset (pure CSS, no JS loop)
-const PAGE_LOAD_TIME = Date.now()
-const SYNCED_PULSE_OFFSET = PAGE_LOAD_TIME % PULSE_DURATION_MS
-const SYNCED_PULSE_STYLE: React.CSSProperties = { animationDelay: `-${SYNCED_PULSE_OFFSET}ms` }
+function getSyncedPulseStyle(): React.CSSProperties {
+  return { animationDelay: `-${Date.now() % PULSE_DURATION_MS}ms` }
+}
 
-// Animated icons for scanning states - synced across all instances via CSS
+// Animated icons for scanning states - synced via CSS animation-delay
 function ValidatingIcon({ className }: { className?: string }) {
-  return (
-    <RiScan2Line className={cn("animate-pulse", className)} style={SYNCED_PULSE_STYLE} />
-  )
+  return <RiScan2Line className={cn("animate-pulse", className)} style={getSyncedPulseStyle()} />
 }
 
 function ExtractingIcon({ className }: { className?: string }) {
-  return (
-    <RiVidiconFill className={cn("animate-pulse", className)} style={SYNCED_PULSE_STYLE} />
-  )
+  return <RiVidiconFill className={cn("animate-pulse", className)} style={getSyncedPulseStyle()} />
 }
 
 // Icon for events with unknown player (no debouncing applied)

@@ -44,7 +44,7 @@ nginx solves this by routing requests on a single port:
                                ▼
 ┌─────────────────────────────────────────────────────────────────────┐
 │                    CLOUDFLARE TUNNEL                                 │
-│                 vedanta.systems → localhost:3000                     │
+│                 vedanta.systems → localhost:3100                     │
 └──────────────────────────────┬──────────────────────────────────────┘
                                │
                                ▼
@@ -95,8 +95,8 @@ nginx solves this by routing requests on a single port:
 
 | | Development | Production |
 |---|-------------|------------|
-| Frontend | localhost:4000 (Vite HMR) | vedanta.systems (nginx) |
-| API | localhost:4001 (direct) | vedanta.systems/api/* (nginx proxy) |
+| Frontend | localhost:4100 (Vite HMR) | vedanta.systems (nginx) |
+| API | localhost:4101 (direct) | vedanta.systems/api/* (nginx proxy) |
 | nginx | Not used | Routes all traffic |
 | Why different? | Both ports exposed locally | Only port 3000 via Cloudflare |
 
@@ -163,7 +163,7 @@ docker logs -f vedanta-systems-dev
 docker compose -f docker-compose.dev.yml down
 ```
 
-Access at http://localhost:4000
+Access at http://localhost:4100
 
 ### Local Development (without Docker)
 
@@ -236,7 +236,7 @@ FOUND_FOOTY_S3_PASS=ffpass
 
 **Development only** (set in docker-compose.dev.yml):
 ```env
-VITE_FOOTY_API_URL=http://localhost:4001/api/found-footy
+VITE_FOOTY_API_URL=http://localhost:4101/api/found-footy
 ```
 
 **Production** (baked into build via docker-compose.yml):

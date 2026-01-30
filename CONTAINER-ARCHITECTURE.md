@@ -18,35 +18,35 @@ All services use standard ports (3000, 3070, 9000, etc.) internally. No port jug
 
 ```
 Projects:
-  ~/projects/dev/vedanta-systems/    (port 4000 exposed)
-  ~/projects/dev/dagster/            (port 4100 exposed)
-  ~/projects/dev/minio/              (port 4200 exposed)
-  ~/projects/dev/temporal/           (port 4300 exposed)
+  ~/projects/dev/vedanta-systems/    (port 4100 exposed)
+  ~/projects/dev/found-footy/        (port 4200 exposed - Dagster, Mongo Express, MinIO)
+  ~/projects/dev/legal-tender/       (port 4300 exposed)
   etc.
 
 All connected to: luv-dev network
 
-Access: http://localhost:4000, http://localhost:4100, etc.
+Access: http://localhost:4100, http://localhost:4200, etc.
 
 Port Scheme: 4xxx for dev (avoids collision with prod 3xxx on same machine)
+             4000-4099 reserved for new stack
 ```
 
 ### Prod Environment (`~/projects/prod/*`)
 
 ```
 Projects:
-  ~/projects/prod/vedanta-systems/   (127.0.0.1:3000 for CloudFlare Tunnel)
-  ~/projects/prod/dagster/           (port 3100 exposed)
-  ~/projects/prod/minio/             (port 3200 exposed)
-  ~/projects/prod/temporal/          (port 3300 exposed)
+  ~/projects/prod/vedanta-systems/   (port 3100, CloudFlare Tunnel points here)
+  ~/projects/prod/found-footy/       (port 3200 - Dagster, Mongo Express, MinIO)
+  ~/projects/prod/legal-tender/      (port 3300)
   etc.
 
 All connected to: luv-prod network
 
 Internet access: https://vedanta.systems (via CloudFlare Tunnel)
-Dashboard access: http://localhost:3100, http://localhost:3200, etc.
+Dashboard access: http://localhost:3200, http://localhost:3300, etc.
 
 Port Scheme: 3xxx for prod
+             3000-3099 reserved for new stack
 ```
 
 **Key**: Only vedanta-systems is exposed to internet via CloudFlare Tunnel. Backend dashboards accessed locally on the server.
@@ -63,7 +63,7 @@ services:
   frontend:
     container_name: vedanta-systems-dev
     ports:
-      - "4000:3000"  # Dev uses 4000 (prod uses 3000)
+      - "4100:3000"  # Dev uses 4100 (prod uses 3100)
     networks:
       - vedanta-systems-dev
       - luv-dev
@@ -75,7 +75,7 @@ services:
   frontend:
     container_name: vedanta-systems-prod
     ports:
-      - "127.0.0.1:3000:3000"  # Only for CloudFlare Tunnel
+      - "3100:3000"  # CloudFlare Tunnel points here
     networks:
       - vedanta-systems-prod
       - luv-prod
@@ -83,27 +83,27 @@ services:
 
 ### Backend Project (e.g., Dagster)
 
-**Dev** (`~/projects/dev/dagster/docker-compose.dev.yml`):
+**Dev** (`~/projects/dev/found-footy/docker-compose.dev.yml`):
 ```yaml
 services:
   dagster-webserver:
-    container_name: dagster-webserver-dev
+    container_name: found-footy-dev-dagster
     ports:
-      - "4100:3070"  # Dev uses 4100 externally
+      - "4200:3070"  # Dev uses 4200 externally
     networks:
-      - dagster-dev
+      - found-footy-dev
       - luv-dev  # vedanta-systems-dev can call this
 ```
 
-**Prod** (`~/projects/prod/dagster/docker-compose.yml`):
+**Prod** (`~/projects/prod/found-footy/docker-compose.yml`):
 ```yaml
 services:
   dagster-webserver:
-    container_name: dagster-webserver-prod
+    container_name: found-footy-prod-dagster
     ports:
-      - "3100:3070"  # Prod uses 3100 externally
+      - "3200:3070"  # Prod uses 3200 externally
     networks:
-      - dagster-prod
+      - found-footy-prod
       - luv-prod  # vedanta-systems-prod can call this
 ```
 
@@ -134,11 +134,11 @@ const MINIO_URL = 'http://minio-prod:9000';
 ### Dev (Your Local Machine)
 
 ```bash
-# Dev uses 4xxx ports
-http://localhost:4000       # vedanta-systems
-http://localhost:4100       # dagster dashboard
-http://localhost:4200       # minio console
-http://localhost:4300       # temporal UI
+# Dev uses 4xxx ports (4000-4099 reserved)
+http://localhost:4100       # vedanta-systems
+http://localhost:4200       # found-footy dagster dashboard
+http://localhost:4201       # found-footy mongo express
+http://localhost:4202       # found-footy minio console
 ```
 
 ### Prod (Server)
@@ -150,10 +150,10 @@ https://vedanta.systems
 
 **Viewing Backend Dashboards** (same machine, different ports):
 ```bash
-# Prod uses 3xxx ports (no SSH needed, same machine)
-http://localhost:3100       # dagster
-http://localhost:3200       # minio
-http://localhost:3300       # temporal
+# Prod uses 3xxx ports (3000-3099 reserved)
+http://localhost:3200       # found-footy dagster
+http://localhost:3201       # found-footy mongo express
+http://localhost:3202       # found-footy minio console
 ```
 
 **NOT exposed to internet** - only accessible via localhost on the server.

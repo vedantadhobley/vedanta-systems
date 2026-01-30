@@ -247,7 +247,7 @@ function DirectoryListing() {
 // About page content component
 function AboutContent() {
   return (
-    <ResumeViewer pdfUrl="/Vedanta_Dhobley_Resume_20260121.pdf" />
+    <ResumeViewer pdfUrl="/Vedanta_Dhobley_Resume_20260129.pdf?v=2" />
   )
 }
 

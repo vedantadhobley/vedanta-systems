@@ -44,7 +44,7 @@ VITE_GITHUB_TOKEN=your_token_here
 
 ```bash
 docker compose up -d --build
-docker ps  # Should show vedanta-systems-prod on 127.0.0.1:3000
+docker ps  # Should show vedanta-systems-prod on port 3100
 ```
 
 ### 4. Run CloudFlare Tunnel Setup
@@ -111,20 +111,19 @@ Access them via SSH/KVM on the server:
 ssh user@your-server
 
 # Open browser on the server at:
-http://localhost:3070  # Dagster
-http://localhost:9000  # MinIO
-http://localhost:8081  # Mongo Express
-http://localhost:8088  # Temporal
+http://localhost:3200  # found-footy Dagster
+http://localhost:3201  # found-footy Mongo Express
+http://localhost:3202  # found-footy MinIO console
 ```
 
 Or use SSH port forwarding:
 
 ```bash
 # From your local machine
-ssh -L 3070:localhost:3070 user@your-server
+ssh -L 3200:localhost:3200 user@your-server
 
 # Then open locally:
-http://localhost:3070
+http://localhost:3200
 ```
 
 ---

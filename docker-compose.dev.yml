@@ -8,15 +8,15 @@ services:
       dockerfile: Dockerfile.dev
       args:
         VITE_GITHUB_TOKEN: ${VITE_GITHUB_TOKEN}
-    # Dev uses 4000, prod uses 3000 (both on same machine)
+    # Dev uses 4100, prod uses 3100 (both on same machine)
     ports:
-      - "4000:3000"
+      - "4100:3000"
     environment:
       - VITE_API_BASE_URL=http://localhost:8080
       - VITE_ENVIRONMENT=development
       - VITE_GITHUB_TOKEN=${VITE_GITHUB_TOKEN}
       # Use localhost for browser access (frontend runs in browser, not in container)
-      - VITE_FOOTY_API_URL=http://localhost:4001/api/found-footy
+      - VITE_FOOTY_API_URL=http://localhost:4101/api/found-footy
     restart: unless-stopped
     # Enable volumes for live development (Dev Containers)
     volumes:
@@ -38,7 +38,7 @@ services:
     image: node:18-alpine
     working_dir: /app
     ports:
-      - "4001:3001"
+      - "4101:3001"
     environment:
       - API_PORT=3001
       # MongoDB

@@ -10,7 +10,7 @@ services:
         - VITE_FOOTY_API_URL=https://vedanta.systems/api/found-footy
     container_name: vedanta-systems-prod
     ports:
-      - "3000:3000"
+      - "3100:3000"
     restart: unless-stopped
     volumes:
       - /home/vedanta/photos:/app/dist/photos:ro

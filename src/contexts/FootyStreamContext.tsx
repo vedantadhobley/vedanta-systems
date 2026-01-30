@@ -2,7 +2,7 @@ import { createContext, useContext, useState, useEffect, useRef, useCallback, ty
 import type { Fixture } from '@/types/found-footy'
 import { useTimezone } from '@/contexts/timezone-context'
 
-const API_BASE = import.meta.env.VITE_FOOTY_API_URL || 'http://localhost:4001/api/found-footy'
+const API_BASE = import.meta.env.VITE_FOOTY_API_URL || 'http://localhost:4101/api/found-footy'
 
 interface FootyState {
   // Current view date

@@ -20,7 +20,7 @@ fi
 
 # Variables
 TUNNEL_NAME="vedanta-systems-prod"
-SERVICE_URL="http://localhost:3000"
+SERVICE_URL="http://localhost:3100"
 INSTALL_DIR="$HOME/.cloudflared"
 
 echo "📋 Configuration:"
