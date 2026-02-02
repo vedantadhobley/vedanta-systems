@@ -47,17 +47,26 @@ function generateEventSubtitle(event: GoalEvent): string {
   return `${timeStr} ${eventType} - <<${scorerName}>>`
 }
 
-// Synced pulse animation using CSS variable set once on page load
-// All icons reference --pulse-sync-delay so they stay in phase even when components re-render
+// Synced pulse animation - all icons sync to wall clock
+// Each icon calculates delay at mount: -(Date.now() % duration)
+// This makes all icons appear to have started at the same epoch-aligned time
 const PULSE_DURATION_MS = 2000
 
-// Animated icons for scanning states - synced via shared CSS variable
+// Hook to get synced animation delay - calculated once at mount
+function useSyncedPulseDelay(): string {
+  const [delay] = useState(() => `-${Date.now() % PULSE_DURATION_MS}ms`)
+  return delay
+}
+
+// Animated icons for scanning states - synced to wall clock
 function ValidatingIcon({ className }: { className?: string }) {
-  return <RiScan2Line className={cn("animate-pulse", className)} style={{ animationDelay: 'var(--pulse-sync-delay)' }} />
+  const delay = useSyncedPulseDelay()
+  return <RiScan2Line className={cn("animate-pulse", className)} style={{ animationDelay: delay }} />
 }
 
 function ExtractingIcon({ className }: { className?: string }) {
-  return <RiVidiconFill className={cn("animate-pulse", className)} style={{ animationDelay: 'var(--pulse-sync-delay)' }} />
+  const delay = useSyncedPulseDelay()
+  return <RiVidiconFill className={cn("animate-pulse", className)} style={{ animationDelay: delay }} />
 }
 
 // Icon for events with unknown player (no debouncing applied)
@@ -138,13 +147,6 @@ export function FoundFootyBrowser({
   const initialVideoNavigated = useRef(false)  // Track if we've navigated to the event's date
   
   const { mode, formatTime, getTimezoneAbbr, getDateForTimestamp, getToday } = useTimezone()
-  
-  // Set pulse sync delay CSS variable once on mount - all pulsing icons reference this
-  // This ensures icons stay in phase even when components re-render (e.g., opening dropdowns)
-  useEffect(() => {
-    const syncDelay = -(Date.now() % PULSE_DURATION_MS)
-    document.documentElement.style.setProperty('--pulse-sync-delay', `${syncDelay}ms`)
-  }, [])
   
   // Format date for display (e.g., "Sat, Jan 25") - respects timezone mode
   const formatDateDisplay = useCallback((dateStr: string): string => {
