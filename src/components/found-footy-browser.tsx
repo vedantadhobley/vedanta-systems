@@ -47,21 +47,17 @@ function generateEventSubtitle(event: GoalEvent): string {
   return `${timeStr} ${eventType} - <<${scorerName}>>`
 }
 
-// Synced pulse animation using pure CSS
-// Calculate animationDelay at render time to sync to wall clock - no JS timers
+// Synced pulse animation using CSS variable set once on page load
+// All icons reference --pulse-sync-delay so they stay in phase even when components re-render
 const PULSE_DURATION_MS = 2000
 
-function getSyncedPulseStyle(): React.CSSProperties {
-  return { animationDelay: `-${Date.now() % PULSE_DURATION_MS}ms` }
-}
-
-// Animated icons for scanning states - synced via CSS animation-delay
+// Animated icons for scanning states - synced via shared CSS variable
 function ValidatingIcon({ className }: { className?: string }) {
-  return <RiScan2Line className={cn("animate-pulse", className)} style={getSyncedPulseStyle()} />
+  return <RiScan2Line className={cn("animate-pulse", className)} style={{ animationDelay: 'var(--pulse-sync-delay)' }} />
 }
 
 function ExtractingIcon({ className }: { className?: string }) {
-  return <RiVidiconFill className={cn("animate-pulse", className)} style={getSyncedPulseStyle()} />
+  return <RiVidiconFill className={cn("animate-pulse", className)} style={{ animationDelay: 'var(--pulse-sync-delay)' }} />
 }
 
 // Icon for events with unknown player (no debouncing applied)
@@ -141,7 +137,14 @@ export function FoundFootyBrowser({
   const initialVideoProcessed = useRef(false)
   const initialVideoNavigated = useRef(false)  // Track if we've navigated to the event's date
   
-  const { mode, formatTime, getTimezoneAbbr, getDateForTimestamp, getToday, getTomorrow } = useTimezone()
+  const { mode, formatTime, getTimezoneAbbr, getDateForTimestamp, getToday } = useTimezone()
+  
+  // Set pulse sync delay CSS variable once on mount - all pulsing icons reference this
+  // This ensures icons stay in phase even when components re-render (e.g., opening dropdowns)
+  useEffect(() => {
+    const syncDelay = -(Date.now() % PULSE_DURATION_MS)
+    document.documentElement.style.setProperty('--pulse-sync-delay', `${syncDelay}ms`)
+  }, [])
   
   // Format date for display (e.g., "Sat, Jan 25") - respects timezone mode
   const formatDateDisplay = useCallback((dateStr: string): string => {
@@ -157,36 +160,39 @@ export function FoundFootyBrowser({
   // Check if viewing today (timezone-aware)
   const isToday = currentDate === getToday()
   const today = getToday()
-  const tomorrow = getTomorrow()
   
-  // Only allow navigation between dates that have fixtures AND are within today/tomorrow range
-  // We fetch extra days as buffer, but only display today and tomorrow
+  // Navigation: today + next future date with fixtures (not necessarily tomorrow)
+  // Backend fetches fixtures for today, tomorrow, and steps forward if tomorrow has no fixtures
+  // We want to show: today, and the next available date with fixtures
   const availableDatesInMode = useMemo(() => {
+    // Sort dates ascending to find "next date after today"
+    const sortedDates = [...availableDates].sort()
+    
+    // Find the next date >= today that has fixtures
+    const futureDates = sortedDates.filter(d => d >= today)
+    
+    // We want today (if available) + the next available future date
     const dates = new Set<string>()
     
-    // Add dates from availableDates (these are UTC dates from API)
-    // But only include dates that are <= tomorrow in the current timezone
-    availableDates.forEach(d => {
-      if (d <= tomorrow) {
-        dates.add(d)
-      }
-    })
-    
-    // Also ensure today and tomorrow are navigable if they're in the available window
-    if (availableDates.some(d => d >= today && d <= tomorrow)) {
+    // Always include today if it's in the list (or close to it for timezone overlap)
+    const todayOrNear = sortedDates.find(d => d >= today) 
+    if (todayOrNear === today || futureDates.includes(today)) {
       dates.add(today)
     }
-    if (availableDates.some(d => d >= tomorrow)) {
-      dates.add(tomorrow)
+    
+    // Add next future date after today (could be tomorrow, could be further)
+    const nextDate = futureDates.find(d => d > today)
+    if (nextDate) {
+      dates.add(nextDate)
     }
     
-    return Array.from(dates).sort().reverse()
-  }, [availableDates, today, tomorrow])
+    return Array.from(dates).sort().reverse() // Newest first
+  }, [availableDates, today])
   
-  // Check if we can navigate (have dates to navigate to, capped at tomorrow)
+  // Check if we can navigate
   const currentIndex = availableDatesInMode.indexOf(currentDate)
-  // Can only go to next (newer) date if it's <= tomorrow
-  const canGoNext = (currentIndex > 0 || (currentIndex === -1 && availableDatesInMode.some(d => d > currentDate))) && currentDate < tomorrow
+  const nextDateInList = availableDatesInMode.find(d => d > currentDate)
+  const canGoNext = currentIndex > 0 || (currentIndex === -1 && !!nextDateInList)
   const canGoPrevious = currentIndex < availableDatesInMode.length - 1 || (currentIndex === -1 && availableDatesInMode.some(d => d < currentDate))
   
   // Memoize close handler to prevent VideoModal re-renders
