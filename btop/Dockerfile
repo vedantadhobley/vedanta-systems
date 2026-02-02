@@ -1,9 +1,12 @@
-# btop Server - AMD APU GTT Memory + ttyd Web Interface
+# btop Server - AMD APU GTT Memory + Broadcast Web Interface
 #
 # Runs btop with:
 # - AMD APU patches (GTT memory, rocm-smi v1.x support)
 # - IP address hidden for public display
-# - ttyd web terminal server
+# - Broadcast server (NOT per-client WebSocket)
+#
+# Architecture:
+#   btop → tmux → capture (raw ANSI) → SSE broadcast → xterm.js (browser)
 #
 # Requires host mounts to see actual system stats (see docker-compose.yml)
 
@@ -28,10 +31,8 @@ FROM ubuntu:24.04
 
 RUN apt-get update && apt-get install -y \
     librocm-smi64-1 \
-    ttyd \
     tmux \
-    nginx \
-    openssh-client \
+    python3 \
     locales \
     && rm -rf /var/lib/apt/lists/* \
     && locale-gen en_US.UTF-8
@@ -42,15 +43,14 @@ ENV LC_ALL=en_US.UTF-8
 COPY --from=builder /build/bin/btop /usr/local/bin/btop
 COPY btop.conf /etc/btop/btop.conf
 COPY themes/ /etc/btop/themes/
-COPY wrapper.html /etc/btop/wrapper.html
+COPY viewer.html /var/www/viewer.html
+COPY broadcast-server.py /usr/local/bin/broadcast-server.py
 COPY entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
+RUN chmod +x /entrypoint.sh /usr/local/bin/broadcast-server.py
 
-# Wrapper port (serves the fixed iframe page)
+# Broadcast server port
 # Dev: 4102, Prod: 3102
 EXPOSE 4102 3102
-# ttyd port (internal, proxied by nginx)  
-EXPOSE 7681
 
 ENV BTOP_CONFIG=/etc/btop/btop.conf
 # Set to "local" for local btop, or "user@host" for SSH remote

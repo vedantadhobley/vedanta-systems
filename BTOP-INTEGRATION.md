@@ -1,6 +1,6 @@
 # btop Integration
 
-Real-time system monitor displayed on vedanta.systems using btop + ttyd.
+Real-time system monitor displayed on vedanta.systems using btop + SSE broadcast.
 
 ## Features
 
@@ -8,22 +8,28 @@ Real-time system monitor displayed on vedanta.systems using btop + ttyd.
   - GTT memory type 2 detection
   - rocm-smi v1.x compatibility
 - **Custom Theme**: Lavender theme matching site aesthetics
-- **Web Terminal**: ttyd serves btop over WebSocket
+- **SSE Broadcast**: Single btop instance, all clients receive same stream
+- **xterm.js Rendering**: Proper terminal emulation in browser
 - **Read-only**: No keyboard input, display only
-- **Privacy**: IP addresses hidden in network display
+- **Host Networking**: Sees real host network traffic
 
 ## Architecture
 
 ```
-Browser → nginx (:4102 dev / :3102 prod)
-              ↓
-         nginx proxy
-              ↓
-         ttyd (:7681 internal)
-              ↓
-         tmux session
-              ↓
-         btop (with GPU support)
+┌─────────────────────────────────────────────────────────────┐
+│ btop Container (network_mode: host, pid: host)              │
+│                                                             │
+│   btop ──► tmux ──► capture-pane ──► Python SSE Server     │
+│            (120x40)      (raw ANSI)      (port 4102)        │
+└─────────────────────────────────────────────────────────────┘
+                              │
+                              ▼ SSE (Server-Sent Events)
+┌─────────────────────────────────────────────────────────────┐
+│ Browser                                                     │
+│                                                             │
+│   viewer.html ──► xterm.js ──► Canvas rendering            │
+│   (EventSource)   (Terminal)   (proper char widths)        │
+└─────────────────────────────────────────────────────────────┘
 ```
 
 ### Why This Stack?
@@ -31,21 +37,29 @@ Browser → nginx (:4102 dev / :3102 prod)
 | Component | Purpose |
 |-----------|---------|
 | **btop** | Best-looking TUI system monitor with GPU support |
-| **tmux** | Persistent session - btop always runs, clients just attach |
-| **ttyd** | Serves terminal over WebSocket, handles resize/reconnect |
-| **nginx** | Reverse proxy, allows future path-based routing |
+| **tmux** | Fixed-size terminal (120x40), consistent capture |
+| **Python SSE** | Simple broadcast server, ~100 lines |
+| **xterm.js** | Proper terminal emulation, handles Unicode/ANSI correctly |
+
+### Why NOT ttyd/WebSocket?
+
+- ttyd requires per-client WebSocket connections
+- Each client would spawn a new btop process
+- Doesn't scale well for public display
+- SSE broadcast is simpler and more efficient
 
 ## Files
 
 ```
 btop/
-├── Dockerfile          # Multi-stage build: compile btop, runtime with ttyd
-├── entrypoint.sh       # Starts tmux→btop, ttyd, nginx
-├── btop.conf           # btop configuration
-├── wrapper.html        # (unused, kept for reference)
+├── Dockerfile           # Multi-stage build: compile btop, runtime with Python
+├── entrypoint.sh        # Starts tmux→btop, then Python SSE server
+├── broadcast-server.py  # Python SSE server, captures tmux, broadcasts to clients
+├── viewer.html          # xterm.js-based viewer, connects to /stream
+├── btop.conf            # btop configuration (lavender theme, shown boxes, etc.)
 ├── themes/
 │   └── vedanta-lavender.theme
-└── src/                # Patched btop source (AMD APU fixes)
+└── src/                 # Patched btop source (AMD APU fixes)
 ```
 
 ## Configuration
@@ -55,38 +69,50 @@ btop/
 ```ini
 color_theme = "vedanta-lavender"
 theme_background = false          # Transparent for web
-shown_boxes = "cpu mem net"       # No proc box (cleaner)
+truecolor = true                  # 24-bit color output
+shown_boxes = "cpu mem net"       # CPU, memory/disks, network
+show_disks = true                 # Disks shown in mem box
+only_physical = false             # Required for container
+disks_filter = "/hostfs"          # Show host root filesystem
 show_uptime = true
-show_net_ip = false               # Privacy
 update_ms = 1000                  # 1 second refresh
+rounded_corners = true            # Nice box corners
+graph_symbol = "braille"          # Highest resolution graphs
 ```
 
-### ttyd options
-
-```bash
-ttyd \
-  -t "disableLeaveAlert=true"     # No "confirm leave" prompt
-  -t "disableResizeOverlay=true"  # No size popup on resize
-  -t "titleFixed=btop"
-  -t "fontSize=13"
-  -t "theme={\"background\": \"#000000\"}"
-  tmux attach-session -t btop -r   # Read-only attach
-```
-
-### tmux config
+### tmux settings (in entrypoint.sh)
 
 ```bash
 set -g status off                  # Hide tmux status bar
-set -g aggressive-resize on        # Resize to current client
-setw -g window-size latest         # Use latest client size
+set -g default-terminal "tmux-256color"
+set -ga terminal-overrides ",*256col*:Tc"  # Enable true color
+```
+
+### xterm.js settings (in viewer.html)
+
+```javascript
+const term = new Terminal({
+    cols: 120,
+    rows: 40,
+    convertEol: true,
+    scrollback: 0,
+    fontFamily: '"JetBrains Mono", "Fira Code", monospace',
+    fontSize: 14,
+    theme: {
+        background: '#000000',
+        foreground: '#c9a0f0'
+    }
+});
 ```
 
 ## Ports
 
-| Environment | External Port | Internal ttyd | Range Convention |
-|-------------|---------------|---------------|------------------|
-| Development | 4102 | 7681 | 41xx |
-| Production | 3102 | 7681 | 31xx |
+| Environment | Port | Notes |
+|-------------|------|-------|
+| Development | 4102 | Direct access (network_mode: host) |
+| Production | 4102 internal | Proxied via nginx at /btop/ |
+
+**Note**: btop uses `network_mode: host` to see real host network traffic, so it binds directly to host ports rather than using Docker port mapping.
 
 ## Docker Compose
 
@@ -98,19 +124,53 @@ btop:
   build:
     context: ./btop
     dockerfile: Dockerfile
-  pid: host           # See host processes
-  privileged: true    # GPU access + full /proc
+  network_mode: host      # See host network traffic
+  pid: host               # See host processes
+  privileged: true        # GPU access + full /proc visibility
   volumes:
     - /proc:/proc:ro
     - /sys:/sys:ro
+    - /:/hostfs:ro        # Host root for disk stats
     - /dev/dri:/dev/dri
     - /dev/kfd:/dev/kfd
   environment:
     - WRAPPER_PORT=4102
-    - TTYD_PORT=7681
     - BTOP_HOST=local
-  ports:
-    - "4102:4102"
+  group_add:
+    - "44"   # video
+    - "992"  # render
+```
+
+### Production
+
+Same configuration, proxied through nginx:
+
+```nginx
+location /btop/ {
+    set $btop_upstream vedanta-systems-prod-btop;
+    proxy_pass http://$btop_upstream:4102/;
+    proxy_buffering off;
+    proxy_cache off;
+    proxy_read_timeout 86400s;
+}
+```
+
+## SSE Protocol
+
+The Python server exposes:
+
+- `GET /` - Returns viewer.html
+- `GET /stream` - SSE endpoint, sends JSON frames
+
+Each frame:
+```json
+{"ansi": "<raw ANSI output from btop>"}
+```
+
+The viewer strips trailing newlines and writes to xterm.js:
+```javascript
+const content = data.ansi.replace(/\n$/, '');
+term.write('\x1b[H\x1b[J' + content);
 ```
 
 ## AMD APU Patches
@@ -131,44 +191,25 @@ if (mem_type <= 2) {  // was: mem_type <= 1
 // The older API is available in Ubuntu 24.04's librocm-smi
 ```
 
-## Frontend Integration
-
-Simple iframe embed:
-
-```tsx
-<iframe 
-  src="/btop/" 
-  className="w-full h-[600px] border-0 bg-black"
-  title="System Monitor"
-/>
-```
-
-Or use the BtopMonitor component (if created).
-
-## Known Issues
-
-1. **Initial resize snap**: Terminal briefly shows at default size before resizing to fit. This is a ttyd/xterm.js behavior - the WebSocket connection must establish before the client can report its size.
-
 ## Theme Colors
 
 The `vedanta-lavender.theme` uses colors from the GitHub contribution graph lavender palette:
 
 | Variable | Color | Usage |
 |----------|-------|-------|
-| `main_fg` | `#7a5aaf` | General text, % symbols |
-| `graph_text` | `#c9a0f0` | Uptime, network scaling text |
+| `main_fg` | `#7a5aaf` | General text |
+| `graph_text` | `#c9a0f0` | Uptime, network scaling |
 | `title` | `#a57fd8` | Box titles |
 | `hi_fg` | `#c9a0f0` | Keyboard shortcuts |
 | `inactive_fg` | `#3d2d5c` | Bar backgrounds |
-| Box outlines | `#5a4080` | CPU, mem, net, proc boxes |
+| Box outlines | `#5a4080` | CPU, mem, net boxes |
 | Gradients | `#7a5aaf` → `#a57fd8` → `#c9a0f0` | All graphs |
 
-Palette reference:
-- `#3d2d5c` - darkest (level1)
-- `#5a4080` - medium-dark (level2)
-- `#7a5aaf` - medium (level3)
-- `#a57fd8` - bright (level4)
-- `#c9a0f0` - brightest (derived)
+## Known Issues
+
+1. **Minor color artifacts**: Some border colors may appear slightly off due to xterm.js theme mapping of 16-color ANSI codes vs btop's 24-bit colors. The actual graph colors are correct.
+
+2. **Slight pixel alignment**: Unicode box-drawing characters may have sub-pixel alignment differences at certain font sizes.
 
 ## Future: Multi-System Support
 
@@ -181,13 +222,11 @@ environment:
   - BTOP_HOST=user@10.0.0.5   # SSH to remote system
 ```
 
-When `BTOP_HOST` is not "local", the container SSHs to the remote host and runs btop there. Requires SSH key mounted at `/root/.ssh/id_rsa`.
+When `BTOP_HOST` is not "local", the container SSHs to the remote host and runs btop there. Requires SSH key mounted.
 
-## Security
+## Relationship to Other Services
 
-| Measure | Implementation |
-|---------|----------------|
-| Read-only | tmux attach with `-r` flag |
-| No IP display | `show_net_ip = false` |
-| No external ttyd | Only nginx port exposed |
-| No proc box | Can't see process arguments |
+- **API Server (4101)**: Node.js Express server for found-footy and other projects
+- **btop Server (4102)**: Separate Python SSE server, no dependencies on API
+
+These are independent services. btop does not use the Express API - it has its own lightweight Python server specifically for SSE broadcast.

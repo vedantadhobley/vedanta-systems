@@ -56,7 +56,7 @@ services:
       - vedanta-systems-dev
       - luv-dev
 
-  # btop system monitor - serves host metrics via ttyd web terminal
+  # btop system monitor - serves host metrics via SSE broadcast
   btop:
     container_name: vedanta-systems-dev-btop
     hostname: luv
@@ -65,8 +65,9 @@ services:
       dockerfile: Dockerfile
     restart: unless-stopped
     
-    # Required for host system visibility
+    # Required for FULL host system visibility
     pid: host                    # See host processes
+    network_mode: host           # See host network traffic (required for accurate net stats)
     privileged: true             # Required for GPU access and full /proc visibility
     
     volumes:
@@ -81,14 +82,10 @@ services:
       - /dev/kfd:/dev/kfd
     
     environment:
-      - WRAPPER_PORT=4102        # External port - serves the wrapper page
-      - TTYD_PORT=7681           # Internal port - ttyd (proxied by nginx)
+      - WRAPPER_PORT=4102        # Port for SSE server (binds to host directly with network_mode: host)
       - BTOP_HOST=local          # "local" or "user@host" for SSH to remote
     
-    # Expose only the wrapper port (ttyd is proxied internally)
-    # Dev uses 41xx range
-    ports:
-      - "4102:4102"
+    # No ports needed - network_mode: host means it binds directly to host ports
     
     # Ensure GPU is accessible
     devices:
@@ -99,8 +96,7 @@ services:
       - "44"   # video
       - "992"  # render
     
-    networks:
-      - vedanta-systems-dev
+    # No networks - network_mode: host is incompatible with docker networks
 
 networks:
   # Internal network for vedanta-systems DEV services
