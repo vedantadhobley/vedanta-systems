@@ -28,6 +28,15 @@ export default defineConfig({
       usePolling: true,
       interval: 1000,  // Check every second instead of constantly
     },
+    proxy: {
+      // Proxy btop to dev btop container (WebSocket)
+      '/btop': {
+        target: 'http://vedanta-systems-dev-btop:7681',
+        changeOrigin: true,
+        ws: true,  // Enable WebSocket proxying
+        rewrite: (path) => path.replace(/^\/btop/, ''),
+      },
+    },
   },
   build: {
     outDir: 'dist',

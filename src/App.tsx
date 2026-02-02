@@ -9,6 +9,7 @@ import { PathSegment } from '@/components/filesystem-nav'
 import { FoundFootyBrowser } from '@/components/found-footy-browser'
 import { ResumeViewer } from '@/components/resume-viewer'
 import { ProjectStatus } from '@/components/project-status'
+import { BtopMonitor } from '@/components/btop-monitor'
 import { FootyStreamProvider, useFootyStream } from '@/contexts/FootyStreamContext'
 import { TimezoneProvider } from '@/contexts/timezone-context'
 import './App.css'
@@ -171,11 +172,21 @@ function DirectoryListing() {
             <AboutContent />
           )}
 
+          {/* Vedanta Systems - btop system monitor */}
+          {fsPath === '~/workspace/vedanta-systems' && (
+            <>
+              <ProjectStatus 
+                githubUrl={projectGithubLinks[fsPath]} 
+              />
+              <BtopMonitor className="mt-4" />
+            </>
+          )}
+
           {/* Other project pages - just show GitHub link */}
-          {fsPath !== '~/workspace/found-footy' && projectGithubLinks[fsPath] && (
+          {fsPath !== '~/workspace/found-footy' && fsPath !== '~/workspace/vedanta-systems' && projectGithubLinks[fsPath] && (
             <ProjectStatus 
               githubUrl={projectGithubLinks[fsPath]} 
-              comingSoon={fsPath === '~/workspace/vedanta-systems' || fsPath === '~/workspace/legal-tender'}
+              comingSoon={fsPath === '~/workspace/legal-tender'}
             />
           )}
 

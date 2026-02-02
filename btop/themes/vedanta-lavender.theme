@@ -1,0 +1,97 @@
+# Theme: vedanta-lavender
+# Custom theme for vedanta-systems
+# Uses the exact lavender gradient from the GitHub contribution graph
+# Background is transparent (black) to blend with website
+#
+# Lavender colors from contribution graph:
+# level1: #3d2d5c (dark lavender)
+# level2: #5a4080 (medium-dark lavender)
+# level3: #7a5aaf (medium lavender)
+# level4: #a57fd8 (bright lavender)
+
+# Main bg - transparent (black) to match website
+theme[main_bg]="#000000"
+
+# Main text color - medium lavender (for % symbols and general text)
+theme[main_fg]="#7a5aaf"
+
+# Title color for boxes - bright lavender
+theme[title]="#a57fd8"
+
+# Highlight color for keyboard shortcuts - brightest lavender
+theme[hi_fg]="#c9a0f0"
+
+# Background color of selected item in processes box - dark lavender
+theme[selected_bg]="#3d2d5c"
+
+# Foreground color of selected item in processes box
+theme[selected_fg]="#ffffff"
+
+# Color of inactive/disabled text - darkest lavender (bar backgrounds, etc)
+theme[inactive_fg]="#3d2d5c"
+
+# Misc colors for processes box including mini cpu graphs, details memory graph and details status text
+theme[proc_misc]="#a57fd8"
+
+# Color of text appearing on top of graphs (uptime, network scaling) - brightest lavender
+theme[graph_text]="#c9a0f0"
+
+# Cpu box outline color - medium lavender
+theme[cpu_box]="#5a4080"
+
+# Memory/disks box outline color
+theme[mem_box]="#5a4080"
+
+# Net up/down box outline color
+theme[net_box]="#5a4080"
+
+# Processes box outline color
+theme[proc_box]="#5a4080"
+
+# Box divider line and small boxes line color - dark lavender
+theme[div_line]="#3d2d5c"
+
+# Temperature graph colors - lavender gradient (brighter start for visibility)
+theme[temp_start]="#7a5aaf"
+theme[temp_mid]="#a57fd8"
+theme[temp_end]="#c9a0f0"
+
+# CPU graph colors - lavender gradient (brighter for visibility)
+theme[cpu_start]="#7a5aaf"
+theme[cpu_mid]="#a57fd8"
+theme[cpu_end]="#c9a0f0"
+
+# Mem/Disk free meter - lavender gradient
+theme[free_start]="#7a5aaf"
+theme[free_mid]="#a57fd8"
+theme[free_end]="#c9a0f0"
+
+# Mem/Disk cached meter - muted lavender
+theme[cached_start]="#7a5aaf"
+theme[cached_mid]="#a57fd8"
+theme[cached_end]="#c9a0f0"
+
+# Mem/Disk available meter - full gradient
+theme[available_start]="#7a5aaf"
+theme[available_mid]="#a57fd8"
+theme[available_end]="#c9a0f0"
+
+# Mem/Disk used meter - full gradient
+theme[used_start]="#7a5aaf"
+theme[used_mid]="#a57fd8"
+theme[used_end]="#c9a0f0"
+
+# Download graph colors - lavender gradient
+theme[download_start]="#7a5aaf"
+theme[download_mid]="#a57fd8"
+theme[download_end]="#c9a0f0"
+
+# Upload graph colors - lavender gradient
+theme[upload_start]="#7a5aaf"
+theme[upload_mid]="#a57fd8"
+theme[upload_end]="#c9a0f0"
+
+# Process graph colors - add for process mini graphs
+theme[process_start]="#7a5aaf"
+theme[process_mid]="#a57fd8"
+theme[process_end]="#c9a0f0"

@@ -1,205 +1,193 @@
-# btop Integration Design Document
+# btop Integration
 
-## Goal
-Display real-time btop TUI from multiple systems (primary + secondary) on the vedanta.systems frontend as **read-only visual displays** (no user interaction).
+Real-time system monitor displayed on vedanta.systems using btop + ttyd.
 
-## Current State
+## Features
 
-### Existing btop Setup (`~/workspace/btop/`)
-- **Dockerfile.server**: Builds btop with AMD APU patches (GTT memory, rocm-smi)
-- **ttyd**: Serves btop as a web terminal on port 7681
-- **btop-public.conf**: Config with `show_net_ip = false` to hide IP addresses
-- **docker-compose.yml**: Runs with `pid: host`, `network_mode: host`, `privileged: true` to see real host metrics
+- **AMD APU Support**: Custom-patched btop for Ryzen AI MAX+ 395 (Strix Halo)
+  - GTT memory type 2 detection
+  - rocm-smi v1.x compatibility
+- **Custom Theme**: Lavender theme matching site aesthetics
+- **Web Terminal**: ttyd serves btop over WebSocket
+- **Read-only**: No keyboard input, display only
+- **Privacy**: IP addresses hidden in network display
 
-### Key Config Options
+## Architecture
+
+```
+Browser → nginx (:4102 dev / :3102 prod)
+              ↓
+         nginx proxy
+              ↓
+         ttyd (:7681 internal)
+              ↓
+         tmux session
+              ↓
+         btop (with GPU support)
+```
+
+### Why This Stack?
+
+| Component | Purpose |
+|-----------|---------|
+| **btop** | Best-looking TUI system monitor with GPU support |
+| **tmux** | Persistent session - btop always runs, clients just attach |
+| **ttyd** | Serves terminal over WebSocket, handles resize/reconnect |
+| **nginx** | Reverse proxy, allows future path-based routing |
+
+## Files
+
+```
+btop/
+├── Dockerfile          # Multi-stage build: compile btop, runtime with ttyd
+├── entrypoint.sh       # Starts tmux→btop, ttyd, nginx
+├── btop.conf           # btop configuration
+├── wrapper.html        # (unused, kept for reference)
+├── themes/
+│   └── vedanta-lavender.theme
+└── src/                # Patched btop source (AMD APU fixes)
+```
+
+## Configuration
+
+### btop.conf highlights
+
 ```ini
-# btop-public.conf
-show_net_ip = false       # Hide IP for public display
-shown_boxes = "cpu mem net"  # Which panels to show
+color_theme = "vedanta-lavender"
+theme_background = false          # Transparent for web
+shown_boxes = "cpu mem net"       # No proc box (cleaner)
+show_uptime = true
+show_net_ip = false               # Privacy
+update_ms = 1000                  # 1 second refresh
 ```
 
-## Architecture Options
+### ttyd options
 
-### Option A: ttyd iframe embed (Simplest)
-```
-┌─────────────────────────────────────────────────────────────┐
-│  vedanta.systems (this server)                              │
-│                                                             │
-│  ┌──────────────────────────────────────────────────────┐   │
-│  │  <iframe src="http://localhost:7681" />              │   │  ← Local btop
-│  └──────────────────────────────────────────────────────┘   │
-│                                                             │
-│  ┌──────────────────────────────────────────────────────┐   │
-│  │  <iframe src="https://system2.vedanta.systems:7681" />   │  ← Remote btop via tunnel
-│  └──────────────────────────────────────────────────────┘   │
-│                                                             │
-└─────────────────────────────────────────────────────────────┘
+```bash
+ttyd \
+  -t "disableLeaveAlert=true"     # No "confirm leave" prompt
+  -t "disableResizeOverlay=true"  # No size popup on resize
+  -t "titleFixed=btop"
+  -t "fontSize=13"
+  -t "theme={\"background\": \"#000000\"}"
+  tmux attach-session -t btop -r   # Read-only attach
 ```
 
-**Pros:**
-- Zero frontend code needed - ttyd already renders a terminal
-- ttyd has `--readonly` flag for no-input mode
-- Updates in real-time (it's a websocket terminal)
+### tmux config
 
-**Cons:**
-- iframes can be finicky (CORS, sizing, mobile)
-- Two separate websocket connections to different origins
-- Can't style the terminal (ttyd has limited theming)
-- Exposes ttyd port publicly (even in readonly mode)
-
----
-
-### Option B: ttyd via reverse proxy (Better security)
-```
-┌─────────────────────────────────────────────────────────────┐
-│  vedanta.systems nginx                                      │
-│                                                             │
-│  /btop/local   →  localhost:7681 (ttyd websocket)          │
-│  /btop/remote  →  wireguard-peer:7681 (ttyd websocket)     │
-│                                                             │
-└─────────────────────────────────────────────────────────────┘
+```bash
+set -g status off                  # Hide tmux status bar
+set -g aggressive-resize on        # Resize to current client
+setw -g window-size latest         # Use latest client size
 ```
 
-ttyd supports WebSocket proxying. Nginx can proxy both local and remote btop instances.
+## Ports
 
-**Pros:**
-- Single origin (no CORS issues)
-- Can add authentication at nginx level
-- Both systems accessible from same domain
+| Environment | External Port | Internal ttyd | Range Convention |
+|-------------|---------------|---------------|------------------|
+| Development | 4102 | 7681 | 41xx |
+| Production | 3102 | 7681 | 31xx |
 
-**Cons:**
-- Need Wireguard/Tailscale between systems for remote btop
-- Still iframe-based rendering
+## Docker Compose
 
----
+### Development (docker-compose.dev.yml)
 
-### Option C: Canvas/SVG terminal renderer (Most control)
-```
-┌─────────────────────────────────────────────────────────────┐
-│  Backend                                                    │
-│                                                             │
-│  btop → pty → ANSI frames → WebSocket → Frontend            │
-│                                                             │
-│  Capture terminal output as ANSI sequences, broadcast       │
-│  to connected clients                                       │
-│                                                             │
-└─────────────────────────────────────────────────────────────┘
-┌─────────────────────────────────────────────────────────────┐
-│  Frontend                                                   │
-│                                                             │
-│  WebSocket → xterm.js / custom renderer → <canvas>          │
-│                                                             │
-│  Render ANSI sequences as styled output                     │
-│                                                             │
-└─────────────────────────────────────────────────────────────┘
+```yaml
+btop:
+  container_name: vedanta-systems-dev-btop
+  build:
+    context: ./btop
+    dockerfile: Dockerfile
+  pid: host           # See host processes
+  privileged: true    # GPU access + full /proc
+  volumes:
+    - /proc:/proc:ro
+    - /sys:/sys:ro
+    - /dev/dri:/dev/dri
+    - /dev/kfd:/dev/kfd
+  environment:
+    - WRAPPER_PORT=4102
+    - TTYD_PORT=7681
+    - BTOP_HOST=local
+  ports:
+    - "4102:4102"
 ```
 
-**Pros:**
-- Full control over styling and sizing
-- Can add overlays, labels, custom UI
-- Single SSE/WebSocket endpoint for all metrics
-- More React-native (no iframes)
+## AMD APU Patches
 
-**Cons:**
-- More complex to implement
-- Need xterm.js or similar library
-- Still essentially reimplementing what ttyd does
+The btop source includes patches for AMD Strix Halo APUs:
 
----
+### 1. GTT Memory Type (src/linux/btop_collect.cpp)
 
-### Option D: Static snapshots (Lowest bandwidth)
-```
-┌─────────────────────────────────────────────────────────────┐
-│  Each System                                                │
-│                                                             │
-│  btop --update_ms 2000 → capture terminal → png/svg         │
-│  Cron every 2s, upload to S3 or serve locally               │
-│                                                             │
-└─────────────────────────────────────────────────────────────┘
-┌─────────────────────────────────────────────────────────────┐
-│  Frontend                                                   │
-│                                                             │
-│  <img src="/btop/system1.png" /> (auto-refresh)             │
-│  <img src="/btop/system2.png" />                            │
-│                                                             │
-└─────────────────────────────────────────────────────────────┘
+```cpp
+// Line ~2308: Add memory type 2 (GTT) for APUs
+if (mem_type <= 2) {  // was: mem_type <= 1
 ```
 
-Using tools like `ansishot`, `termshot`, or `vhs` to capture terminal as image.
+### 2. rocm-smi v1.x Support (src/linux/btop_collect.cpp)
 
-**Pros:**
-- Dead simple frontend (just images)
-- Works offline, no websocket needed
-- Very low bandwidth for viewers
-- Easy to cache/CDN
+```cpp
+// Use rsmi_dev_gpu_clk_freq_get instead of rsmi_dev_clk_freq_get
+// The older API is available in Ubuntu 24.04's librocm-smi
+```
 
-**Cons:**
-- Not truly real-time (2-5s delay)
-- Image generation overhead on source systems
-- Less crisp than native terminal rendering
+## Frontend Integration
 
----
+Simple iframe embed:
 
-## Recommended Approach: Hybrid (B + xterm.js)
+```tsx
+<iframe 
+  src="/btop/" 
+  className="w-full h-[600px] border-0 bg-black"
+  title="System Monitor"
+/>
+```
 
-1. **Local btop**: Proxy ttyd through nginx at `/api/btop/local`
-2. **Remote btop**: System 2 runs btop-server, tunneled via Cloudflare Tunnel or Wireguard
-3. **Frontend**: Use xterm.js in read-only mode to render the WebSocket stream
-4. **Fallback**: If WebSocket fails, show "System Offline" placeholder
+Or use the BtopMonitor component (if created).
 
-### Why xterm.js over raw iframe?
-- Native React integration
-- Can match site theme (corpo dark)
-- Better mobile responsiveness
-- Can overlay system labels/status
+## Known Issues
 
----
+1. **Initial resize snap**: Terminal briefly shows at default size before resizing to fit. This is a ttyd/xterm.js behavior - the WebSocket connection must establish before the client can report its size.
 
-## Implementation Steps
+## Theme Colors
 
-### Phase 1: Local btop on primary system
-1. [ ] Start btop-server container with `--readonly` mode
-2. [ ] Add nginx proxy rule: `/api/btop/local → localhost:7681`
-3. [ ] Create `<BtopTerminal />` React component using xterm.js
-4. [ ] Display on vedanta.systems page
+The `vedanta-lavender.theme` uses colors from the GitHub contribution graph lavender palette:
 
-### Phase 2: Remote btop from secondary system
-1. [ ] Set up Cloudflare Tunnel or Wireguard between systems
-2. [ ] Run btop-server on system 2
-3. [ ] Add nginx proxy rule: `/api/btop/remote → system2:7681`
-4. [ ] Add second `<BtopTerminal />` for system 2
+| Variable | Color | Usage |
+|----------|-------|-------|
+| `main_fg` | `#7a5aaf` | General text, % symbols |
+| `graph_text` | `#c9a0f0` | Uptime, network scaling text |
+| `title` | `#a57fd8` | Box titles |
+| `hi_fg` | `#c9a0f0` | Keyboard shortcuts |
+| `inactive_fg` | `#3d2d5c` | Bar backgrounds |
+| Box outlines | `#5a4080` | CPU, mem, net, proc boxes |
+| Gradients | `#7a5aaf` → `#a57fd8` → `#c9a0f0` | All graphs |
 
-### Phase 3: Polish
-1. [ ] System labels/names
-2. [ ] Connection status indicators
-3. [ ] Graceful offline handling
-4. [ ] Mobile-responsive sizing
+Palette reference:
+- `#3d2d5c` - darkest (level1)
+- `#5a4080` - medium-dark (level2)
+- `#7a5aaf` - medium (level3)
+- `#a57fd8` - bright (level4)
+- `#c9a0f0` - brightest (derived)
 
----
+## Future: Multi-System Support
 
-## Port Allocation (per PORT-ALLOCATION.md)
+The architecture supports monitoring multiple systems:
 
-| Service | Port | Notes |
-|---------|------|-------|
-| btop-local | 7681 | ttyd default, internal only |
-| btop-remote | tunneled | Via Cloudflare/Wireguard |
+```yaml
+environment:
+  - BTOP_HOST=local           # This system
+  # or
+  - BTOP_HOST=user@10.0.0.5   # SSH to remote system
+```
 
-Both proxied through nginx on 3100, no direct exposure.
+When `BTOP_HOST` is not "local", the container SSHs to the remote host and runs btop there. Requires SSH key mounted at `/root/.ssh/id_rsa`.
 
----
+## Security
 
-## Security Considerations
-
-1. **Read-only mode**: `BTOP_READONLY=true` in btop-server
-2. **No IP display**: `show_net_ip = false` in btop config
-3. **No direct port exposure**: Proxy through nginx
-4. **Optional auth**: Can add basic auth at nginx level if needed
-
----
-
-## Questions to Resolve
-
-1. **System 2 connectivity**: Cloudflare Tunnel vs Wireguard vs Tailscale?
-2. **Update frequency**: Default btop is 2000ms, good for web display?
-3. **Mobile**: Show one system at a time? Or side-by-side?
-4. **System names**: "Primary" / "Secondary"? Or custom names?
+| Measure | Implementation |
+|---------|----------------|
+| Read-only | tmux attach with `-r` flag |
+| No IP display | `show_net_ip = false` |
+| No external ttyd | Only nginx port exposed |
+| No proc box | Can't see process arguments |

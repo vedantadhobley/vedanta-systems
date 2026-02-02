@@ -14,7 +14,9 @@ Dev and prod run on **same machine**, so we use different port ranges to avoid c
 3000-3099: (reserved for new stack)
 
 3100-3199: vedanta-systems
-  3100     Frontend (nginx, proxies to API)
+  3100     Frontend (nginx, proxies to API and btop)
+  (internal) 3001 API server
+  (internal) 7681 btop ttyd
   
 3200-3299: found-footy
   3200     Dagster webserver
@@ -36,6 +38,7 @@ Dev and prod run on **same machine**, so we use different port ranges to avoid c
 4100-4199: vedanta-systems
   4100     Frontend (vite dev server)
   4101     API server
+  (internal) 7681 btop ttyd
 
 4200-4299: found-footy
   4200     Dagster webserver
