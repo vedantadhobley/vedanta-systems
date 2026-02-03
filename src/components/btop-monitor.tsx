@@ -77,7 +77,7 @@ export function BtopMonitor({
         </div>
       )}
 
-      {/* btop viewer iframe - xterm.js handles the rendering */}
+      {/* btop viewer iframe - CSS Grid handles the rendering */}
       {!hasError && (
         <iframe
           ref={iframeRef}

@@ -6,7 +6,7 @@
 # - Broadcast server (NOT per-client WebSocket)
 #
 # Architecture:
-#   btop → tmux → capture (raw ANSI) → SSE broadcast → xterm.js (browser)
+#   btop → tmux → capture (raw ANSI) → SSE broadcast → CSS Grid (browser)
 #
 # Requires host mounts to see actual system stats (see docker-compose.yml)
 
