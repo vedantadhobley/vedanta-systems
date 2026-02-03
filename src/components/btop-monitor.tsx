@@ -89,7 +89,6 @@ export function BtopMonitor({
           onLoad={() => setIsLoading(false)}
           onError={() => setHasError(true)}
           title={`System Monitor - ${server}`}
-          sandbox="allow-scripts allow-same-origin"
         />
       )}
     </div>
