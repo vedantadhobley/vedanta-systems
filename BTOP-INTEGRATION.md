@@ -173,23 +173,52 @@ const content = data.ansi.replace(/\n$/, '');
 term.write('\x1b[H\x1b[J' + content);
 ```
 
-## AMD APU Patches
+## Source Modifications
 
-The btop source includes patches for AMD Strix Halo APUs:
+The btop source (`btop/src/`) includes several patches:
 
-### 1. GTT Memory Type (src/linux/btop_collect.cpp)
+### AMD APU Patches
 
+For Ryzen AI MAX+ 395 (Strix Halo) support:
+
+**1. GTT Memory Type (src/linux/btop_collect.cpp)**
 ```cpp
 // Line ~2308: Add memory type 2 (GTT) for APUs
 if (mem_type <= 2) {  // was: mem_type <= 1
 ```
 
-### 2. rocm-smi v1.x Support (src/linux/btop_collect.cpp)
-
+**2. rocm-smi v1.x Support (src/linux/btop_collect.cpp)**
 ```cpp
 // Use rsmi_dev_gpu_clk_freq_get instead of rsmi_dev_clk_freq_get
 // The older API is available in Ubuntu 24.04's librocm-smi
 ```
+
+### UI Customizations for Public Display
+
+Since this is a read-only public display, several interactive UI elements have been removed for a cleaner look:
+
+**src/btop_draw.cpp modifications:**
+
+1. **Box numbering removed** (line ~263)
+   - Removed superscript numbers (¹²³) from box titles
+   - `const string numbering = "";`
+
+2. **CPU box buttons disabled** (lines ~596-606)
+   - Removed: `menu` button
+   - Removed: `preset` button
+   - Removed: `- +` buttons around update interval
+   - Kept: Update interval display (e.g., "1000ms") without buttons
+
+3. **Network box buttons disabled** (lines ~1483-1497)
+   - Removed: `sync` button
+   - Removed: `auto` button  
+   - Removed: `zero` button
+   - Removed: Interface selector arrows (`←b` / `n→`)
+   - Kept: Interface name display (e.g., "enp191s0")
+
+4. **IP address hidden** (lines ~1500-1504)
+   - Removed IP address display from network box title
+   - Privacy consideration for public display
 
 ## Theme Colors
 

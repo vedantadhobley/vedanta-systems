@@ -260,7 +260,9 @@ namespace Draw {
 
 		auto tty_mode = Config::getB("tty_mode");
 		auto rounded = Config::getB("rounded_corners");
-		const string numbering = (num == 0) ? "" : Theme::c("hi_fg") + (tty_mode ? std::to_string(num) : Symbols::superscript.at(clamp(num, 0, 9)));
+		// DISABLED: Box numbering superscripts (for cleaner public display)
+		const string numbering = "";
+		// const string numbering = (num == 0) ? "" : Theme::c("hi_fg") + (tty_mode ? std::to_string(num) : Symbols::superscript.at(clamp(num, 0, 9)));
 		const auto& right_up = (tty_mode or not rounded ? Symbols::right_up : Symbols::round_right_up);
 		const auto& left_up = (tty_mode or not rounded ? Symbols::left_up : Symbols::round_left_up);
 		const auto& right_down = (tty_mode or not rounded ? Symbols::right_down : Symbols::round_right_down);
@@ -590,17 +592,19 @@ namespace Cpu {
 			const int button_y = cpu_bottom ? y + height - 1 : y;
 			out += box;
 
-			//? Buttons on title
-			out += Mv::to(button_y, x + 10) + title_left + Theme::c("hi_fg") + Fx::b + 'm' + Theme::c("title") + "enu" + Fx::ub + title_right;
-			Input::mouse_mappings["m"] = {button_y, x + 11, 1, 4};
-			out += Mv::to(button_y, x + 16) + title_left + Theme::c("hi_fg") + Fx::b + 'p' + Theme::c("title") + "reset "
-				+ (Config::current_preset < 0 ? "*" : to_string(Config::current_preset)) + Fx::ub + title_right;
-			Input::mouse_mappings["p"] = {button_y, x + 17, 1, 8};
+			//? Buttons on title - DISABLED for cleaner public display
+			// Menu button
+			// out += Mv::to(button_y, x + 10) + title_left + Theme::c("hi_fg") + Fx::b + 'm' + Theme::c("title") + "enu" + Fx::ub + title_right;
+			// Input::mouse_mappings["m"] = {button_y, x + 11, 1, 4};
+			// Preset button
+			// out += Mv::to(button_y, x + 16) + title_left + Theme::c("hi_fg") + Fx::b + 'p' + Theme::c("title") + "reset "
+			// 	+ (Config::current_preset < 0 ? "*" : to_string(Config::current_preset)) + Fx::ub + title_right;
+			// Input::mouse_mappings["p"] = {button_y, x + 17, 1, 8};
+			// Update interval +/- buttons - just show the value without buttons
 			const string update = to_string(Config::getI("update_ms")) + "ms";
-			out += Mv::to(button_y, x + width - update.size() - 8) + title_left + Fx::b + Theme::c("hi_fg") + "- " + Theme::c("title") + update
-				+ Theme::c("hi_fg") + " +" + Fx::ub + title_right;
-			Input::mouse_mappings["-"] = {button_y, x + width - (int)update.size() - 7, 1, 2};
-			Input::mouse_mappings["+"] = {button_y, x + width - 5, 1, 2};
+			out += Mv::to(button_y, x + width - update.size() - 4) + title_left + Theme::c("title") + update + Fx::ub + title_right;
+			// Input::mouse_mappings["-"] = {button_y, x + width - (int)update.size() - 7, 1, 2};
+			// Input::mouse_mappings["+"] = {button_y, x + width - 5, 1, 2};
 
 			// Draw container engine name
 			if (Cpu::container_engine.has_value()) {
@@ -1476,30 +1480,25 @@ namespace Net {
 				width - b_width - 2, d_graph_height, "upload",
 				net.bandwidth.at("upload"), graph_symbol, !swap_upload_download, true, up_max};
 
-			//? Interface selector and buttons
-
-			out += Mv::to(y, x+width - i_size - 9) + title_left + Fx::b + Theme::c("hi_fg") + Symbols::left + "b " + Theme::c("title")
-				+ uresize(selected_iface, MAX_IFNAMSIZ) + Theme::c("hi_fg") + " n" + Symbols::right + title_right
-				+ Mv::to(y, x+width - i_size - 15) + title_left + Theme::c("hi_fg") + (safeVal(net.stat, "download"s).offset + safeVal(net.stat, "upload"s).offset > 0 ? Fx::b : "") + 'z'
-				+ Theme::c("title") + "ero" + title_right;
-			Input::mouse_mappings["b"] = {y, x+width - i_size - 8, 1, 3};
-			Input::mouse_mappings["n"] = {y, x+width - 6, 1, 3};
-			Input::mouse_mappings["z"] = {y, x+width - i_size - 14, 1, 4};
-			if (width - i_size - 20 > 6) {
-				out += Mv::to(y, x+width - i_size - 21) + title_left + Theme::c("hi_fg") + (net_auto ? Fx::b : "") + 'a' + Theme::c("title") + "uto" + title_right;
-				Input::mouse_mappings["a"] = {y, x+width - i_size - 20, 1, 4};
-			}
-			if (width - i_size - 20 > 13) {
-				out += Mv::to(y, x+width - i_size - 27) + title_left + Theme::c("title") + (net_sync ? Fx::b : "") + 's' + Theme::c("hi_fg")
-					+ 'y' + Theme::c("title") + "nc" + title_right;
-				Input::mouse_mappings["y"] = {y, x+width - i_size - 26, 1, 4};
-			}
+			//? Interface selector and buttons - DISABLED for cleaner public display
+			// Just show the interface name without navigation buttons
+			out += Mv::to(y, x+width - i_size - 4) + title_left + Theme::c("title")
+				+ uresize(selected_iface, MAX_IFNAMSIZ) + title_right;
+			// Interface selector buttons disabled
+			// Input::mouse_mappings["b"] = {y, x+width - i_size - 8, 1, 3};
+			// Input::mouse_mappings["n"] = {y, x+width - 6, 1, 3};
+			// Zero button disabled
+			// Input::mouse_mappings["z"] = {y, x+width - i_size - 14, 1, 4};
+			// Auto button disabled
+			// Input::mouse_mappings["a"] = {y, x+width - i_size - 20, 1, 4};
+			// Sync button disabled
+			// Input::mouse_mappings["y"] = {y, x+width - i_size - 26, 1, 4};
 		}
 
-		//? IP or device address
-		if (not ip_addr.empty() and cmp_greater(width - i_size - 36, ip_addr.size())) {
-			out += Mv::to(y, x + 8) + title_left + Theme::c("title") + Fx::b + ip_addr + title_right;
-		}
+		//? IP or device address - DISABLED for privacy (public display)
+		// if (not ip_addr.empty() and cmp_greater(width - i_size - 36, ip_addr.size())) {
+		// 	out += Mv::to(y, x + 8) + title_left + Theme::c("title") + Fx::b + ip_addr + title_right;
+		// }
 
 		//? Graphs and stats
 		for (const string dir : {"download", "upload"}) {
