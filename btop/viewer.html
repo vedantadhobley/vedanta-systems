@@ -12,13 +12,22 @@
             height: 100%;
             overflow: hidden;
         }
-        #terminal {
+        #container {
             width: 100%;
             height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+        #terminal-wrapper {
+            transform-origin: center center;
+        }
+        #terminal {
             pointer-events: none;
         }
         .xterm-viewport::-webkit-scrollbar { display: none; }
-        .xterm-viewport { scrollbar-width: none; }
+        .xterm-viewport { scrollbar-width: none; overflow: hidden !important; }
         /* Hide all cursor elements */
         .xterm-cursor-layer,
         .xterm-cursor,
@@ -38,13 +47,20 @@
     </style>
 </head>
 <body>
-    <div id="terminal"></div>
+    <div id="container">
+        <div id="terminal-wrapper">
+            <div id="terminal"></div>
+        </div>
+    </div>
     
     <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.min.js"></script>
     <script>
+        const COLS = 132;
+        const ROWS = 43;
+        
         const term = new Terminal({
-            cols: 132,
-            rows: 43,
+            cols: COLS,
+            rows: ROWS,
             cursorBlink: false,
             cursorStyle: 'bar',
             cursorInactiveStyle: 'none',
@@ -62,17 +78,51 @@
             }
         });
         
-        term.open(document.getElementById('terminal'));
+        const container = document.getElementById('container');
+        const wrapper = document.getElementById('terminal-wrapper');
         
-        // Hide cursor via escape code
+        term.open(document.getElementById('terminal'));
         term.write('\x1b[?25l');
         
-        const eventSource = new EventSource('/stream');
+        function resize() {
+            // xterm.js cell dimensions at fontSize 14
+            const cellWidth = 8.4;
+            const cellHeight = 17;
+            const termWidth = COLS * cellWidth;
+            const termHeight = ROWS * cellHeight;
+            
+            const scaleX = container.clientWidth / termWidth;
+            const scaleY = container.clientHeight / termHeight;
+            const scale = Math.min(scaleX, scaleY) * 0.98;
+            
+            wrapper.style.transform = `scale(${scale})`;
+            
+            // Report to parent for aspect ratio
+            if (window.parent !== window) {
+                window.parent.postMessage({
+                    type: 'btop-dimensions',
+                    width: termWidth * scale,
+                    height: termHeight * scale,
+                    aspectRatio: termWidth / termHeight
+                }, '*');
+            }
+        }
+        
+        // Detect if loaded through API proxy
+        function getStreamUrl() {
+            const path = window.location.pathname;
+            if (path.includes('/api/btop')) {
+                return '/api/btop/stream';
+            }
+            return '/stream';
+        }
+        
+        const eventSource = new EventSource(getStreamUrl());
         
         eventSource.onmessage = (event) => {
             try {
                 const data = JSON.parse(event.data);
-                const content = data.ansi.replace(/\n$/, '');
+                const content = data.frame.replace(/\n$/, '');
                 term.write('\x1b[?25l\x1b[H\x1b[J' + content + '\x1b[?25l');
             } catch (e) {
                 console.error('Parse error:', e);
@@ -82,6 +132,9 @@
         eventSource.onerror = () => {
             term.write('\x1b[H\x1b[31mConnection lost...\x1b[0m');
         };
+        
+        window.addEventListener('resize', resize);
+        resize();
     </script>
 </body>
 </html>
