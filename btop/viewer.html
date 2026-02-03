@@ -47,12 +47,8 @@
             overflow: hidden;
         }
         
-        /* Simple phosphor fade - terminal fades in from black */
+        /* Terminal - no animation, just show immediately */
         #terminal {
-            opacity: 0;
-            transition: opacity 0.4s ease-in;
-        }
-        #terminal.visible {
             opacity: 1;
         }
     </style>
@@ -96,14 +92,6 @@
             terminal.appendChild(fragment);
         }
         
-        function show() {
-            terminal.classList.add('visible');
-        }
-        
-        function hide() {
-            terminal.classList.remove('visible');
-        }
-        
         function updateCell(index, char, fg, bg, bold) {
             const span = spans[index];
             if (!span) return;
@@ -115,7 +103,7 @@
         }
         
         function handleMessage(data) {
-            // Render data first
+            // Render data
             if (data.t === 'f') {
                 cells = data.c;
                 for (let i = 0; i < TOTAL_CELLS; i++) {
@@ -130,11 +118,7 @@
                 }
             }
             
-            // On first frame, fade in
-            if (!hasReceivedFirstFrame) {
-                hasReceivedFirstFrame = true;
-                show();
-            }
+            hasReceivedFirstFrame = true;
         }
         
         function resize() {
@@ -191,7 +175,6 @@
                 eventSource.close();
                 eventSource = null;
                 
-                hide();
                 hasReceivedFirstFrame = false;
                 
                 if (document.visibilityState !== 'visible') {
@@ -219,7 +202,6 @@
             if (document.visibilityState === 'visible') {
                 if (!eventSource || eventSource.readyState !== EventSource.OPEN) {
                     reconnectAttempts = 0;
-                    hide();
                     hasReceivedFirstFrame = false;
                     connect();
                 }
