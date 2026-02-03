@@ -43,30 +43,36 @@ services:
       - vedanta-systems-prod
       - luv-prod
 
-  # btop system monitor - serves host metrics via ttyd web terminal
+  # btop system monitor - SSE broadcast of terminal output
   btop:
     container_name: vedanta-systems-prod-btop
+    hostname: luv
     build:
       context: ./btop
       dockerfile: Dockerfile
     restart: unless-stopped
     
-    # Required for host system visibility
+    # Required for FULL host system visibility
     pid: host                    # See host processes
+    network_mode: host           # See host network traffic (required for accurate net stats)
     privileged: true             # Required for GPU access and full /proc visibility
     
     volumes:
       # Host system info - mounted at original paths so btop works unchanged
       - /proc:/proc:ro
       - /sys:/sys:ro
+      - /:/hostfs:ro                    # Host root filesystem for disk stats
+      - /run/media:/run/media:ro        # Mounted drives (if any)
       
       # GPU access for AMD ROCm
       - /dev/dri:/dev/dri
       - /dev/kfd:/dev/kfd
     
     environment:
-      - TTYD_PORT=7681
-      - BTOP_READONLY=true       # Read-only for public display
+      - WRAPPER_PORT=3102        # Prod: 3102, Dev: 4102 (binds to host with network_mode: host)
+      - BTOP_HOST=local          # "local" or "user@host" for SSH to remote
+    
+    # No ports needed - network_mode: host means it binds directly to host ports
     
     # Ensure GPU is accessible
     devices:
@@ -77,8 +83,7 @@ services:
       - "44"   # video
       - "992"  # render
     
-    networks:
-      - vedanta-systems-prod
+    # Note: No networks needed with network_mode: host
 
 networks:
   vedanta-systems-prod:
