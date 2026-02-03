@@ -36,6 +36,7 @@
             line-height: 1;
             background: #000;
             transform-origin: center center;
+            position: relative;
         }
         #terminal span {
             display: flex;
@@ -45,14 +46,14 @@
             height: 12px;
             overflow: hidden;
         }
-        #stats {
-            position: fixed;
-            bottom: 5px;
-            right: 5px;
-            color: #666;
-            font-family: monospace;
-            font-size: 10px;
-            pointer-events: none;
+        
+        /* Simple phosphor fade - terminal fades in from black */
+        #terminal {
+            opacity: 0;
+            transition: opacity 0.4s ease-in;
+        }
+        #terminal.visible {
+            opacity: 1;
         }
     </style>
 </head>
@@ -60,7 +61,6 @@
     <div id="container">
         <div id="terminal"></div>
     </div>
-    <div id="stats"></div>
     
     <script>
         const COLS = 132;
@@ -68,32 +68,40 @@
         const TOTAL_CELLS = COLS * ROWS;
         const container = document.getElementById('container');
         const terminal = document.getElementById('terminal');
-        const stats = document.getElementById('stats');
         
-        // Cell state array - persists between frames
+        // Connection state
+        let eventSource = null;
+        let reconnectTimeout = null;
+        let reconnectAttempts = 0;
+        const MAX_RECONNECT_DELAY = 30000;
+        
+        // Cell state array
         let cells = new Array(TOTAL_CELLS);
         for (let i = 0; i < TOTAL_CELLS; i++) {
-            cells[i] = [' ', null, null, 0];  // [char, fg, bg, bold]
+            cells[i] = [' ', null, null, 0];
         }
         
-        // DOM span elements - created once
+        // DOM span elements
         let spans = [];
-        
-        // Stats tracking
-        let frameCount = 0;
-        let deltaCount = 0;
-        let lastBytes = 0;
-        let totalBytes = 0;
+        let hasReceivedFirstFrame = false;
         
         function initGrid() {
             const fragment = document.createDocumentFragment();
             for (let i = 0; i < TOTAL_CELLS; i++) {
                 const span = document.createElement('span');
-                span.textContent = '\u00A0';  // nbsp
+                span.textContent = '\u00A0';
                 fragment.appendChild(span);
                 spans.push(span);
             }
             terminal.appendChild(fragment);
+        }
+        
+        function show() {
+            terminal.classList.add('visible');
+        }
+        
+        function hide() {
+            terminal.classList.remove('visible');
         }
         
         function updateCell(index, char, fg, bg, bold) {
@@ -107,20 +115,14 @@
         }
         
         function handleMessage(data) {
-            frameCount++;
-            lastBytes = JSON.stringify(data).length;
-            totalBytes += lastBytes;
-            
+            // Render data first
             if (data.t === 'f') {
-                // Full frame - replace all cells
                 cells = data.c;
                 for (let i = 0; i < TOTAL_CELLS; i++) {
                     const [char, fg, bg, bold] = cells[i];
                     updateCell(i, char, fg, bg, bold);
                 }
             } else if (data.t === 'd') {
-                // Delta - update only changed cells
-                deltaCount++;
                 for (const change of data.d) {
                     const [index, char, fg, bg, bold] = change;
                     cells[index] = [char, fg, bg, bold];
@@ -128,10 +130,11 @@
                 }
             }
             
-            // Update stats display
-            const pct = deltaCount > 0 ? Math.round((deltaCount / frameCount) * 100) : 0;
-            const avgBytes = Math.round(totalBytes / frameCount);
-            stats.textContent = `${data.t === 'f' ? 'FULL' : 'Δ' + data.d.length} | ${lastBytes}B | avg:${avgBytes}B | ${pct}% deltas`;
+            // On first frame, fade in
+            if (!hasReceivedFirstFrame) {
+                hasReceivedFirstFrame = true;
+                show();
+            }
         }
         
         function resize() {
@@ -164,27 +167,75 @@
             return '/stream';
         }
         
+        function connect() {
+            if (eventSource) {
+                eventSource.close();
+            }
+            
+            eventSource = new EventSource(getStreamUrl());
+            
+            eventSource.onopen = () => {
+                reconnectAttempts = 0;
+            };
+            
+            eventSource.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    handleMessage(data);
+                } catch (e) {
+                    console.error('[btop] Parse error:', e);
+                }
+            };
+            
+            eventSource.onerror = () => {
+                eventSource.close();
+                eventSource = null;
+                
+                hide();
+                hasReceivedFirstFrame = false;
+                
+                if (document.visibilityState !== 'visible') {
+                    return;
+                }
+                
+                const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), MAX_RECONNECT_DELAY);
+                reconnectAttempts++;
+                reconnectTimeout = setTimeout(connect, delay);
+            };
+        }
+        
+        function disconnect() {
+            if (reconnectTimeout) {
+                clearTimeout(reconnectTimeout);
+                reconnectTimeout = null;
+            }
+            if (eventSource) {
+                eventSource.close();
+                eventSource = null;
+            }
+        }
+        
+        function handleVisibilityChange() {
+            if (document.visibilityState === 'visible') {
+                if (!eventSource || eventSource.readyState !== EventSource.OPEN) {
+                    reconnectAttempts = 0;
+                    hide();
+                    hasReceivedFirstFrame = false;
+                    connect();
+                }
+            } else {
+                disconnect();
+            }
+        }
+        
         // Initialize
         initGrid();
         resize();
+        
         window.addEventListener('resize', resize);
+        document.addEventListener('visibilitychange', handleVisibilityChange);
         
-        // Connect to SSE
-        const eventSource = new EventSource(getStreamUrl());
-        
-        eventSource.onmessage = (event) => {
-            try {
-                const data = JSON.parse(event.data);
-                handleMessage(data);
-            } catch (e) {
-                console.error('Parse error:', e);
-            }
-        };
-        
-        eventSource.onerror = () => {
-            stats.textContent = 'Connection lost...';
-            terminal.style.opacity = '0.5';
-        };
+        connect();
     </script>
 </body>
 </html>

@@ -11,6 +11,7 @@ Real-time system monitor displayed on vedanta.systems using btop + SSE broadcast
 - **SSE Broadcast**: Single btop instance, all clients receive same stream
 - **Delta Encoding**: Only send changed cells, ~80% bandwidth reduction
 - **CSS Grid Rendering**: Pixel-perfect character alignment on all devices
+- **Phosphor Fade**: CRT-style warm-up animation on load
 - **Read-only**: No keyboard input, display only
 - **Host Networking**: Sees real host network traffic
 
@@ -150,6 +151,11 @@ set -ga terminal-overrides ",*256col*:Tc"  # Enable true color
     grid-template-rows: repeat(43, 12px);     /* Fixed height cells */
     font-family: 'JetBrainsMono NF', monospace;
     transform-origin: center center;
+    opacity: 0;                               /* Start invisible */
+    transition: opacity 0.4s ease-in;         /* Phosphor warm-up */
+}
+#terminal.visible {
+    opacity: 1;
 }
 #terminal span {
     display: flex;
@@ -161,6 +167,15 @@ set -ga terminal-overrides ",*256col*:Tc"  # Enable true color
 ```
 
 The viewer parses ANSI escape codes client-side and renders each character in its own fixed-size grid cell, then scales the entire grid with CSS transform to fit the container.
+
+### Phosphor Fade Animation
+
+On initial load and reconnection, the terminal fades in from black using an `ease-in` timing function. This creates a CRT-style "warming up" effect:
+
+- **0.4 seconds** duration
+- **ease-in** timing: slow start, accelerating to full brightness
+- Triggered when first SSE frame arrives
+- Fades out on disconnect, fades back in on reconnect
 
 ## Ports
 
