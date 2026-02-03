@@ -26,13 +26,15 @@ services:
       - /home/vedanta/.ssh:/root/.ssh:ro
       - /home/vedanta/photos:/app/public/photos:ro  # Shared photos (read-only)
     command: npm run dev -- --host 0.0.0.0
+    extra_hosts:
+      - "host.docker.internal:host-gateway"  # For reaching host-network services (btop)
     networks:
       - vedanta-systems-dev
       - luv-dev
     depends_on:
       - api
 
-  # API server handles all project APIs (/api/found-footy/*, /api/legal-tender/*, etc.)
+  # API server handles all project APIs (/api/found-footy/*, /api/btop/*, etc.)
   api:
     container_name: vedanta-systems-dev-api
     image: node:18-alpine
@@ -41,6 +43,9 @@ services:
       - "4101:3001"
     environment:
       - API_PORT=3001
+      - NODE_ENV=development
+      # btop proxy target (runs on host network)
+      - BTOP_HOST=host.docker.internal
       # MongoDB
       - MONGODB_URI=mongodb://${FOUND_FOOTY_MONGO_USER}:${FOUND_FOOTY_MONGO_PASS}@found-footy-dev-mongo:27017/found_footy?authSource=admin
       # MinIO
@@ -52,6 +57,8 @@ services:
       - .:/app
     command: sh -c "npm install && npx tsx watch src/server/index.ts"
     restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"  # For reaching btop on host network
     networks:
       - vedanta-systems-dev
       - luv-dev
@@ -82,7 +89,7 @@ services:
       - /dev/kfd:/dev/kfd
     
     environment:
-      - WRAPPER_PORT=4102        # Port for SSE server (binds to host directly with network_mode: host)
+      - WRAPPER_PORT=4102        # Dev: 4102, Prod: 3102 (binds to host with network_mode: host)
       - BTOP_HOST=local          # "local" or "user@host" for SSH to remote
     
     # No ports needed - network_mode: host means it binds directly to host ports

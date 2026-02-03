@@ -33,9 +33,24 @@ RUN apt-get update && apt-get install -y \
     librocm-smi64-1 \
     tmux \
     python3 \
+    python3-pip \
     locales \
+    curl \
+    unzip \
+    fontconfig \
     && rm -rf /var/lib/apt/lists/* \
     && locale-gen en_US.UTF-8
+
+# Download JetBrainsMono Nerd Font (has all Unicode symbols btop uses)
+RUN mkdir -p /usr/share/fonts/nerd-fonts && \
+    cd /tmp && \
+    curl -fLo "JetBrainsMono.zip" https://github.com/ryanoasis/nerd-fonts/releases/download/v3.3.0/JetBrainsMono.zip && \
+    unzip -o JetBrainsMono.zip -d /usr/share/fonts/nerd-fonts && \
+    rm JetBrainsMono.zip && \
+    fc-cache -fv
+
+# Install Pillow for ANSI→PNG rendering
+RUN pip3 install --break-system-packages Pillow
 
 ENV LANG=en_US.UTF-8
 ENV LC_ALL=en_US.UTF-8

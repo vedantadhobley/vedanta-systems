@@ -3,8 +3,15 @@
 <head>
     <meta charset="utf-8">
     <title>btop</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css">
     <style>
+        @font-face {
+            font-family: 'JetBrainsMono NF';
+            src: url('/fonts/JetBrainsMonoNerdFont-Regular.woff2') format('woff2'),
+                 local('JetBrainsMono Nerd Font'),
+                 local('JetBrainsMono NF');
+            font-weight: normal;
+        }
+        
         * { margin: 0; padding: 0; box-sizing: border-box; }
         html, body { 
             background: #000; 
@@ -20,100 +27,164 @@
             justify-content: center;
             overflow: hidden;
         }
-        #terminal-wrapper {
+        #terminal {
+            display: grid;
+            grid-template-columns: repeat(132, 6px);
+            grid-template-rows: repeat(43, 12px);
+            font-family: 'JetBrainsMono NF', monospace;
+            font-size: 10px;
+            line-height: 1;
+            background: #000;
             transform-origin: center center;
         }
-        #terminal {
-            pointer-events: none;
-        }
-        .xterm-viewport::-webkit-scrollbar { display: none; }
-        .xterm-viewport { scrollbar-width: none; overflow: hidden !important; }
-        /* Hide all cursor elements */
-        .xterm-cursor-layer,
-        .xterm-cursor,
-        .xterm-cursor-block,
-        .xterm-cursor-outline,
-        .xterm-cursor-bar,
-        .xterm-cursor-underline { 
-            display: none !important; 
-            visibility: hidden !important;
-            opacity: 0 !important;
-        }
-        /* Disable text selection */
-        .xterm-screen {
-            user-select: none !important;
-            -webkit-user-select: none !important;
+        #terminal span {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 6px;
+            height: 12px;
+            overflow: hidden;
         }
     </style>
 </head>
 <body>
     <div id="container">
-        <div id="terminal-wrapper">
-            <div id="terminal"></div>
-        </div>
+        <div id="terminal"></div>
     </div>
     
-    <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.min.js"></script>
     <script>
         const COLS = 132;
         const ROWS = 43;
-        
-        const term = new Terminal({
-            cols: COLS,
-            rows: ROWS,
-            cursorBlink: false,
-            cursorStyle: 'bar',
-            cursorInactiveStyle: 'none',
-            cursorWidth: 0,
-            disableStdin: true,
-            convertEol: true,
-            scrollback: 0,
-            fontFamily: 'monospace',
-            fontSize: 14,
-            theme: {
-                background: '#000000',
-                foreground: '#c9a0f0',
-                cursor: 'transparent',
-                cursorAccent: 'transparent'
-            }
-        });
-        
         const container = document.getElementById('container');
-        const wrapper = document.getElementById('terminal-wrapper');
+        const terminal = document.getElementById('terminal');
         
-        term.open(document.getElementById('terminal'));
-        term.write('\x1b[?25l');
+        // ANSI color palette (256 colors)
+        const COLORS_16 = [
+            '#000000', '#aa0000', '#00aa00', '#aa5500',
+            '#0000aa', '#aa00aa', '#00aaaa', '#aaaaaa',
+            '#555555', '#ff5555', '#55ff55', '#ffff55',
+            '#5555ff', '#ff55ff', '#55ffff', '#ffffff'
+        ];
+        
+        function get256Color(n) {
+            if (n < 16) return COLORS_16[n];
+            if (n < 232) {
+                n -= 16;
+                const r = Math.floor(n / 36) * 51;
+                const g = Math.floor((n % 36) / 6) * 51;
+                const b = (n % 6) * 51;
+                return `rgb(${r},${g},${b})`;
+            }
+            const gray = (n - 232) * 10 + 8;
+            return `rgb(${gray},${gray},${gray})`;
+        }
+        
+        function parseAnsiToGrid(ansi) {
+            const cells = [];
+            const lines = ansi.split('\n').slice(0, ROWS);
+            
+            let fg = null, bg = null, bold = false;
+            const ansiPattern = /\x1b\[([0-9;]*)m/g;
+            
+            for (let row = 0; row < ROWS; row++) {
+                const line = lines[row] || '';
+                let col = 0;
+                let pos = 0;
+                
+                while (col < COLS && pos < line.length) {
+                    // Check for ANSI escape
+                    ansiPattern.lastIndex = pos;
+                    const match = ansiPattern.exec(line);
+                    
+                    if (match && match.index === pos) {
+                        // Parse ANSI codes
+                        const codes = match[1] ? match[1].split(';').map(Number) : [0];
+                        let i = 0;
+                        while (i < codes.length) {
+                            const c = codes[i];
+                            if (c === 0) { fg = null; bg = null; bold = false; }
+                            else if (c === 1) bold = true;
+                            else if (c === 22) bold = false;
+                            else if (c === 38 && codes[i+1] === 5) { fg = get256Color(codes[i+2]); i += 2; }
+                            else if (c === 38 && codes[i+1] === 2) { fg = `rgb(${codes[i+2]},${codes[i+3]},${codes[i+4]})`; i += 4; }
+                            else if (c === 48 && codes[i+1] === 5) { bg = get256Color(codes[i+2]); i += 2; }
+                            else if (c === 48 && codes[i+1] === 2) { bg = `rgb(${codes[i+2]},${codes[i+3]},${codes[i+4]})`; i += 4; }
+                            else if (c === 39) fg = null;
+                            else if (c === 49) bg = null;
+                            else if (c >= 30 && c <= 37) fg = COLORS_16[c - 30];
+                            else if (c >= 40 && c <= 47) bg = COLORS_16[c - 40];
+                            else if (c >= 90 && c <= 97) fg = COLORS_16[c - 90 + 8];
+                            else if (c >= 100 && c <= 107) bg = COLORS_16[c - 100 + 8];
+                            i++;
+                        }
+                        pos = match.index + match[0].length;
+                    } else {
+                        // Regular character
+                        const char = line[pos] || ' ';
+                        cells.push({ char, fg, bg, bold });
+                        col++;
+                        pos++;
+                    }
+                }
+                
+                // Pad remaining columns
+                while (col < COLS) {
+                    cells.push({ char: ' ', fg: null, bg: null, bold: false });
+                    col++;
+                }
+            }
+            
+            // Pad remaining rows
+            while (cells.length < COLS * ROWS) {
+                cells.push({ char: ' ', fg: null, bg: null, bold: false });
+            }
+            
+            return cells;
+        }
+        
+        function renderGrid(cells) {
+            const fragment = document.createDocumentFragment();
+            for (const cell of cells) {
+                const span = document.createElement('span');
+                span.textContent = cell.char === ' ' ? '\u00A0' : cell.char;
+                if (cell.fg) span.style.color = cell.fg;
+                if (cell.bg) span.style.background = cell.bg;
+                if (cell.bold) span.style.fontWeight = 'bold';
+                fragment.appendChild(span);
+            }
+            terminal.innerHTML = '';
+            terminal.appendChild(fragment);
+        }
         
         function resize() {
-            // xterm.js cell dimensions at fontSize 14
-            const cellWidth = 8.4;
-            const cellHeight = 17;
-            const termWidth = COLS * cellWidth;
-            const termHeight = ROWS * cellHeight;
+            // Fixed cell dimensions - characters centered in each cell
+            const cellW = 6;
+            const cellH = 12;
+            const termW = COLS * cellW;
+            const termH = ROWS * cellH;
             
-            const scaleX = container.clientWidth / termWidth;
-            const scaleY = container.clientHeight / termHeight;
-            const scale = Math.min(scaleX, scaleY) * 0.98;
+            terminal.style.width = termW + 'px';
+            terminal.style.height = termH + 'px';
+            terminal.style.fontSize = (cellH * 0.85) + 'px';
             
-            wrapper.style.transform = `scale(${scale})`;
+            const scaleX = container.clientWidth / termW;
+            const scaleY = container.clientHeight / termH;
+            const scale = Math.min(scaleX, scaleY);
             
-            // Report to parent for aspect ratio
+            terminal.style.transform = `scale(${scale})`;
+            
+            // Always send the fixed aspect ratio
             if (window.parent !== window) {
                 window.parent.postMessage({
                     type: 'btop-dimensions',
-                    width: termWidth * scale,
-                    height: termHeight * scale,
-                    aspectRatio: termWidth / termHeight
+                    aspectRatio: 1.534  // 132*6 / 43*12 = 792/516
                 }, '*');
             }
         }
         
-        // Detect if loaded through API proxy
         function getStreamUrl() {
             const path = window.location.pathname;
-            if (path.includes('/api/btop')) {
-                return '/api/btop/stream';
-            }
+            if (path.includes('/api/btop')) return '/api/btop/stream';
             return '/stream';
         }
         
@@ -122,15 +193,15 @@
         eventSource.onmessage = (event) => {
             try {
                 const data = JSON.parse(event.data);
-                const content = data.frame.replace(/\n$/, '');
-                term.write('\x1b[?25l\x1b[H\x1b[J' + content + '\x1b[?25l');
+                const cells = parseAnsiToGrid(data.frame);
+                renderGrid(cells);
             } catch (e) {
                 console.error('Parse error:', e);
             }
         };
         
         eventSource.onerror = () => {
-            term.write('\x1b[H\x1b[31mConnection lost...\x1b[0m');
+            terminal.innerHTML = '<span style="color:#ff5555;grid-column:span 132">Connection lost...</span>';
         };
         
         window.addEventListener('resize', resize);

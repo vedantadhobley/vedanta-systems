@@ -1,6 +1,6 @@
 # btop Integration
 
-Real-time system monitor displayed on vedanta.systems using btop + SSE broadcast.
+Real-time system monitor displayed on vedanta.systems using btop + SSE broadcast + CSS Grid rendering.
 
 ## Features
 
@@ -9,7 +9,7 @@ Real-time system monitor displayed on vedanta.systems using btop + SSE broadcast
   - rocm-smi v1.x compatibility
 - **Custom Theme**: Lavender theme matching site aesthetics
 - **SSE Broadcast**: Single btop instance, all clients receive same stream
-- **xterm.js Rendering**: Proper terminal emulation in browser
+- **CSS Grid Rendering**: Pixel-perfect character alignment on all devices
 - **Read-only**: No keyboard input, display only
 - **Host Networking**: Sees real host network traffic
 
@@ -27,8 +27,8 @@ Real-time system monitor displayed on vedanta.systems using btop + SSE broadcast
 ┌─────────────────────────────────────────────────────────────┐
 │ Browser                                                     │
 │                                                             │
-│   viewer.html ──► xterm.js ──► Canvas rendering            │
-│   (EventSource)   (Terminal)   (proper char widths)        │
+│   viewer.html ──► JS ANSI Parser ──► CSS Grid (132×43)     │
+│   (EventSource)   (client-side)      (fixed cell sizes)    │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -39,14 +39,15 @@ Real-time system monitor displayed on vedanta.systems using btop + SSE broadcast
 | **btop** | Best-looking TUI system monitor with GPU support |
 | **tmux** | Fixed-size terminal (132x43), consistent capture |
 | **Python SSE** | Simple broadcast server, ~100 lines |
-| **xterm.js** | Proper terminal emulation, handles Unicode/ANSI correctly |
+| **CSS Grid** | Pixel-perfect alignment, each character in fixed 6×12px cell |
 
-### Why NOT ttyd/WebSocket?
+### Why CSS Grid over xterm.js?
 
-- ttyd requires per-client WebSocket connections
-- Each client would spawn a new btop process
-- Doesn't scale well for public display
-- SSE broadcast is simpler and more efficient
+- xterm.js has variable Unicode character widths causing misalignment
+- CSS Grid forces each character into a fixed-size cell
+- Scales perfectly on mobile with CSS transform
+- No external dependencies (xterm.js library)
+- Simpler and more predictable rendering
 
 ## Files
 
@@ -54,8 +55,8 @@ Real-time system monitor displayed on vedanta.systems using btop + SSE broadcast
 btop/
 ├── Dockerfile           # Multi-stage build: compile btop, runtime with Python
 ├── entrypoint.sh        # Starts tmux→btop, then Python SSE server
-├── broadcast-server.py  # Python SSE server, captures tmux, broadcasts to clients
-├── viewer.html          # xterm.js-based viewer, connects to /stream
+├── broadcast-server.py  # Python SSE server, captures tmux, broadcasts raw ANSI
+├── viewer.html          # CSS Grid viewer, parses ANSI client-side
 ├── btop.conf            # btop configuration (lavender theme, shown boxes, etc.)
 ├── themes/
 │   └── vedanta-lavender.theme
@@ -88,22 +89,26 @@ set -g default-terminal "tmux-256color"
 set -ga terminal-overrides ",*256col*:Tc"  # Enable true color
 ```
 
-### xterm.js settings (in viewer.html)
+### CSS Grid viewer (viewer.html)
 
-```javascript
-const term = new Terminal({
-    cols: 132,
-    rows: 43,
-    convertEol: true,
-    scrollback: 0,
-    fontFamily: '"JetBrains Mono", "Fira Code", monospace',
-    fontSize: 14,
-    theme: {
-        background: '#000000',
-        foreground: '#c9a0f0'
-    }
-});
+```css
+#terminal {
+    display: grid;
+    grid-template-columns: repeat(132, 6px);  /* Fixed width cells */
+    grid-template-rows: repeat(43, 12px);     /* Fixed height cells */
+    font-family: 'JetBrainsMono NF', monospace;
+    transform-origin: center center;
+}
+#terminal span {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 6px;
+    height: 12px;
+}
 ```
+
+The viewer parses ANSI escape codes client-side and renders each character in its own fixed-size grid cell, then scales the entire grid with CSS transform to fit the container.
 
 ## Ports
 
@@ -161,16 +166,31 @@ The Python server exposes:
 
 - `GET /` - Returns viewer.html
 - `GET /stream` - SSE endpoint, sends JSON frames
+- `GET /health` - Health check endpoint
 
 Each frame:
 ```json
-{"ansi": "<raw ANSI output from btop>"}
+{"frame": "<raw ANSI output from btop>"}
 ```
 
-The viewer strips trailing newlines and writes to xterm.js:
+The viewer parses ANSI codes and renders to CSS Grid:
 ```javascript
-const content = data.ansi.replace(/\n$/, '');
-term.write('\x1b[H\x1b[J' + content);
+eventSource.onmessage = (event) => {
+    const data = JSON.parse(event.data);
+    const cells = parseAnsiToGrid(data.frame);
+    renderGrid(cells);
+};
+```
+
+### Proxy Support
+
+When loaded through the API proxy (`/api/btop/`), the viewer detects this and uses the correct stream URL:
+```javascript
+function getStreamUrl() {
+    const path = window.location.pathname;
+    if (path.includes('/api/btop')) return '/api/btop/stream';
+    return '/stream';
+}
 ```
 
 ## Source Modifications
@@ -236,9 +256,7 @@ The `vedanta-lavender.theme` uses colors from the GitHub contribution graph lave
 
 ## Known Issues
 
-1. **Minor color artifacts**: Some border colors may appear slightly off due to xterm.js theme mapping of 16-color ANSI codes vs btop's 24-bit colors. The actual graph colors are correct.
-
-2. **Slight pixel alignment**: Unicode box-drawing characters may have sub-pixel alignment differences at certain font sizes.
+None currently. The CSS Grid rendering provides pixel-perfect alignment on both desktop and mobile.
 
 ## Future: Multi-System Support
 

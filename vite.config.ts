@@ -29,12 +29,11 @@ export default defineConfig({
       interval: 1000,  // Check every second instead of constantly
     },
     proxy: {
-      // Proxy btop to dev btop container (WebSocket)
-      '/btop': {
-        target: 'http://vedanta-systems-dev-btop:7681',
+      // API proxy - all backend requests go through /api
+      // This includes btop frames (/api/btop/frame.png) routed through the Express server
+      '/api': {
+        target: 'http://api:3001',
         changeOrigin: true,
-        ws: true,  // Enable WebSocket proxying
-        rewrite: (path) => path.replace(/^\/btop/, ''),
       },
     },
   },
