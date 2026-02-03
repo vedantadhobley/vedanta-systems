@@ -115,7 +115,7 @@ The viewer parses ANSI escape codes client-side and renders each character in it
 | Environment | Port | Notes |
 |-------------|------|-------|
 | Development | 4102 | Direct access (network_mode: host) |
-| Production | 4102 internal | Proxied via nginx at /btop/ |
+| Production | 3102 | Direct access (network_mode: host), proxied via API |
 
 **Note**: btop uses `network_mode: host` to see real host network traffic, so it binds directly to host ports rather than using Docker port mapping.
 

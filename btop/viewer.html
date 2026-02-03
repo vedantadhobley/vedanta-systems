@@ -87,7 +87,11 @@
             const ansiPattern = /\x1b\[([0-9;]*)m/g;
             
             for (let row = 0; row < ROWS; row++) {
-                const line = lines[row] || '';
+                let line = lines[row] || '';
+                // Clean up btop artifact: stray period at end of CPU row
+                if (row === 2 && line.endsWith('.')) {
+                    line = line.slice(0, -1);
+                }
                 let col = 0;
                 let pos = 0;
                 

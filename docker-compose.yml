@@ -38,6 +38,10 @@ services:
       - MINIO_PORT=9000
       - MINIO_ACCESS_KEY=${FOUND_FOOTY_S3_USER}
       - MINIO_SECRET_KEY=${FOUND_FOOTY_S3_PASS}
+      # btop runs with network_mode:host, so reach it via host gateway
+      - BTOP_HOST=host-gateway
+    extra_hosts:
+      - "host-gateway:host-gateway"
     restart: unless-stopped
     networks:
       - vedanta-systems-prod

@@ -56,7 +56,7 @@ app.use('/api/found-footy', foundFootyRouter)
 const BTOP_HOST = process.env.BTOP_HOST || 'host.docker.internal'
 const BTOP_PORT = isDev ? '4102' : '3102'
 
-app.get('/api/btop/frame.png', (req, res) => {
+app.get('/api/btop/frame.png', (_req, res) => {
   const options = {
     hostname: BTOP_HOST,
     port: parseInt(BTOP_PORT),
@@ -108,7 +108,7 @@ app.get('/api/btop/health', (_req, res) => {
 })
 
 // Proxy btop viewer HTML
-app.get('/api/btop/', (req, res) => {
+app.get('/api/btop/', (_req, res) => {
   const options = {
     hostname: BTOP_HOST,
     port: parseInt(BTOP_PORT),
