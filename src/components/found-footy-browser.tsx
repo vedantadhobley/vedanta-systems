@@ -163,32 +163,22 @@ export function FoundFootyBrowser({
   const isToday = currentDate === getToday()
   const today = getToday()
   
-  // Navigation: today + next future date with fixtures (not necessarily tomorrow)
-  // Backend fetches fixtures for today, tomorrow, and steps forward if tomorrow has no fixtures
-  // We want to show: today, and the next available date with fixtures
+  // Navigation: all past dates + today + only the next future date with fixtures
   const availableDatesInMode = useMemo(() => {
-    // Sort dates ascending to find "next date after today"
     const sortedDates = [...availableDates].sort()
     
-    // Find the next date >= today that has fixtures
-    const futureDates = sortedDates.filter(d => d >= today)
+    // All past dates and today
+    const pastAndToday = sortedDates.filter(d => d <= today)
     
-    // We want today (if available) + the next available future date
-    const dates = new Set<string>()
+    // Only the first future date after today
+    const nextFuture = sortedDates.find(d => d > today)
     
-    // Always include today if it's in the list (or close to it for timezone overlap)
-    const todayOrNear = sortedDates.find(d => d >= today) 
-    if (todayOrNear === today || futureDates.includes(today)) {
-      dates.add(today)
+    const dates = [...pastAndToday]
+    if (nextFuture) {
+      dates.push(nextFuture)
     }
     
-    // Add next future date after today (could be tomorrow, could be further)
-    const nextDate = futureDates.find(d => d > today)
-    if (nextDate) {
-      dates.add(nextDate)
-    }
-    
-    return Array.from(dates).sort().reverse() // Newest first
+    return dates.sort().reverse() // Newest first
   }, [availableDates, today])
   
   // Check if we can navigate
