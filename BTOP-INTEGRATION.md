@@ -20,7 +20,7 @@ Real-time system monitor displayed on vedanta.systems using btop + SSE broadcast
 │ btop Container (network_mode: host, pid: host)              │
 │                                                             │
 │   btop ──► tmux ──► capture-pane ──► Python SSE Server     │
-│            (120x40)      (raw ANSI)      (port 4102)        │
+│            (132x43)      (raw ANSI)      (port 4102)        │
 └─────────────────────────────────────────────────────────────┘
                               │
                               ▼ SSE (Server-Sent Events)
@@ -37,7 +37,7 @@ Real-time system monitor displayed on vedanta.systems using btop + SSE broadcast
 | Component | Purpose |
 |-----------|---------|
 | **btop** | Best-looking TUI system monitor with GPU support |
-| **tmux** | Fixed-size terminal (120x40), consistent capture |
+| **tmux** | Fixed-size terminal (132x43), consistent capture |
 | **Python SSE** | Simple broadcast server, ~100 lines |
 | **xterm.js** | Proper terminal emulation, handles Unicode/ANSI correctly |
 
@@ -92,8 +92,8 @@ set -ga terminal-overrides ",*256col*:Tc"  # Enable true color
 
 ```javascript
 const term = new Terminal({
-    cols: 120,
-    rows: 40,
+    cols: 132,
+    rows: 43,
     convertEol: true,
     scrollback: 0,
     fontFamily: '"JetBrains Mono", "Fira Code", monospace',

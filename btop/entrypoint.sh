@@ -52,7 +52,7 @@ fi
 # Start btop in a detached tmux session with fixed size for consistent capture
 # Using 120x41 - extra row because first line sometimes gets cut off
 export TERM=xterm-256color
-tmux new-session -d -s btop -x 100 -y 45 "$BTOP_CMD"
+tmux new-session -d -s btop -x 132 -y 43 "$BTOP_CMD"
 
 # Give btop time to fully initialize
 sleep 2
