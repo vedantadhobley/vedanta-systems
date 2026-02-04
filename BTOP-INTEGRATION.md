@@ -247,22 +247,46 @@ function getStreamUrl() {
 
 ## Source Modifications
 
-The btop source (`btop/src/`) includes several patches:
+The btop source (`btop/src/`) is cloned from the official [aristocratos/btop](https://github.com/aristocratos/btop) repository with the following patches applied:
 
 ### AMD APU Patches
 
-For Ryzen AI MAX+ 395 (Strix Halo) support:
+For Ryzen AI MAX+ 395 (Strix Halo) and other AMD APU support:
 
-**1. GTT Memory Type (src/linux/btop_collect.cpp)**
+**1. ROCm SMI v1.x Support (src/linux/btop_collect.cpp)**
+
+Ubuntu 24.04's rocm-smi package (5.7.0-1) reports library version as 1.0.0, but btop only accepts versions 5, 6, or 7. This patch treats version 1.x the same as v6/7:
+
 ```cpp
-// Line ~2308: Add memory type 2 (GTT) for APUs
-if (mem_type <= 2) {  // was: mem_type <= 1
+// Line ~1577: Accept version 1.x (Ubuntu 24.04 rocm-smi compatibility)
+} else if (version.major == 6 || version.major == 7 || version.major == 1) {
 ```
 
-**2. rocm-smi v1.x Support (src/linux/btop_collect.cpp)**
+**2. GPU Memory Type Option (src/linux/btop_collect.cpp, src/btop_config.cpp)**
+
+On AMD APUs, the GPU uses unified memory (GTT - Graphics Translation Table) shared with the CPU. By default, btop queries VRAM which only shows the small BIOS carve-out (~512MB). This patch adds a `gpu_mem_type` config option:
+
+```ini
+# btop.conf
+gpu_mem_type = "gtt"   # Show unified memory (APUs)
+# gpu_mem_type = "vram" # Show dedicated VRAM (default)
+```
+
 ```cpp
-// Use rsmi_dev_gpu_clk_freq_get instead of rsmi_dev_clk_freq_get
-// The older API is available in Ubuntu 24.04's librocm-smi
+// Line ~212: Add GTT memory type define
+#define RSMI_MEM_TYPE_GTT             2
+
+// Line ~1764: Use configured memory type
+rsmi_memory_type_t mem_type = (Config::getS("gpu_mem_type") == "gtt") ? RSMI_MEM_TYPE_GTT : RSMI_MEM_TYPE_VRAM;
+```
+
+**3. Show Net IP Option (src/btop_config.cpp, src/btop_draw.cpp)**
+
+Privacy option to hide IP address in network box:
+
+```ini
+# btop.conf
+show_net_ip = False  # Hide IP for public displays
 ```
 
 ### UI Customizations for Public Display
@@ -275,22 +299,18 @@ Since this is a read-only public display, several interactive UI elements have b
    - Removed superscript numbers (¹²³) from box titles
    - `const string numbering = "";`
 
-2. **CPU box buttons disabled** (lines ~596-606)
+2. **CPU box buttons disabled** (lines ~593-605)
    - Removed: `menu` button
    - Removed: `preset` button
    - Removed: `- +` buttons around update interval
    - Kept: Update interval display (e.g., "1000ms") without buttons
 
-3. **Network box buttons disabled** (lines ~1483-1497)
+3. **Network box buttons disabled** (lines ~1479-1496)
    - Removed: `sync` button
    - Removed: `auto` button  
    - Removed: `zero` button
    - Removed: Interface selector arrows (`←b` / `n→`)
    - Kept: Interface name display (e.g., "enp191s0")
-
-4. **IP address hidden** (lines ~1500-1504)
-   - Removed IP address display from network box title
-   - Privacy consideration for public display
 
 ## Theme Colors
 

@@ -260,7 +260,7 @@ namespace Draw {
 
 		auto tty_mode = Config::getB("tty_mode");
 		auto rounded = Config::getB("rounded_corners");
-		// DISABLED: Box numbering superscripts (for cleaner public display)
+		// VEDANTA: Disable box numbering superscripts for cleaner public display
 		const string numbering = "";
 		// const string numbering = (num == 0) ? "" : Theme::c("hi_fg") + (tty_mode ? std::to_string(num) : Symbols::superscript.at(clamp(num, 0, 9)));
 		const auto& right_up = (tty_mode or not rounded ? Symbols::right_up : Symbols::round_right_up);
@@ -592,15 +592,15 @@ namespace Cpu {
 			const int button_y = cpu_bottom ? y + height - 1 : y;
 			out += box;
 
-			//? Buttons on title - DISABLED for cleaner public display
-			// Menu button
+			//? Buttons on title - VEDANTA: Disabled for cleaner public display
+			// Menu button disabled
 			// out += Mv::to(button_y, x + 10) + title_left + Theme::c("hi_fg") + Fx::b + 'm' + Theme::c("title") + "enu" + Fx::ub + title_right;
 			// Input::mouse_mappings["m"] = {button_y, x + 11, 1, 4};
-			// Preset button
+			// Preset button disabled
 			// out += Mv::to(button_y, x + 16) + title_left + Theme::c("hi_fg") + Fx::b + 'p' + Theme::c("title") + "reset "
 			// 	+ (Config::current_preset < 0 ? "*" : to_string(Config::current_preset)) + Fx::ub + title_right;
 			// Input::mouse_mappings["p"] = {button_y, x + 17, 1, 8};
-			// Update interval +/- buttons - just show the value without buttons
+			// Update interval - show value without +/- buttons
 			const string update = to_string(Config::getI("update_ms")) + "ms";
 			out += Mv::to(button_y, x + width - update.size() - 4) + title_left + Theme::c("title") + update + Fx::ub + title_right;
 			// Input::mouse_mappings["-"] = {button_y, x + width - (int)update.size() - 7, 1, 2};
@@ -1480,11 +1480,11 @@ namespace Net {
 				width - b_width - 2, d_graph_height, "upload",
 				net.bandwidth.at("upload"), graph_symbol, !swap_upload_download, true, up_max};
 
-			//? Interface selector and buttons - DISABLED for cleaner public display
-			// Just show the interface name without navigation buttons
+			//? Interface selector and buttons - VEDANTA: Disabled for cleaner public display
+			// Just show interface name without navigation buttons
 			out += Mv::to(y, x+width - i_size - 4) + title_left + Theme::c("title")
 				+ uresize(selected_iface, MAX_IFNAMSIZ) + title_right;
-			// Interface selector buttons disabled
+			// Interface nav buttons disabled
 			// Input::mouse_mappings["b"] = {y, x+width - i_size - 8, 1, 3};
 			// Input::mouse_mappings["n"] = {y, x+width - 6, 1, 3};
 			// Zero button disabled
@@ -1495,10 +1495,10 @@ namespace Net {
 			// Input::mouse_mappings["y"] = {y, x+width - i_size - 26, 1, 4};
 		}
 
-		//? IP or device address - DISABLED for privacy (public display)
-		// if (not ip_addr.empty() and cmp_greater(width - i_size - 36, ip_addr.size())) {
-		// 	out += Mv::to(y, x + 8) + title_left + Theme::c("title") + Fx::b + ip_addr + title_right;
-		// }
+		//? IP or device address (can be hidden via show_net_ip config for public displays)
+		if (Config::getB("show_net_ip") and not ip_addr.empty() and cmp_greater(width - i_size - 36, ip_addr.size())) {
+			out += Mv::to(y, x + 8) + title_left + Theme::c("title") + Fx::b + ip_addr + title_right;
+		}
 
 		//? Graphs and stats
 		for (const string dir : {"download", "upload"}) {

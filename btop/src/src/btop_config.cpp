@@ -240,6 +240,8 @@ namespace Config {
 		{"custom_gpu_name3",	"#* Custom gpu3 model name, empty string to disable."},
 		{"custom_gpu_name4",	"#* Custom gpu4 model name, empty string to disable."},
 		{"custom_gpu_name5",	"#* Custom gpu5 model name, empty string to disable."},
+		{"gpu_mem_type",		"#* GPU memory type to display for AMD GPUs. \"vram\" for dedicated VRAM, \"gtt\" for unified memory (APUs).\n"
+								"#* APU users should set this to \"gtt\" to see actual GPU-accessible memory instead of small BIOS carve-out."},
 	#endif
 	};
 
@@ -281,6 +283,7 @@ namespace Config {
 		{"custom_gpu_name4", ""},
 		{"custom_gpu_name5", ""},
 		{"show_gpu_info", "Auto"},
+		{"gpu_mem_type", "vram"},
 		{"shown_gpus", "nvidia amd intel"}
 	#endif
 	};
@@ -325,6 +328,7 @@ namespace Config {
 		{"io_graph_combined", false},
 		{"net_auto", true},
 		{"net_sync", true},
+		{"show_net_ip", true},
 		{"show_battery", true},
 		{"show_battery_watts", true},
 		{"vim_keys", false},

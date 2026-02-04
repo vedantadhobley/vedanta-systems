@@ -209,8 +209,8 @@ namespace Gpu {
 		#define RSMI_MAX_NUM_FREQUENCIES_V5  32
 		#define RSMI_MAX_NUM_FREQUENCIES_V6  33
 		#define RSMI_STATUS_SUCCESS           0
-		// Use GTT memory (type 2) instead of VRAM (type 0) for AMD APUs
-		#define RSMI_MEM_TYPE_VRAM            2
+		#define RSMI_MEM_TYPE_VRAM            0
+		#define RSMI_MEM_TYPE_GTT             2
 		#define RSMI_TEMP_CURRENT             0
 		#define RSMI_TEMP_TYPE_EDGE           0
 		#define RSMI_CLK_TYPE_MEM             4
@@ -1575,12 +1575,12 @@ namespace Gpu {
 				if ((rsmi_dev_gpu_clk_freq_get_v5 = (decltype(rsmi_dev_gpu_clk_freq_get_v5))load_rsmi_sym("rsmi_dev_gpu_clk_freq_get")) == nullptr)
 					return false;
 			// In the release tarballs of rocm 6.0.0 and 6.0.2 the version queried with rsmi_version_get is 7.0.0.0
-			// Ubuntu 24.04 reports version 1.0.0 - treat as v6 compatible
+			// Ubuntu 24.04's rocm-smi (5.7.0-1) reports version 1.0.0 but uses v6 API
 			} else if (version.major == 6 || version.major == 7 || version.major == 1) {
 				if ((rsmi_dev_gpu_clk_freq_get_v6 = (decltype(rsmi_dev_gpu_clk_freq_get_v6))load_rsmi_sym("rsmi_dev_gpu_clk_freq_get")) == nullptr)
 					return false;
 			} else {
-				Logger::warning("ROCm SMI: Dynamic loading only supported for version 5, 6, and 1 (Ubuntu 24.04)");
+				Logger::warning("ROCm SMI: Dynamic loading only supported for version 5 and 6");
 				return false;
 			}
 			version_major = version.major;
@@ -1763,9 +1763,11 @@ namespace Gpu {
 				}
 
 				//? Memory info
+				rsmi_memory_type_t mem_type = (Config::getS("gpu_mem_type") == "gtt") ? RSMI_MEM_TYPE_GTT : RSMI_MEM_TYPE_VRAM;
+
 				if (gpus_slice[i].supported_functions.mem_total) {
 					uint64_t total;
-					result = rsmi_dev_memory_total_get(i, RSMI_MEM_TYPE_VRAM, &total);
+					result = rsmi_dev_memory_total_get(i, mem_type, &total);
     				if (result != RSMI_STATUS_SUCCESS) {
 						Logger::warning("ROCm SMI: Failed to get total VRAM");
 						if constexpr(is_init) gpus_slice[i].supported_functions.mem_total = false;
@@ -1774,7 +1776,7 @@ namespace Gpu {
 
 				if (gpus_slice[i].supported_functions.mem_used) {
 					uint64_t used;
-					result = rsmi_dev_memory_usage_get(i, RSMI_MEM_TYPE_VRAM, &used);
+					result = rsmi_dev_memory_usage_get(i, mem_type, &used);
     				if (result != RSMI_STATUS_SUCCESS) {
 						Logger::warning("ROCm SMI: Failed to get VRAM usage");
 						if constexpr(is_init) gpus_slice[i].supported_functions.mem_used = false;
