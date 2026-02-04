@@ -50,12 +50,33 @@ else
 fi
 
 # Start btop in a detached tmux session with fixed size for consistent capture
-# Using 120x41 - extra row because first line sometimes gets cut off
 export TERM=xterm-256color
+export COLUMNS=132
+export LINES=43
+
+# Create tmux session with explicit size
 tmux new-session -d -s btop -x 132 -y 43 "$BTOP_CMD"
 
-# Give btop time to fully initialize
-sleep 2
+# Give btop time to start
+sleep 1
+
+# Force resize the pane to ensure btop sees correct dimensions
+# This handles the case where btop queries terminal size before tmux fully initializes
+tmux resize-pane -t btop -x 132 -y 43
+
+# Send SIGWINCH to btop to force it to re-check terminal size
+# Find the btop process and signal it
+PANE_PID=$(tmux list-panes -t btop -F '#{pane_pid}')
+if [ -n "$PANE_PID" ]; then
+    # btop is a child of the shell in the pane
+    BTOP_PID=$(ps --ppid "$PANE_PID" -o pid= 2>/dev/null | head -1 | tr -d ' ')
+    if [ -n "$BTOP_PID" ]; then
+        kill -WINCH "$BTOP_PID" 2>/dev/null || true
+    fi
+fi
+
+# Give btop time to process the resize
+sleep 1
 
 echo "Starting broadcast server on port ${BROADCAST_PORT}..."
 echo "Architecture: btop → tmux → capture → aha → SSE broadcast"

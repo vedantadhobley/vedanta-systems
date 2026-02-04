@@ -18,9 +18,10 @@ import time
 import json
 import threading
 import re
+import signal
+import os
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from socketserver import ThreadingMixIn
-import os
 
 PORT = int(os.environ.get('WRAPPER_PORT', os.environ.get('BROADCAST_PORT', 4102)))
 TMUX_SESSION = 'btop'
@@ -61,7 +62,12 @@ def get_256_color(n):
 
 
 def parse_ansi_to_cells(ansi):
-    """Parse raw ANSI text into cell array."""
+    """Parse raw ANSI text into cell array.
+    
+    Handles edge cases where btop outputs more than COLS characters per line
+    by truncating at the column boundary. This prevents rendering artifacts
+    from terminal size desync.
+    """
     cells = []
     lines = ansi.split('\n')[:ROWS]
     
@@ -73,10 +79,6 @@ def parse_ansi_to_cells(ansi):
     
     for row in range(ROWS):
         line = lines[row] if row < len(lines) else ''
-        
-        # Clean up btop artifact: stray period at end of CPU row
-        if row == 2 and line.endswith('.'):
-            line = line[:-1]
         
         col = 0
         pos = 0
@@ -151,6 +153,47 @@ class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
     daemon_threads = True
 
 
+def enforce_terminal_size():
+    """Send SIGWINCH to btop to force terminal size re-check.
+    
+    This fixes a transient issue where btop's internal terminal size
+    can get out of sync with the actual tmux pane dimensions, causing
+    it to render extra characters past the line boundary.
+    """
+    try:
+        # First, ensure tmux pane is the correct size
+        subprocess.run(
+            ['tmux', 'resize-pane', '-t', TMUX_SESSION, '-x', str(COLS), '-y', str(ROWS)],
+            capture_output=True,
+            timeout=2
+        )
+        # Send SIGWINCH to btop to make it re-query terminal size
+        # Find btop's PID inside tmux
+        result = subprocess.run(
+            ['tmux', 'list-panes', '-t', TMUX_SESSION, '-F', '#{pane_pid}'],
+            capture_output=True,
+            text=True,
+            timeout=2
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            pane_pid = result.stdout.strip()
+            # Find btop process (child of the shell in the pane)
+            ps_result = subprocess.run(
+                ['ps', '--ppid', pane_pid, '-o', 'pid='],
+                capture_output=True,
+                text=True,
+                timeout=2
+            )
+            if ps_result.returncode == 0:
+                for pid in ps_result.stdout.strip().split():
+                    try:
+                        os.kill(int(pid), signal.SIGWINCH)
+                    except (ValueError, OSError):
+                        pass
+    except Exception as e:
+        log(f"Size enforcement error: {e}")
+
+
 def capture_btop_frame():
     """Capture raw ANSI from tmux."""
     try:
@@ -174,6 +217,10 @@ def frame_updater():
     log("Frame updater thread started")
     time.sleep(3)  # Wait for btop to start
     
+    # Enforce terminal size on startup
+    enforce_terminal_size()
+    
+    frame_count = 0
     while True:
         try:
             raw_frame = capture_btop_frame()
@@ -181,6 +228,13 @@ def frame_updater():
                 new_cells = parse_ansi_to_cells(raw_frame)
                 with cells_lock:
                     current_cells = new_cells
+            
+            # Periodically enforce terminal size (every 60 frames / ~1 minute)
+            frame_count += 1
+            if frame_count >= 60:
+                enforce_terminal_size()
+                frame_count = 0
+                
         except Exception as e:
             log(f"Frame update error: {e}")
         time.sleep(REFRESH_INTERVAL)
