@@ -27,6 +27,8 @@ if [ -f "/config/btop.conf" ]; then
     cp /config/btop.conf /root/.config/btop/btop.conf
 elif [ -f "$BTOP_CONFIG" ]; then
     cp "$BTOP_CONFIG" /root/.config/btop/btop.conf
+elif [ -f "/etc/btop/btop.conf" ]; then
+    cp /etc/btop/btop.conf /root/.config/btop/btop.conf
 fi
 
 echo "Starting btop monitor for: $BTOP_HOST"

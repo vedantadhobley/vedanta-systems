@@ -286,7 +286,19 @@ Privacy option to hide IP address in network box:
 
 ```ini
 # btop.conf
-show_net_ip = False  # Hide IP for public displays
+show_net_ip = false  # Hide IP for public displays
+```
+
+### Display Customizations
+
+For the public-facing display:
+
+```ini
+# btop.conf
+custom_cpu_name = "AMD STRIX HALO"   # Custom CPU name in title
+custom_gpu_name0 = "AMD STRIX HALO"  # Custom GPU name
+gpu_mem_type = "gtt"                 # Show unified memory (~62GB) instead of VRAM carve-out
+show_net_ip = false                  # Hide IP address for privacy
 ```
 
 ### UI Customizations for Public Display
