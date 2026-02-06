@@ -850,7 +850,10 @@ namespace Cpu {
 		}
 
 		if (show_watts) {
-			string cwatts = fmt::format(" {:>4.{}f}", cpu.usage_watts, cpu.usage_watts < 10.0f ? 2 : cpu.usage_watts < 100.0f ? 1 : 0);
+			//? Fix rounding overflow: 9.996 with prec 2 rounds to "10.00" (5 chars, overflow!)
+			//? Check against rounding boundaries instead of display boundaries
+			int precision = cpu.usage_watts < 9.995f ? 2 : cpu.usage_watts < 99.95f ? 1 : 0;
+			string cwatts = fmt::format(" {:>4.{}f}", cpu.usage_watts, precision);
 			string cwatts_post = "W";
 
 			max_observed_pwr = max(max_observed_pwr, cpu.usage_watts);
