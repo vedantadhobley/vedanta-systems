@@ -968,15 +968,9 @@ const MemoizedVideoModal = memo(function VideoModal({ url, title, subtitle, even
     const video = videoRef.current
     
     return () => {
-      // CRITICAL: Aggressively release video resources
-      // iOS Safari is notorious for holding onto video memory
       if (video) {
+        video.muted = true
         video.pause()
-        video.removeAttribute('src')
-        while (video.firstChild) {
-          video.removeChild(video.firstChild)
-        }
-        video.load()
       }
     }
   }, [url]) // Re-run cleanup when URL changes
