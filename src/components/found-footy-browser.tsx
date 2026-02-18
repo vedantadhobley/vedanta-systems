@@ -943,6 +943,23 @@ interface VideoModalProps {
   onClose: () => void
 }
 
+/**
+ * Suppress the OS media session so the video never appears on the
+ * lockscreen or in system media controls. Called after each play().
+ */
+function suppressMediaSession() {
+  if (!('mediaSession' in navigator)) return
+  try {
+    navigator.mediaSession.metadata = null
+    navigator.mediaSession.playbackState = 'none'
+    // Set no-op handlers so the OS doesn't show default controls
+    const actions: MediaSessionAction[] = ['play', 'pause', 'seekbackward', 'seekforward', 'previoustrack', 'nexttrack', 'stop']
+    for (const action of actions) {
+      try { navigator.mediaSession.setActionHandler(action, null) } catch { /* unsupported action */ }
+    }
+  } catch { /* mediaSession not fully supported */ }
+}
+
 const MemoizedVideoModal = memo(function VideoModal({ url, title, subtitle, eventId, onClose }: VideoModalProps) {
   const [copied, setCopied] = useState(false)
   const [isMuted, setIsMuted] = useState<boolean | null>(null) // null = not yet determined
@@ -981,6 +998,13 @@ const MemoizedVideoModal = memo(function VideoModal({ url, title, subtitle, even
         // Force browser to release media resources
         video.load()
       }
+      
+      // Release the media session so the OS resumes any previously
+      // interrupted audio (e.g. Spotify, Apple Music, another tab)
+      if ('mediaSession' in navigator) {
+        navigator.mediaSession.metadata = null
+        navigator.mediaSession.playbackState = 'none'
+      }
     }
   }, [url]) // Re-run cleanup when URL changes
   
@@ -999,11 +1023,15 @@ const MemoizedVideoModal = memo(function VideoModal({ url, title, subtitle, even
     
     const playPromise = video.play()
     if (playPromise !== undefined) {
-      playPromise.catch(() => {
+      playPromise.then(() => {
+        // Suppress the lockscreen/media session — video should never
+        // appear in the OS media controls or lockscreen
+        suppressMediaSession()
+      }).catch(() => {
         // Autoplay was blocked - play muted instead
         video.muted = true
         setIsMuted(true)
-        video.play().catch(() => {})
+        video.play().then(() => suppressMediaSession()).catch(() => {})
       })
     }
     
@@ -1069,6 +1097,9 @@ const MemoizedVideoModal = memo(function VideoModal({ url, title, subtitle, even
     video.muted = false
     video.volume = targetVolume
     setIsMuted(false)
+    
+    // Re-suppress media session since unmuting re-triggers it on some browsers
+    suppressMediaSession()
   }
 
   return (
