@@ -1,11 +1,2 @@
 /* App specific styles */
 
-/* Bottom nav height as CSS custom property for layout calculations */
-:root {
-  --bottom-nav-height: 48px;  /* h-12 */
-}
-@media (min-width: 768px) {
-  :root {
-    --bottom-nav-height: 56px;  /* h-14 */
-  }
-}

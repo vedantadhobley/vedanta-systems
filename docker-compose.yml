@@ -15,8 +15,6 @@ services:
     volumes:
       - /home/vedanta/photos:/app/dist/photos:ro
       - /home/vedanta/.cloudflared:/root/.cloudflared:ro
-    extra_hosts:
-      - "joi:100.70.38.37"  # joi via Tailscale (BlueMap Minecraft map)
     networks:
       - vedanta-systems-prod
       - luv-prod
