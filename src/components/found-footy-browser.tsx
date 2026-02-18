@@ -943,26 +943,9 @@ interface VideoModalProps {
   onClose: () => void
 }
 
-/**
- * Suppress the OS media session so the video never appears on the
- * lockscreen or in system media controls. Called after each play().
- */
-function suppressMediaSession() {
-  if (!('mediaSession' in navigator)) return
-  try {
-    navigator.mediaSession.metadata = null
-    navigator.mediaSession.playbackState = 'none'
-    // Set no-op handlers so the OS doesn't show default controls
-    const actions: MediaSessionAction[] = ['play', 'pause', 'seekbackward', 'seekforward', 'previoustrack', 'nexttrack', 'stop']
-    for (const action of actions) {
-      try { navigator.mediaSession.setActionHandler(action, null) } catch { /* unsupported action */ }
-    }
-  } catch { /* mediaSession not fully supported */ }
-}
-
 const MemoizedVideoModal = memo(function VideoModal({ url, title, subtitle, eventId, onClose }: VideoModalProps) {
   const [copied, setCopied] = useState(false)
-  const [isMuted, setIsMuted] = useState<boolean | null>(null) // null = not yet determined
+  const [isMuted, setIsMuted] = useState(true) // Always start muted — never takes audio focus, never appears on lockscreen
   const [controlsEnabled, setControlsEnabled] = useState(false) // Start with controls hidden
   const videoRef = useRef<HTMLVideoElement>(null)
   const mountedAtRef = useRef(Date.now())
@@ -988,54 +971,26 @@ const MemoizedVideoModal = memo(function VideoModal({ url, title, subtitle, even
       // CRITICAL: Aggressively release video resources
       // iOS Safari is notorious for holding onto video memory
       if (video) {
-        // Stop playback
         video.pause()
-        // Clear all sources
         video.removeAttribute('src')
         while (video.firstChild) {
           video.removeChild(video.firstChild)
         }
-        // Force browser to release media resources
         video.load()
-      }
-      
-      // Release the media session so the OS resumes any previously
-      // interrupted audio (e.g. Spotify, Apple Music, another tab)
-      if ('mediaSession' in navigator) {
-        navigator.mediaSession.metadata = null
-        navigator.mediaSession.playbackState = 'none'
       }
     }
   }, [url]) // Re-run cleanup when URL changes
   
-  // Handle autoplay - try unmuted first, fall back to muted if browser blocks
+  // Autoplay muted — muted videos never take audio focus, never appear
+  // on lockscreen, and never interrupt background music. User can unmute.
   useEffect(() => {
     const video = videoRef.current
     if (!video) return
     
-    const savedVolume = localStorage.getItem('footy-video-volume')
-    const targetVolume = savedVolume !== null ? parseFloat(savedVolume) : 1
+    video.muted = true
+    video.play().catch(() => {})
     
-    // Try to play unmuted first (works if user has interacted with page)
-    video.muted = false
-    video.volume = targetVolume
-    setIsMuted(false)
-    
-    const playPromise = video.play()
-    if (playPromise !== undefined) {
-      playPromise.then(() => {
-        // Suppress the lockscreen/media session — video should never
-        // appear in the OS media controls or lockscreen
-        suppressMediaSession()
-      }).catch(() => {
-        // Autoplay was blocked - play muted instead
-        video.muted = true
-        setIsMuted(true)
-        video.play().then(() => suppressMediaSession()).catch(() => {})
-      })
-    }
-    
-    // Save volume when changed
+    // Save volume when user changes it (for when they unmute)
     const handleVolumeChange = () => {
       if (!video.muted) {
         localStorage.setItem('footy-video-volume', video.volume.toString())
@@ -1097,9 +1052,6 @@ const MemoizedVideoModal = memo(function VideoModal({ url, title, subtitle, even
     video.muted = false
     video.volume = targetVolume
     setIsMuted(false)
-    
-    // Re-suppress media session since unmuting re-triggers it on some browsers
-    suppressMediaSession()
   }
 
   return (
