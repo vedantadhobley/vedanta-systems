@@ -10,8 +10,10 @@ import { FoundFootyBrowser } from '@/components/found-footy-browser'
 import { ResumeViewer } from '@/components/resume-viewer'
 import { ProjectStatus } from '@/components/project-status'
 import { BtopMonitor } from '@/components/btop-monitor'
+import { BlueMapViewer } from '@/components/bluemap-viewer'
 import { FootyStreamProvider, useFootyStream } from '@/contexts/FootyStreamContext'
 import { TimezoneProvider } from '@/contexts/timezone-context'
+import { cn } from '@/lib/utils'
 import './App.css'
 
 // Project GitHub links - maps project paths to their repos
@@ -35,6 +37,10 @@ const projectDescriptions: Record<string, { name: string; blurb: string }> = {
     name: 'legal-tender',
     blurb: 'AI-driven political influence analysis. Connects campaign finance, lobbying, and voting records to expose money in US politics.'
   },
+  '~/workspace/minecraft': {
+    name: 'minecraft',
+    blurb: 'Live 3D map of the Minecraft server running on joi. Pan, zoom, and explore the world from above.'
+  },
 }
 
 interface FolderContent {
@@ -52,6 +58,7 @@ const folderContents: Record<string, FolderContent[]> = {
     { name: 'vedanta-systems', path: '~/workspace/vedanta-systems', type: 'folder' },
     { name: 'found-footy', path: '~/workspace/found-footy', type: 'folder' },
     { name: 'legal-tender', path: '~/workspace/legal-tender', type: 'folder' },
+    { name: 'minecraft', path: '~/workspace/minecraft', type: 'folder' },
   ],
 }
 
@@ -96,6 +103,11 @@ function getPathSegmentsFromUrl(url: string): PathSegment[] {
       { name: 'workspace', path: '~/workspace', icon: 'folder' },
       { name: 'found-footy', path: '~/workspace/found-footy', icon: 'folder' }
     ],
+    '~/workspace/minecraft': [
+      { name: '~', path: '~', icon: 'home' },
+      { name: 'workspace', path: '~/workspace', icon: 'folder' },
+      { name: 'minecraft', path: '~/workspace/minecraft', icon: 'folder' }
+    ],
     '~/about': [
       { name: '~', path: '~', icon: 'home' },
       { name: 'about', path: '~/about', icon: 'folder' }
@@ -137,16 +149,27 @@ function DirectoryListing() {
     navigate(fsPathToUrl(path))
   }
 
+  const isMinecraft = fsPath === '~/workspace/minecraft'
+
   return (
     <>
       <div 
-        className="content-scroll" 
+        className="content-scroll"
         style={{ 
           position: 'fixed',
           top: 0,
           left: 0,
           right: 0,
-          overflowY: 'auto',
+          // Minecraft: lock to viewport minus bottom nav, flex layout, no scroll
+          // Other pages: scroll normally
+          ...(isMinecraft ? {
+            bottom: 'var(--bottom-nav-height)',
+            overflowY: 'hidden' as const,
+            display: 'flex',
+            flexDirection: 'column' as const,
+          } : {
+            overflowY: 'auto' as const,
+          }),
           overflowX: 'hidden',
           touchAction: 'pan-y',
           WebkitOverflowScrolling: 'touch',
@@ -154,14 +177,21 @@ function DirectoryListing() {
           zIndex: 10
         }}
       >
-        <Header currentPath={currentPath} onNavigate={handleNavigate} />
+        <div className="shrink-0">
+          <Header currentPath={currentPath} onNavigate={handleNavigate} />
+        </div>
       
         {/* GitHub Contribution Graph - shows on all pages */}
-        <div className="w-full">
+        <div className="w-full shrink-0">
           <GitHubContributionGraph username="vedantadhobley" />
         </div>
         
-        <div className="w-full max-w-[1140px] mx-auto px-4 md:px-8 pt-4 pb-8">
+        <div className={cn(
+          "w-full mx-auto",
+          isMinecraft 
+            ? 'max-w-none px-2 pt-1 pb-0 flex-1 min-h-0 flex flex-col' 
+            : 'max-w-[1140px] px-4 md:px-8 pt-4 pb-8'
+        )}>
           {/* Found Footy Browser - ~/workspace/found-footy */}
           {fsPath === '~/workspace/found-footy' && (
             <FoundFootyContent />
@@ -180,6 +210,11 @@ function DirectoryListing() {
               />
               <BtopMonitor className="mt-4" />
             </>
+          )}
+
+          {/* Minecraft - BlueMap server map */}
+          {fsPath === '~/workspace/minecraft' && (
+            <BlueMapViewer title="joi Minecraft Server" />
           )}
 
           {/* Other project pages - just show GitHub link */}

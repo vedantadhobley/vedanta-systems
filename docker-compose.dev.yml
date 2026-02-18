@@ -28,6 +28,7 @@ services:
     command: npm run dev -- --host 0.0.0.0
     extra_hosts:
       - "host.docker.internal:host-gateway"  # For reaching host-network services (btop)
+      - "joi:100.70.38.37"  # joi via Tailscale (BlueMap Minecraft map)
     networks:
       - vedanta-systems-dev
       - luv-dev

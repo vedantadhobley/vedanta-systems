@@ -14,6 +14,7 @@ export default defineConfig({
     strictPort: false,
     open: false,  // Don't auto-open browser on remote server
     host: '0.0.0.0',  // Bind to all interfaces for remote access
+    allowedHosts: ['luv', 'luv.tailf424db.ts.net', 'localhost'],
     hmr: {
       // Use the host that the browser connected to (works for Tailscale, local, etc.)
       // Setting host to true makes Vite use the browser's current host
@@ -34,6 +35,13 @@ export default defineConfig({
       '/api': {
         target: 'http://api:3001',
         changeOrigin: true,
+      },
+      // BlueMap proxy - Minecraft server map on joi
+      '/bluemap': {
+        target: 'http://joi:3201',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/bluemap/, ''),
+        ws: true,
       },
     },
   },
