@@ -982,7 +982,17 @@ const MemoizedVideoModal = memo(function VideoModal({ url, title, subtitle, even
     if (!video) return
     
     video.muted = true
-    video.play().catch(() => {})
+    
+    // Wait for enough data to play, then start
+    const tryPlay = () => video.play().catch(() => {})
+    
+    if (video.readyState >= 3) {
+      // Already have enough data
+      tryPlay()
+    } else {
+      // Wait for browser to buffer enough to play
+      video.addEventListener('canplay', tryPlay, { once: true })
+    }
     
     // Save volume when user changes it (for when they unmute)
     const handleVolumeChange = () => {
@@ -992,7 +1002,10 @@ const MemoizedVideoModal = memo(function VideoModal({ url, title, subtitle, even
     }
     
     video.addEventListener('volumechange', handleVolumeChange)
-    return () => video.removeEventListener('volumechange', handleVolumeChange)
+    return () => {
+      video.removeEventListener('canplay', tryPlay)
+      video.removeEventListener('volumechange', handleVolumeChange)
+    }
   }, [])
   
   // Handle ESC key to close modal
@@ -1125,7 +1138,7 @@ const MemoizedVideoModal = memo(function VideoModal({ url, title, subtitle, even
             src={url}
             controls={controlsEnabled}
             playsInline
-            preload="metadata"
+            preload="auto"
             crossOrigin="anonymous"
             disableRemotePlayback // Hide Chromecast button
             className="w-full border border-corpo-border block"
