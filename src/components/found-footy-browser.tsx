@@ -3,6 +3,7 @@ import { RiCloseLine, RiCloseFill, RiShareBoxLine, RiShareBoxFill, RiDownload2Li
 import type { Fixture, GoalEvent, RankedVideo } from '@/types/found-footy'
 import { cn } from '@/lib/utils'
 import { useTimezone } from '@/contexts/timezone-context'
+import { useScrollStabilizer } from '@/lib/use-scroll-stabilizer'
 
 /**
  * Generate event display title with <<highlighted>> markers around scoring team's score
@@ -145,6 +146,17 @@ export function FoundFootyBrowser({
   const [videoModal, setVideoModal] = useState<VideoInfo | null>(null)
   const initialVideoProcessed = useRef(false)
   const initialVideoNavigated = useRef(false)  // Track if we've navigated to the event's date
+  
+  // Scroll stabilizer — prevents snap when content height shrinks
+  // (date changes, fixture collapse, etc.)
+  const scrollContainerRef = useRef<HTMLElement | null>(null)
+  useEffect(() => {
+    scrollContainerRef.current = document.querySelector('.content-scroll')
+  }, [])
+  const scrollSpacerRef = useScrollStabilizer(
+    scrollContainerRef,
+    [currentDate, expandedFixture, expandedEvent]
+  )
   
   const { mode, formatTime, getTimezoneAbbr, getDateForTimestamp, getToday } = useTimezone()
   
@@ -482,6 +494,9 @@ export function FoundFootyBrowser({
           </>
         )}
       </div>
+
+      {/* Phantom spacer for scroll stabilization — prevents snap when content shrinks */}
+      <div ref={scrollSpacerRef} aria-hidden="true" />
 
       {/* Video Modal */}
       {videoModal && (
