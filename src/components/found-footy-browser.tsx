@@ -690,7 +690,7 @@ function StagingFixtureItem({ fixture, formatKickoff, searchTeamMatch }: Staging
   }, [fixtureInfo.date])
 
   return (
-    <div className={cn("border border-corpo-border", searchTeamMatch && "border-l-2 border-l-lavender")}>
+    <div className={cn("border border-corpo-border", searchTeamMatch && "shadow-[inset_2px_0_0_0_hsl(var(--lavender))]")}>
       <div
         className="group w-full flex items-center gap-2 px-3 py-2 text-left transition-none text-corpo-text hover:text-corpo-light"
         style={{ fontSize: 'var(--text-size-base)' }}
@@ -784,8 +784,7 @@ function FixtureItem({
   const hasExtracting = sortedEvents.some(e => e._monitor_complete && !e._download_complete)
 
   return (
-    <div className={cn("border border-corpo-border", searchTeamMatch && "border-l-2 border-l-lavender")}>
-      {/* Fixture header */}
+    <div className={cn("border border-corpo-border", searchTeamMatch && "shadow-[inset_2px_0_0_0_hsl(var(--lavender))]")}>
       <button
         onClick={onToggle}
         className="group w-full flex items-center gap-2 px-3 py-2 text-left transition-none text-corpo-text hover:text-corpo-light active:text-lavender"
@@ -941,7 +940,7 @@ function EventItem({ event, fixture, isExpanded, onToggle, onOpenVideo, isSearch
   })
 
   return (
-    <div className={cn(isSearchMatch && "border-l-2 border-l-lavender")}>
+    <div className={cn(isSearchMatch && "shadow-[inset_2px_0_0_0_hsl(var(--lavender))]")}>
       {/* Event header - two lines: title and subtitle */}
       <button
         onClick={onToggle}
