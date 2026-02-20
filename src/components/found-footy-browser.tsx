@@ -523,7 +523,7 @@ export function FoundFootyBrowser({
 
       {/* Content: search results or normal fixture list */}
       {searchMode ? (
-        <div className="space-y-1">
+        <div>
           {isSearching ? (
             <div className="text-corpo-text/50 py-8 text-center">
               <span className="animate-pulse">Searching...</span>
@@ -538,29 +538,39 @@ export function FoundFootyBrowser({
             </div>
           ) : (
             <>
-              <div className="text-corpo-text/40 text-sm font-light mb-3 px-1">
+              <div className="text-lavender text-sm font-light mb-3 px-1">
                 {searchTotalFixtures} fixture{searchTotalFixtures !== 1 ? 's' : ''} found
               </div>
-              {searchResults.map(group => (
-                <div key={group.date} className="mb-3">
+              {searchResults.map((group, groupIndex) => (
+                <div key={group.date} className={cn("mb-3", groupIndex > 0 && "mt-6")}>
                   {/* Date header */}
                   <div className="text-corpo-text/50 text-sm font-light mb-1 px-1 uppercase tracking-wider">
                     {formatDateDisplay(group.date)}
                   </div>
                   <div className="space-y-1">
-                    {group.fixtures.map(fixture => (
-                      <FixtureItem
-                        key={fixture._id}
-                        fixture={fixture}
-                        isExpanded={expandedFixture === fixture._id}
-                        expandedEvent={expandedEvent}
-                        onToggle={() => toggleFixture(fixture._id)}
-                        onToggleEvent={toggleEvent}
-                        onOpenVideo={openVideoModal}
-                        searchMatchedEventIds={fixture._search?.matchedEventIds}
-                        searchTeamMatch={fixture._search?.teamMatch}
-                      />
-                    ))}
+                    {group.fixtures.map(fixture => {
+                      const isPending = fixture.fixture.status.short === 'NS'
+                      return isPending ? (
+                        <StagingFixtureItem
+                          key={fixture._id}
+                          fixture={fixture}
+                          formatKickoff={formatKickoff}
+                          searchTeamMatch={fixture._search?.teamMatch}
+                        />
+                      ) : (
+                        <FixtureItem
+                          key={fixture._id}
+                          fixture={fixture}
+                          isExpanded={expandedFixture === fixture._id}
+                          expandedEvent={expandedEvent}
+                          onToggle={() => toggleFixture(fixture._id)}
+                          onToggleEvent={toggleEvent}
+                          onOpenVideo={openVideoModal}
+                          searchMatchedEventIds={fixture._search?.matchedEventIds}
+                          searchTeamMatch={fixture._search?.teamMatch}
+                        />
+                      )
+                    })}
                   </div>
                 </div>
               ))}
@@ -628,9 +638,10 @@ export function FoundFootyBrowser({
 interface StagingFixtureItemProps {
   fixture: Fixture
   formatKickoff: (dateStr: string) => string
+  searchTeamMatch?: boolean
 }
 
-function StagingFixtureItem({ fixture, formatKickoff }: StagingFixtureItemProps) {
+function StagingFixtureItem({ fixture, formatKickoff, searchTeamMatch }: StagingFixtureItemProps) {
   const [countdown, setCountdown] = useState<string>('')
   
   const { teams, fixture: fixtureInfo, league } = fixture
@@ -679,7 +690,7 @@ function StagingFixtureItem({ fixture, formatKickoff }: StagingFixtureItemProps)
   }, [fixtureInfo.date])
 
   return (
-    <div className="border border-corpo-border">
+    <div className={cn("border border-corpo-border", searchTeamMatch && "border-l-2 border-l-lavender")}>
       <div
         className="group w-full flex items-center gap-2 px-3 py-2 text-left transition-none text-corpo-text hover:text-corpo-light"
         style={{ fontSize: 'var(--text-size-base)' }}

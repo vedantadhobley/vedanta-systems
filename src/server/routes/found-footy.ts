@@ -450,13 +450,21 @@ export function createFoundFootyRouter(config: FoundFootyConfig): Router {
       const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
       const regex = { $regex: escaped, $options: 'i' }
 
-      // Search completed fixtures: match team names, player names, or assist names
+      // Search all fixture collections: match team names, player names, or assist names
       const searchFilter = {
         $or: [
           { 'teams.home.name': regex },
           { 'teams.away.name': regex },
           { 'events.player.name': regex },
           { 'events.assist.name': regex },
+        ]
+      }
+
+      // Staging only matches on team names (no events yet)
+      const stagingFilter = {
+        $or: [
+          { 'teams.home.name': regex },
+          { 'teams.away.name': regex },
         ]
       }
 
@@ -492,11 +500,42 @@ export function createFoundFootyRouter(config: FoundFootyConfig): Router {
         'events._s3_videos': 1,
       }
 
-      const fixtures = await database.collection('fixtures_completed')
-        .find(searchFilter, { projection })
-        .sort({ 'fixture.date': -1 })
-        .limit(100)
-        .toArray()
+      // Search all 3 collections in parallel
+      const [completedFixtures, activeFixtures, stagingFixtures] = await Promise.all([
+        database.collection('fixtures_completed')
+          .find(searchFilter, { projection })
+          .sort({ 'fixture.date': -1 })
+          .limit(100)
+          .toArray(),
+        database.collection('fixtures_active')
+          .find(searchFilter, { projection })
+          .sort({ 'fixture.date': -1 })
+          .limit(50)
+          .toArray(),
+        database.collection('fixtures_staging')
+          .find(stagingFilter, { projection })
+          .sort({ 'fixture.date': 1 })
+          .limit(50)
+          .toArray(),
+      ])
+
+      // Merge and dedupe by _id
+      const seen = new Set<string>()
+      const fixtures: any[] = []
+      for (const f of [...stagingFixtures, ...activeFixtures, ...completedFixtures]) {
+        const id = String(f._id)
+        if (!seen.has(id)) {
+          seen.add(id)
+          fixtures.push(f)
+        }
+      }
+
+      // Sort all by date descending
+      fixtures.sort((a: any, b: any) => {
+        const da = a.fixture?.date || ''
+        const db = b.fixture?.date || ''
+        return db.localeCompare(da)
+      })
 
       // For each fixture, determine which events matched the query
       const re = new RegExp(escaped, 'i')
