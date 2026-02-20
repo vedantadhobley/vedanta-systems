@@ -54,6 +54,7 @@
 @layer base {
   .content-scroll {
     bottom: 48px;
+    overflow-anchor: none; /* Disable browser scroll anchoring — we manage scroll position manually via useScrollStabilizer */
   }
   
   @media (min-width: 768px) {

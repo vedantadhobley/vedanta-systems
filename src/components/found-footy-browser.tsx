@@ -173,7 +173,7 @@ export function FoundFootyBrowser({
   }, [])
   const scrollSpacerRef = useScrollStabilizer(
     scrollContainerRef,
-    [currentDate, expandedFixture, expandedEvent]
+    [currentDate, expandedFixture, expandedEvent, isChangingDate]
   )
   
   const { mode, formatTime, getTimezoneAbbr, getDateForTimestamp, getToday } = useTimezone()
