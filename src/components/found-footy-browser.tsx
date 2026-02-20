@@ -438,6 +438,10 @@ export function FoundFootyBrowser({
               className="flex-1 mx-2 bg-transparent border-none outline-none text-corpo-text font-medium text-center placeholder:text-corpo-text/30"
               style={{ fontSize: 'var(--text-size-base)' }}
               autoFocus
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="off"
+              spellCheck={false}
             />
             
             <button
