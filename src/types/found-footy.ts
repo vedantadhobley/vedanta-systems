@@ -133,3 +133,25 @@ export interface FixturesResponse {
   active: Fixture[]
   completed: Fixture[]
 }
+
+// Search result types
+export interface SearchMeta {
+  teamMatch: boolean
+  matchedEventIds: string[]
+  matchCount: number
+}
+
+export interface SearchFixture extends Fixture {
+  _search: SearchMeta
+}
+
+export interface SearchDateGroup {
+  date: string
+  fixtures: SearchFixture[]
+}
+
+export interface SearchResponse {
+  results: SearchDateGroup[]
+  query: string
+  totalFixtures: number
+}

@@ -432,6 +432,119 @@ export function createFoundFootyRouter(config: FoundFootyConfig): Router {
     }
   })
 
+  // GET /search?q=<query> - search across all completed fixtures by team/player/assister
+  // Returns fixtures grouped by date, with IDs of matching events
+  router.get('/search', async (req: Request, res: Response) => {
+    try {
+      const query = (req.query.q as string || '').trim()
+      if (!query || query.length < 2) {
+        return res.json({ results: [], query })
+      }
+
+      const database = await connectMongo()
+      if (!database) {
+        return res.status(503).json({ error: 'Database unavailable' })
+      }
+
+      // Escape regex special chars
+      const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      const regex = { $regex: escaped, $options: 'i' }
+
+      // Search completed fixtures: match team names, player names, or assist names
+      const searchFilter = {
+        $or: [
+          { 'teams.home.name': regex },
+          { 'teams.away.name': regex },
+          { 'events.player.name': regex },
+          { 'events.assist.name': regex },
+        ]
+      }
+
+      const projection = {
+        _id: 1,
+        'fixture.id': 1,
+        'fixture.date': 1,
+        'fixture.status': 1,
+        'league.name': 1,
+        'league.country': 1,
+        'league.round': 1,
+        'teams.home.name': 1,
+        'teams.home.winner': 1,
+        'teams.away.name': 1,
+        'teams.away.winner': 1,
+        'goals.home': 1,
+        'goals.away': 1,
+        'score.penalty': 1,
+        '_last_activity': 1,
+        'events._event_id': 1,
+        'events.type': 1,
+        'events.detail': 1,
+        'events.time': 1,
+        'events.team': 1,
+        'events.player': 1,
+        'events.assist': 1,
+        'events._scoring_team': 1,
+        'events._score_after': 1,
+        'events._monitor_complete': 1,
+        'events._download_complete': 1,
+        'events._first_seen': 1,
+        'events._s3_urls': 1,
+        'events._s3_videos': 1,
+      }
+
+      const fixtures = await database.collection('fixtures_completed')
+        .find(searchFilter, { projection })
+        .sort({ 'fixture.date': -1 })
+        .limit(100)
+        .toArray()
+
+      // For each fixture, determine which events matched the query
+      const re = new RegExp(escaped, 'i')
+      const resultsWithMatches = transformFixtures(fixtures).map((fixture: any) => {
+        const matchedEventIds: string[] = []
+        const teamMatch = re.test(fixture.teams?.home?.name || '') || re.test(fixture.teams?.away?.name || '')
+
+        if (fixture.events) {
+          for (const event of fixture.events) {
+            if (
+              re.test(event.player?.name || '') ||
+              re.test(event.assist?.name || '')
+            ) {
+              matchedEventIds.push(event._event_id)
+            }
+          }
+        }
+
+        return {
+          ...fixture,
+          _search: {
+            teamMatch,
+            matchedEventIds,
+            matchCount: teamMatch ? fixture.events?.length || 0 : matchedEventIds.length,
+          }
+        }
+      })
+
+      // Group by date
+      const grouped: Record<string, any[]> = {}
+      for (const fixture of resultsWithMatches) {
+        const date = fixture.fixture?.date?.substring(0, 10) || 'unknown'
+        if (!grouped[date]) grouped[date] = []
+        grouped[date].push(fixture)
+      }
+
+      // Convert to sorted array of { date, fixtures }
+      const results = Object.entries(grouped)
+        .sort(([a], [b]) => b.localeCompare(a)) // most recent first
+        .map(([date, fixtures]) => ({ date, fixtures }))
+
+      res.json({ results, query, totalFixtures: fixtures.length })
+    } catch (error) {
+      console.error('[found-footy] Search error:', error)
+      res.status(500).json({ error: 'Search failed' })
+    }
+  })
+
   // GET /fixtures - fixtures, optionally filtered by date
   // Query params:
   //   ?date=2026-01-25  - get fixtures for specific date only

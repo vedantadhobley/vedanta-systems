@@ -280,7 +280,15 @@ function FoundFootyContent() {
     goToToday,
     goToPreviousDate,
     goToNextDate,
-    navigateToEvent
+    navigateToEvent,
+    searchMode,
+    searchQuery,
+    searchResults,
+    isSearching,
+    searchTotalFixtures,
+    enterSearch,
+    exitSearch,
+    executeSearch
   } = useFootyStream()
   const location = useLocation()
   
@@ -315,6 +323,14 @@ function FoundFootyContent() {
         onPreviousDate={goToPreviousDate}
         onNextDate={goToNextDate}
         onNavigateToEvent={navigateToEvent}
+        searchMode={searchMode}
+        searchQuery={searchQuery}
+        searchResults={searchResults}
+        isSearching={isSearching}
+        searchTotalFixtures={searchTotalFixtures}
+        onEnterSearch={enterSearch}
+        onExitSearch={exitSearch}
+        onSearch={executeSearch}
       />
     </>
   )

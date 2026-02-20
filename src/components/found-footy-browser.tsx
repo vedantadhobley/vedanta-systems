@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef, memo, useMemo } from 'react'
-import { RiCloseLine, RiCloseFill, RiShareBoxLine, RiShareBoxFill, RiDownload2Line, RiDownload2Fill, RiCheckFill, RiVidiconFill, RiScan2Line, RiHourglass2Line, RiHourglass2Fill, RiExpandUpDownLine, RiExpandUpDownFill, RiContractUpDownLine, RiContractUpDownFill, RiVolumeMuteLine, RiErrorWarningLine, RiArrowLeftSLine, RiArrowLeftSFill, RiArrowRightSLine, RiArrowRightSFill, RiArrowGoBackLine, RiArrowGoBackFill, RiArrowGoForwardLine, RiArrowGoForwardFill } from '@remixicon/react'
-import type { Fixture, GoalEvent, RankedVideo } from '@/types/found-footy'
+import { RiCloseLine, RiCloseFill, RiShareBoxLine, RiShareBoxFill, RiDownload2Line, RiDownload2Fill, RiCheckFill, RiVidiconFill, RiScan2Line, RiHourglass2Line, RiHourglass2Fill, RiExpandUpDownLine, RiExpandUpDownFill, RiContractUpDownLine, RiContractUpDownFill, RiVolumeMuteLine, RiErrorWarningLine, RiArrowLeftSLine, RiArrowLeftSFill, RiArrowRightSLine, RiArrowRightSFill, RiArrowGoBackLine, RiArrowGoBackFill, RiArrowGoForwardLine, RiArrowGoForwardFill, RiSearchLine, RiSearchFill } from '@remixicon/react'
+import type { Fixture, GoalEvent, RankedVideo, SearchDateGroup } from '@/types/found-footy'
 import { cn } from '@/lib/utils'
 import { useTimezone } from '@/contexts/timezone-context'
 import { useScrollStabilizer } from '@/lib/use-scroll-stabilizer'
@@ -121,6 +121,15 @@ interface FoundFootyBrowserProps {
   onPreviousDate: () => void
   onNextDate: () => void
   onNavigateToEvent?: (eventId: string) => Promise<boolean>  // Navigate to event's date (for shared links)
+  // Search
+  searchMode: boolean
+  searchQuery: string
+  searchResults: SearchDateGroup[]
+  isSearching: boolean
+  searchTotalFixtures: number
+  onEnterSearch: () => void
+  onExitSearch: () => void
+  onSearch: (query: string) => void
 }
 
 export function FoundFootyBrowser({ 
@@ -139,13 +148,22 @@ export function FoundFootyBrowser({
   onGoToToday,
   onPreviousDate,
   onNextDate,
-  onNavigateToEvent
+  onNavigateToEvent,
+  searchMode,
+  searchQuery,
+  searchResults,
+  isSearching,
+  searchTotalFixtures,
+  onEnterSearch,
+  onExitSearch,
+  onSearch
 }: FoundFootyBrowserProps) {
   const [expandedFixture, setExpandedFixture] = useState<number | null>(null)
   const [expandedEvent, setExpandedEvent] = useState<string | null>(null)
   const [videoModal, setVideoModal] = useState<VideoInfo | null>(null)
   const initialVideoProcessed = useRef(false)
   const initialVideoNavigated = useRef(false)  // Track if we've navigated to the event's date
+  const searchInputRef = useRef<HTMLInputElement>(null)
   
   // Scroll stabilizer — prevents snap when content height shrinks
   // (date changes, fixture collapse, etc.)
@@ -396,104 +414,198 @@ export function FoundFootyBrowser({
         </div>
       </div>
 
-      {/* Calendar navigation - uses global .nav-btn CSS from header.tsx */}
+      {/* Navigation bar - uses global .nav-btn CSS from header.tsx */}
       <div className="mb-4 flex items-center justify-between border border-corpo-border bg-corpo-bg/50 px-3 py-2">
-        {/* Previous button */}
-        <button
-          onClick={onPreviousDate}
-          onTouchStart={() => {}} // Required for iOS :active to work
-          disabled={!canGoPrevious}
-          className="nav-btn flex items-center p-1"
-          aria-label="Previous date"
-        >
-          <RiArrowLeftSLine className="icon-line w-5 h-5" />
-          <RiArrowLeftSFill className="icon-fill w-5 h-5" />
-        </button>
-        
-        {/* Current date display and Today button */}
-        <div className="flex items-center gap-3">
-          <span className="text-corpo-text font-medium">
-            {formatDateDisplay(currentDate)}
-          </span>
-          {isToday ? (
-            <span className="p-1 text-lavender" aria-label="Currently on today">
-              <RiCheckFill className="w-4 h-4" />
-            </span>
-          ) : currentDate < today ? (
-            // Viewing past: arrow points forward to today
+        {searchMode ? (
+          <>
+            {/* Search mode: back button, input, clear */}
             <button
-              onClick={onGoToToday}
-              onTouchStart={() => {}} // Required for iOS :active to work
+              onClick={onExitSearch}
+              onTouchStart={() => {}}
               className="nav-btn flex items-center p-1"
-              aria-label="Go to today"
+              aria-label="Exit search"
             >
-              <RiArrowGoForwardLine className="icon-line w-4 h-4" />
-              <RiArrowGoForwardFill className="icon-fill w-4 h-4" />
+              <RiArrowLeftSLine className="icon-line w-5 h-5" />
+              <RiArrowLeftSFill className="icon-fill w-5 h-5" />
             </button>
-          ) : (
-            // Viewing future: arrow points back to today
+            
+            <input
+              ref={searchInputRef}
+              type="text"
+              value={searchQuery}
+              onChange={(e) => onSearch(e.target.value)}
+              placeholder="Search teams, players..."
+              className="flex-1 mx-2 bg-transparent border-none outline-none text-corpo-text font-medium text-center placeholder:text-corpo-text/30"
+              style={{ fontSize: 'var(--text-size-base)' }}
+              autoFocus
+            />
+            
             <button
-              onClick={onGoToToday}
-              onTouchStart={() => {}} // Required for iOS :active to work
+              onClick={() => onSearch('')}
+              onTouchStart={() => {}}
+              disabled={!searchQuery}
               className="nav-btn flex items-center p-1"
-              aria-label="Go to today"
+              aria-label="Clear search"
             >
-              <RiArrowGoBackLine className="icon-line w-4 h-4" />
-              <RiArrowGoBackFill className="icon-fill w-4 h-4" />
+              <RiCloseLine className="icon-line w-5 h-5" />
+              <RiCloseFill className="icon-fill w-5 h-5" />
             </button>
-          )}
-        </div>
-        
-        {/* Next button */}
-        <button
-          onClick={onNextDate}
-          onTouchStart={() => {}} // Required for iOS :active to work
-          disabled={!canGoNext}
-          className="nav-btn flex items-center p-1"
-          aria-label="Next date"
-        >
-          <RiArrowRightSLine className="icon-line w-5 h-5" />
-          <RiArrowRightSFill className="icon-fill w-5 h-5" />
-        </button>
-      </div>
-
-      {/* Fixtures list for current date */}
-      <div className="space-y-1">
-        {isLoading ? (
-          <div className="text-corpo-text/50 py-8 text-center">
-            <span className="animate-pulse">Loading fixtures...</span>
-          </div>
-        ) : !hasFixtures && !isChangingDate ? (
-          <div className="text-corpo-text/50 py-8 text-center">
-            No fixtures for {formatDateDisplay(currentDate)}
-          </div>
+          </>
         ) : (
           <>
-            {allDateFixtures.map(fixture => {
-              // Check if fixture is still pending (not started)
-              const isPending = fixture.fixture.status.short === 'NS'
-              
-              return isPending ? (
-                <StagingFixtureItem
-                  key={fixture._id}
-                  fixture={fixture}
-                  formatKickoff={formatKickoff}
-                />
+            {/* Normal mode: < Date with search/today icons > */}
+            <button
+              onClick={onPreviousDate}
+              onTouchStart={() => {}}
+              disabled={!canGoPrevious}
+              className="nav-btn flex items-center p-1"
+              aria-label="Previous date"
+            >
+              <RiArrowLeftSLine className="icon-line w-5 h-5" />
+              <RiArrowLeftSFill className="icon-fill w-5 h-5" />
+            </button>
+            
+            {/* Center group: search icon, date, today icon */}
+            <div className="flex items-center gap-3">
+              <button
+                onClick={onEnterSearch}
+                onTouchStart={() => {}}
+                className="nav-btn flex items-center p-1"
+                aria-label="Search"
+              >
+                <RiSearchLine className="icon-line w-4 h-4" />
+                <RiSearchFill className="icon-fill w-4 h-4" />
+              </button>
+              <span className="text-corpo-text font-medium">
+                {formatDateDisplay(currentDate)}
+              </span>
+              {isToday ? (
+                <span className="p-1 text-lavender" aria-label="Currently on today">
+                  <RiCheckFill className="w-4 h-4" />
+                </span>
+              ) : currentDate < today ? (
+                <button
+                  onClick={onGoToToday}
+                  onTouchStart={() => {}}
+                  className="nav-btn flex items-center p-1"
+                  aria-label="Go to today"
+                >
+                  <RiArrowGoForwardLine className="icon-line w-4 h-4" />
+                  <RiArrowGoForwardFill className="icon-fill w-4 h-4" />
+                </button>
               ) : (
-                <FixtureItem
-                  key={fixture._id}
-                  fixture={fixture}
-                  isExpanded={expandedFixture === fixture._id}
-                  expandedEvent={expandedEvent}
-                  onToggle={() => toggleFixture(fixture._id)}
-                  onToggleEvent={toggleEvent}
-                  onOpenVideo={openVideoModal}
-                />
-              )
-            })}
+                <button
+                  onClick={onGoToToday}
+                  onTouchStart={() => {}}
+                  className="nav-btn flex items-center p-1"
+                  aria-label="Go to today"
+                >
+                  <RiArrowGoBackLine className="icon-line w-4 h-4" />
+                  <RiArrowGoBackFill className="icon-fill w-4 h-4" />
+                </button>
+              )}
+            </div>
+            
+            {/* Next button */}
+            <button
+              onClick={onNextDate}
+              onTouchStart={() => {}}
+              disabled={!canGoNext}
+              className="nav-btn flex items-center p-1"
+              aria-label="Next date"
+            >
+              <RiArrowRightSLine className="icon-line w-5 h-5" />
+              <RiArrowRightSFill className="icon-fill w-5 h-5" />
+            </button>
           </>
         )}
       </div>
+
+      {/* Content: search results or normal fixture list */}
+      {searchMode ? (
+        <div className="space-y-1">
+          {isSearching ? (
+            <div className="text-corpo-text/50 py-8 text-center">
+              <span className="animate-pulse">Searching...</span>
+            </div>
+          ) : searchQuery.trim().length < 2 ? (
+            <div className="text-corpo-text/40 py-8 text-center font-light">
+              Type at least 2 characters to search
+            </div>
+          ) : searchResults.length === 0 ? (
+            <div className="text-corpo-text/50 py-8 text-center">
+              No results for "{searchQuery}"
+            </div>
+          ) : (
+            <>
+              <div className="text-corpo-text/40 text-sm font-light mb-3 px-1">
+                {searchTotalFixtures} fixture{searchTotalFixtures !== 1 ? 's' : ''} found
+              </div>
+              {searchResults.map(group => (
+                <div key={group.date} className="mb-3">
+                  {/* Date header */}
+                  <div className="text-corpo-text/50 text-sm font-light mb-1 px-1 uppercase tracking-wider">
+                    {formatDateDisplay(group.date)}
+                  </div>
+                  <div className="space-y-1">
+                    {group.fixtures.map(fixture => (
+                      <FixtureItem
+                        key={fixture._id}
+                        fixture={fixture}
+                        isExpanded={expandedFixture === fixture._id}
+                        expandedEvent={expandedEvent}
+                        onToggle={() => toggleFixture(fixture._id)}
+                        onToggleEvent={toggleEvent}
+                        onOpenVideo={openVideoModal}
+                        searchMatchedEventIds={fixture._search?.matchedEventIds}
+                        searchTeamMatch={fixture._search?.teamMatch}
+                      />
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </>
+          )}
+        </div>
+      ) : (
+        /* Normal fixtures list for current date */
+        <div className="space-y-1">
+          {isLoading ? (
+            <div className="text-corpo-text/50 py-8 text-center">
+              <span className="animate-pulse">Loading fixtures...</span>
+            </div>
+          ) : !hasFixtures && !isChangingDate ? (
+            <div className="text-corpo-text/50 py-8 text-center">
+              No fixtures for {formatDateDisplay(currentDate)}
+            </div>
+          ) : (
+            <>
+              {allDateFixtures.map(fixture => {
+                // Check if fixture is still pending (not started)
+                const isPending = fixture.fixture.status.short === 'NS'
+                
+                return isPending ? (
+                  <StagingFixtureItem
+                    key={fixture._id}
+                    fixture={fixture}
+                    formatKickoff={formatKickoff}
+                  />
+                ) : (
+                  <FixtureItem
+                    key={fixture._id}
+                    fixture={fixture}
+                    isExpanded={expandedFixture === fixture._id}
+                    expandedEvent={expandedEvent}
+                    onToggle={() => toggleFixture(fixture._id)}
+                    onToggleEvent={toggleEvent}
+                    onOpenVideo={openVideoModal}
+                  />
+                )
+              })}
+            </>
+          )}
+        </div>
+      )}
 
       {/* Phantom spacer for scroll stabilization — prevents snap when content shrinks */}
       <div ref={scrollSpacerRef} aria-hidden="true" />
@@ -618,6 +730,8 @@ interface FixtureItemProps {
   onToggle: () => void
   onToggleEvent: (eventId: string) => void
   onOpenVideo: (info: VideoInfo) => void
+  searchMatchedEventIds?: string[]  // Event IDs that matched the search query
+  searchTeamMatch?: boolean          // True if fixture matched via team name
 }
 
 function FixtureItem({ 
@@ -626,7 +740,9 @@ function FixtureItem({
   expandedEvent, 
   onToggle, 
   onToggleEvent,
-  onOpenVideo 
+  onOpenVideo,
+  searchMatchedEventIds,
+  searchTeamMatch
 }: FixtureItemProps) {
   
   const { teams, goals, score, fixture: fixtureInfo, events, league } = fixture
@@ -657,7 +773,7 @@ function FixtureItem({
   const hasExtracting = sortedEvents.some(e => e._monitor_complete && !e._download_complete)
 
   return (
-    <div className="border border-corpo-border">
+    <div className={cn("border border-corpo-border", searchTeamMatch && "border-l-2 border-l-lavender")}>
       {/* Fixture header */}
       <button
         onClick={onToggle}
@@ -707,6 +823,14 @@ function FixtureItem({
           </span>
         )}
         
+        {/* Search match indicator - icon with count, mirrors scanning indicator */}
+        {searchMatchedEventIds && searchMatchedEventIds.length > 0 && (
+          <span className="text-lavender flex items-center gap-1 flex-shrink-0">
+            <RiSearchFill className="w-4 h-4" />
+            <span className="text-sm font-light">{searchMatchedEventIds.length}</span>
+          </span>
+        )}
+        
         {/* Status on far right */}
         <span className={cn(
           "text-corpo-text/60 flex-shrink-0 font-light",
@@ -737,6 +861,7 @@ function FixtureItem({
                   isExpanded={expandedEvent === event._event_id}
                   onToggle={() => onToggleEvent(event._event_id)}
                   onOpenVideo={onOpenVideo}
+                  isSearchMatch={searchMatchedEventIds?.includes(event._event_id)}
                 />
               ))}
             </div>
@@ -770,9 +895,10 @@ interface EventItemProps {
   isExpanded: boolean
   onToggle: () => void
   onOpenVideo: (info: VideoInfo) => void
+  isSearchMatch?: boolean
 }
 
-function EventItem({ event, fixture, isExpanded, onToggle, onOpenVideo }: EventItemProps) {
+function EventItem({ event, fixture, isExpanded, onToggle, onOpenVideo, isSearchMatch }: EventItemProps) {
   
   // Get videos - prefer ranked _s3_videos, fall back to legacy _s3_urls
   const rankedVideos: (RankedVideo | { url: string; rank: number; perceptual_hash?: string })[] = event._s3_videos 
@@ -804,7 +930,7 @@ function EventItem({ event, fixture, isExpanded, onToggle, onOpenVideo }: EventI
   })
 
   return (
-    <div>
+    <div className={cn(isSearchMatch && "border-l-2 border-l-lavender")}>
       {/* Event header - two lines: title and subtitle */}
       <button
         onClick={onToggle}

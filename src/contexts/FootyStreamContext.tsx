@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, useRef, useCallback, type ReactNode } from 'react'
-import type { Fixture } from '@/types/found-footy'
+import type { Fixture, SearchDateGroup } from '@/types/found-footy'
 import { useTimezone } from '@/contexts/timezone-context'
 
 const API_BASE = import.meta.env.VITE_FOOTY_API_URL || 'http://localhost:4101/api/found-footy'
@@ -21,6 +21,13 @@ interface FootyState {
   isChangingDate: boolean   // True during date navigation (doesn't show loading UI)
   error: string | null
   lastUpdate: Date | null
+  
+  // Search state
+  searchMode: boolean
+  searchQuery: string
+  searchResults: SearchDateGroup[]
+  isSearching: boolean
+  searchTotalFixtures: number
 }
 
 interface FootyContextValue extends FootyState {
@@ -39,6 +46,11 @@ interface FootyContextValue extends FootyState {
   
   // Event lookup (for shared links)
   navigateToEvent: (eventId: string) => Promise<boolean>
+  
+  // Search
+  enterSearch: () => void
+  exitSearch: () => void
+  executeSearch: (query: string) => void
 }
 
 const FootyStreamContext = createContext<FootyContextValue | null>(null)
@@ -58,7 +70,12 @@ export function FootyStreamProvider({ children }: { children: ReactNode }) {
     isLoading: true,
     isChangingDate: false,
     error: null,
-    lastUpdate: null
+    lastUpdate: null,
+    searchMode: false,
+    searchQuery: '',
+    searchResults: [],
+    isSearching: false,
+    searchTotalFixtures: 0
   }))
   
   const eventSourceRef = useRef<EventSource | null>(null)
@@ -395,6 +412,47 @@ export function FootyStreamProvider({ children }: { children: ReactNode }) {
     }
   }, [isViewingToday, fetchFixturesForDate, connectSSE, disconnectSSE])
 
+  // Search methods
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const enterSearch = useCallback(() => {
+    setState(s => ({ ...s, searchMode: true, searchQuery: '', searchResults: [], searchTotalFixtures: 0 }))
+  }, [])
+
+  const exitSearch = useCallback(() => {
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current)
+    setState(s => ({ ...s, searchMode: false, searchQuery: '', searchResults: [], isSearching: false, searchTotalFixtures: 0 }))
+  }, [])
+
+  const executeSearch = useCallback((query: string) => {
+    setState(s => ({ ...s, searchQuery: query }))
+    
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current)
+    
+    if (!query.trim() || query.trim().length < 2) {
+      setState(s => ({ ...s, searchResults: [], isSearching: false, searchTotalFixtures: 0 }))
+      return
+    }
+
+    setState(s => ({ ...s, isSearching: true }))
+    
+    searchDebounceRef.current = setTimeout(async () => {
+      try {
+        const res = await fetch(`${API_BASE}/search?q=${encodeURIComponent(query.trim())}`)
+        const data = await res.json()
+        setState(s => ({
+          ...s,
+          searchResults: data.results || [],
+          searchTotalFixtures: data.totalFixtures || 0,
+          isSearching: false
+        }))
+      } catch (err) {
+        console.error('[FootyStream] Search failed:', err)
+        setState(s => ({ ...s, isSearching: false }))
+      }
+    }, 300) // 300ms debounce
+  }, [])
+
   const contextValue: FootyContextValue = {
     ...state,
     fixtures: state.activeFixtures,  // backwards compat alias
@@ -404,7 +462,10 @@ export function FootyStreamProvider({ children }: { children: ReactNode }) {
     goToNextDate,
     pauseStream,
     resumeStream,
-    navigateToEvent
+    navigateToEvent,
+    enterSearch,
+    exitSearch,
+    executeSearch
   }
 
   return (
