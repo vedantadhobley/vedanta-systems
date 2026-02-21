@@ -153,7 +153,7 @@ export function FoundFootyBrowser({
   searchQuery,
   searchResults,
   isSearching,
-  searchTotalFixtures,
+  searchTotalFixtures: _searchTotalFixtures,
   onEnterSearch,
   onExitSearch,
   onSearch
@@ -173,7 +173,7 @@ export function FoundFootyBrowser({
   }, [])
   const scrollSpacerRef = useScrollStabilizer(
     scrollContainerRef,
-    [currentDate, expandedFixture, expandedEvent, isChangingDate]
+    [currentDate, expandedFixture, expandedEvent, isChangingDate, searchMode]
   )
   
   const { mode, formatTime, getTimezoneAbbr, getDateForTimestamp, getToday } = useTimezone()
@@ -210,6 +210,45 @@ export function FoundFootyBrowser({
     
     return dates.sort().reverse() // Newest first
   }, [availableDates, today])
+  
+  // Timezone-scoped search: filter staging fixtures to only those within viewable date range
+  const { filteredSearchResults, filteredSearchCount } = useMemo(() => {
+    if (!searchResults.length) return { filteredSearchResults: [] as SearchDateGroup[], filteredSearchCount: 0 }
+    
+    // Cutoff: max date in availableDatesInMode (today or next future date with fixtures)
+    const cutoffDate = availableDatesInMode.length > 0 
+      ? availableDatesInMode[0]  // Already sorted newest-first
+      : today
+    
+    // Flatten, filter, and regroup by timezone-local date
+    const groupMap = new Map<string, SearchDateGroup['fixtures']>()
+    let count = 0
+    
+    for (const group of searchResults) {
+      for (const fixture of group.fixtures) {
+        const localDate = getDateForTimestamp(fixture.fixture.date)
+        const isStaging = fixture.fixture.status.short === 'NS'
+        
+        // Skip staging fixtures beyond the timezone-scoped cutoff
+        if (isStaging && localDate > cutoffDate) continue
+        
+        count++
+        const existing = groupMap.get(localDate)
+        if (existing) {
+          existing.push(fixture)
+        } else {
+          groupMap.set(localDate, [fixture])
+        }
+      }
+    }
+    
+    // Sort groups by date descending (newest first)
+    const sorted = [...groupMap.entries()]
+      .sort(([a], [b]) => b.localeCompare(a))
+      .map(([date, fixtures]) => ({ date, fixtures }))
+    
+    return { filteredSearchResults: sorted, filteredSearchCount: count }
+  }, [searchResults, availableDatesInMode, today, getDateForTimestamp])
   
   // Check if we can navigate
   const currentIndex = availableDatesInMode.indexOf(currentDate)
@@ -429,23 +468,53 @@ export function FoundFootyBrowser({
               <RiArrowLeftSFill className="icon-fill w-5 h-5" />
             </button>
             
-            <input
-              ref={searchInputRef}
-              type="text"
-              value={searchQuery}
-              onChange={(e) => onSearch(e.target.value)}
-              placeholder="Search teams, players..."
-              className="flex-1 mx-2 bg-transparent border-none outline-none text-corpo-text font-medium text-center placeholder:text-corpo-text/30"
-              style={{ fontSize: 'var(--text-size-base)' }}
-              autoFocus
-              autoComplete="off"
-              autoCorrect="off"
-              autoCapitalize="off"
-              spellCheck={false}
-            />
+            <form
+              className="flex-1 flex mx-2"
+              onSubmit={(e) => {
+                e.preventDefault()
+                // Lock scroll position during keyboard dismiss to prevent
+                // the cascade: viewport resize → scroll event → spacer shrink → scroll clamp
+                const container = scrollContainerRef.current
+                const savedTop = container?.scrollTop ?? 0
+                let lockId: ReturnType<typeof setInterval> | null = null
+                if (container) {
+                  // Keep restoring scrollTop every frame for 400ms while iOS resizes
+                  lockId = setInterval(() => {
+                    container.scrollTop = savedTop
+                  }, 16)
+                  setTimeout(() => {
+                    if (lockId) clearInterval(lockId)
+                  }, 400)
+                }
+                // Dismiss keyboard
+                searchInputRef.current?.blur()
+              }}
+            >
+              <input
+                ref={searchInputRef}
+                type="search"
+                value={searchQuery}
+                onChange={(e) => onSearch(e.target.value)}
+                placeholder="Search teams, players..."
+                className="flex-1 bg-transparent border-none outline-none text-corpo-text font-medium text-center placeholder:text-corpo-text/30 [&::-webkit-search-cancel-button]:hidden"
+                style={{ fontSize: 'var(--text-size-base)' }}
+                autoFocus
+                autoComplete="off"
+                autoCorrect="off"
+                autoCapitalize="off"
+                spellCheck={false}
+              />
+            </form>
             
             <button
-              onClick={() => onSearch('')}
+              onMouseDown={(e) => {
+                // Prevent button from stealing focus from input (keeps keyboard open on mobile)
+                e.preventDefault()
+              }}
+              onClick={() => {
+                onSearch('')
+                searchInputRef.current?.focus()
+              }}
               onTouchStart={() => {}}
               disabled={!searchQuery}
               className="nav-btn flex items-center p-1"
@@ -536,16 +605,16 @@ export function FoundFootyBrowser({
             <div className="text-corpo-text/40 py-8 text-center font-light">
               Type at least 2 characters to search
             </div>
-          ) : searchResults.length === 0 ? (
+          ) : filteredSearchResults.length === 0 ? (
             <div className="text-corpo-text/50 py-8 text-center">
               No results for "{searchQuery}"
             </div>
           ) : (
             <>
               <div className="text-lavender text-sm font-light mb-3 px-1">
-                {searchTotalFixtures} fixture{searchTotalFixtures !== 1 ? 's' : ''} found
+                {filteredSearchCount} fixture{filteredSearchCount !== 1 ? 's' : ''} found
               </div>
-              {searchResults.map((group, groupIndex) => (
+              {filteredSearchResults.map((group, groupIndex) => (
                 <div key={group.date} className={cn("mb-3", groupIndex > 0 && "mt-6")}>
                   {/* Date header */}
                   <div className="text-corpo-text/50 text-sm font-light mb-1 px-1 uppercase tracking-wider">
