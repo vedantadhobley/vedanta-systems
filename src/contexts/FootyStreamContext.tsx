@@ -292,9 +292,27 @@ export function FootyStreamProvider({ children }: { children: ReactNode }) {
   }, [state.currentDate, state.isChangingDate, state.isLoading, getToday, connectSSE, disconnectSSE])
 
   // Navigation helpers
+  // Go to the most relevant date: today if it has fixtures, otherwise the next upcoming date
   const goToToday = useCallback(() => {
-    setDate(getToday())
-  }, [setDate, getToday])
+    const today = getToday()
+    const { availableDates } = state
+
+    // If today has fixtures, go there
+    if (availableDates.includes(today)) {
+      setDate(today)
+      return
+    }
+
+    // Otherwise find the next upcoming date with fixtures
+    const futureDates = availableDates.filter(d => d > today).sort()
+    if (futureDates.length > 0) {
+      setDate(futureDates[0])
+      return
+    }
+
+    // No future dates — fall back to today anyway (shows "no fixtures")
+    setDate(today)
+  }, [setDate, getToday, state])
 
   const goToPreviousDate = useCallback(() => {
     const { availableDates, currentDate } = state
