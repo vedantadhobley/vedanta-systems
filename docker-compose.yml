@@ -8,6 +8,7 @@ services:
       args:
         - VITE_GITHUB_TOKEN=${VITE_GITHUB_TOKEN}
         - VITE_FOOTY_API_URL=https://vedanta.systems/api/found-footy
+        - VITE_SPIN_CYCLE_API_URL=https://vedanta.systems/api/spin-cycle
     container_name: vedanta-systems-prod
     ports:
       - "3100:3000"
@@ -38,6 +39,8 @@ services:
       - MINIO_PORT=9000
       - MINIO_ACCESS_KEY=${FOUND_FOOTY_S3_USER}
       - MINIO_SECRET_KEY=${FOUND_FOOTY_S3_PASS}
+      # Spin Cycle PostgreSQL - connects to spin-cycle-prod-postgres on luv-prod network
+      - SPIN_CYCLE_POSTGRES_URI=postgresql://${SPIN_CYCLE_POSTGRES_USER}:${SPIN_CYCLE_POSTGRES_PASS}@spin-cycle-prod-postgres:5432/spincycle
       # btop runs with network_mode:host, so reach it via host gateway
       - BTOP_HOST=host-gateway
     extra_hosts:

@@ -4,6 +4,7 @@ import http from 'http'
 
 // Import project routes
 import { createFoundFootyRouter } from './routes/found-footy'
+import { createSpinCycleRouter } from './routes/spin-cycle'
 
 const app = express()
 app.use(cors())
@@ -32,6 +33,11 @@ const foundFootyConfig = {
   }
 }
 
+// Spin Cycle configuration (from environment)
+const spinCycleConfig = {
+  postgresUri: process.env.SPIN_CYCLE_POSTGRES_URI || '',
+}
+
 // Validate Found Footy config - fail fast if not configured
 if (!foundFootyConfig.mongoUri) {
   throw new Error('MONGODB_URI environment variable is required')
@@ -43,12 +49,24 @@ if (!foundFootyConfig.minio.accessKey || !foundFootyConfig.minio.secretKey) {
   throw new Error('MINIO_ACCESS_KEY and MINIO_SECRET_KEY environment variables are required')
 }
 
+// Validate Spin Cycle config
+if (!spinCycleConfig.postgresUri) {
+  console.warn('⚠️  SPIN_CYCLE_POSTGRES_URI not set — spin-cycle routes will fail')
+}
+
 // ============ MOUNT PROJECT ROUTES ============
 
 // Found Footy - Goal clip aggregator
 // Endpoints: /api/found-footy/health, /api/found-footy/fixtures, /api/found-footy/stream, etc.
 const foundFootyRouter = createFoundFootyRouter(foundFootyConfig)
 app.use('/api/found-footy', foundFootyRouter)
+
+// Spin Cycle - Claim verification pipeline
+// Endpoints: /api/spin-cycle/health, /api/spin-cycle/transcripts, /api/spin-cycle/claims/:id, /api/spin-cycle/stream, etc.
+if (spinCycleConfig.postgresUri) {
+  const spinCycleRouter = createSpinCycleRouter(spinCycleConfig)
+  app.use('/api/spin-cycle', spinCycleRouter)
+}
 
 // ============ BTOP PROXY ============
 // Proxy btop frame requests to btop container
@@ -175,9 +193,8 @@ app.get('/api/health', (_req, res) => {
     environment: isDev ? 'development' : 'production',
     projects: {
       'found-footy': '/api/found-footy/health',
+      'spin-cycle': '/api/spin-cycle/health',
       'btop': '/api/btop/health',
-      // Add more projects here as they're added:
-      // 'legal-tender': '/api/legal-tender/health',
     }
   })
 })
@@ -190,5 +207,6 @@ app.listen(PORT, () => {
   console.log(`📍 Routes:`)
   console.log(`   /api/health - Global health check`)
   console.log(`   /api/found-footy/* - Found Footy endpoints`)
+  console.log(`   /api/spin-cycle/* - Spin Cycle endpoints`)
   console.log(`   /api/btop/frame.png - System monitor frame`)
 })

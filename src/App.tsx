@@ -7,10 +7,12 @@ import { PathSegment } from '@/components/filesystem-nav'
 // TODO: Re-enable moon background video when performance issues are resolved
 // import { MoonBackground } from '@/components/moon-background'
 import { FoundFootyBrowser } from '@/components/found-footy-browser'
+import { SpinCycleBrowser } from '@/components/spin-cycle-browser'
 import { ResumeViewer } from '@/components/resume-viewer'
 import { ProjectStatus } from '@/components/project-status'
 import { BtopMonitor } from '@/components/btop-monitor'
 import { FootyStreamProvider, useFootyStream } from '@/contexts/FootyStreamContext'
+import { SpinCycleStreamProvider, useSpinCycleStream } from '@/contexts/SpinCycleStreamContext'
 import { TimezoneProvider } from '@/contexts/timezone-context'
 import './App.css'
 
@@ -18,7 +20,7 @@ import './App.css'
 const projectGithubLinks: Record<string, string> = {
   '~/workspace/found-footy': 'https://github.com/vedantadhobley/found-footy',
   '~/workspace/vedanta-systems': 'https://github.com/vedantadhobley/vedanta-systems',
-  // Add more projects here as needed
+  '~/workspace/spin-cycle': 'https://github.com/vedantadhobley/spin-cycle',
 }
 
 // Project descriptions for the workspace page
@@ -31,9 +33,9 @@ const projectDescriptions: Record<string, { name: string; blurb: string }> = {
     name: 'found-footy',
     blurb: 'Automated football goal clip aggregator. Monitors live fixtures, detects goals, and automatically finds and archives video clips from social media.'
   },
-  '~/workspace/legal-tender': {
-    name: 'legal-tender',
-    blurb: 'AI-driven political influence analysis. Connects campaign finance, lobbying, and voting records to expose money in US politics.'
+  '~/workspace/spin-cycle': {
+    name: 'spin-cycle',
+    blurb: 'Automated news claim verification pipeline. Ingests transcripts, extracts claims, and delivers structured verdicts with full evidence chains.'
   },
 }
 
@@ -51,7 +53,7 @@ const folderContents: Record<string, FolderContent[]> = {
   '~/workspace': [
     { name: 'vedanta-systems', path: '~/workspace/vedanta-systems', type: 'folder' },
     { name: 'found-footy', path: '~/workspace/found-footy', type: 'folder' },
-    { name: 'legal-tender', path: '~/workspace/legal-tender', type: 'folder' },
+    { name: 'spin-cycle', path: '~/workspace/spin-cycle', type: 'folder' },
   ],
 }
 
@@ -86,10 +88,10 @@ function getPathSegmentsFromUrl(url: string): PathSegment[] {
       { name: 'workspace', path: '~/workspace', icon: 'folder' },
       { name: 'vedanta-systems', path: '~/workspace/vedanta-systems', icon: 'folder' }
     ],
-    '~/workspace/legal-tender': [
+    '~/workspace/spin-cycle': [
       { name: '~', path: '~', icon: 'home' },
       { name: 'workspace', path: '~/workspace', icon: 'folder' },
-      { name: 'legal-tender', path: '~/workspace/legal-tender', icon: 'folder' }
+      { name: 'spin-cycle', path: '~/workspace/spin-cycle', icon: 'folder' }
     ],
     '~/workspace/found-footy': [
       { name: '~', path: '~', icon: 'home' },
@@ -167,6 +169,11 @@ function DirectoryListing() {
             <FoundFootyContent />
           )}
 
+          {/* Spin Cycle Browser - ~/workspace/spin-cycle */}
+          {fsPath === '~/workspace/spin-cycle' && (
+            <SpinCycleContent />
+          )}
+
           {/* About page - Resume */}
           {fsPath === '~/about' && (
             <AboutContent />
@@ -175,18 +182,17 @@ function DirectoryListing() {
           {/* Vedanta Systems - btop system monitor */}
           {fsPath === '~/workspace/vedanta-systems' && (
             <>
-              <ProjectStatus 
-                githubUrl={projectGithubLinks[fsPath]} 
+              <ProjectStatus
+                githubUrl={projectGithubLinks[fsPath]}
               />
               <BtopMonitor className="mt-4" />
             </>
           )}
 
           {/* Other project pages - just show GitHub link */}
-          {fsPath !== '~/workspace/found-footy' && fsPath !== '~/workspace/vedanta-systems' && projectGithubLinks[fsPath] && (
-            <ProjectStatus 
-              githubUrl={projectGithubLinks[fsPath]} 
-              comingSoon={fsPath === '~/workspace/legal-tender'}
+          {fsPath !== '~/workspace/found-footy' && fsPath !== '~/workspace/spin-cycle' && fsPath !== '~/workspace/vedanta-systems' && projectGithubLinks[fsPath] && (
+            <ProjectStatus
+              githubUrl={projectGithubLinks[fsPath]}
             />
           )}
 
@@ -336,15 +342,44 @@ function FoundFootyContent() {
   )
 }
 
+// SpinCycle content component - rendered inside DirectoryListing
+function SpinCycleContent() {
+  const {
+    transcripts,
+    isBackendOnline,
+    isLoading,
+    lastUpdate,
+    fetchClaimDetail,
+  } = useSpinCycleStream()
+
+  return (
+    <>
+      <ProjectStatus
+        githubUrl="https://github.com/vedantadhobley/spin-cycle"
+        isConnected={isBackendOnline}
+      />
+      <SpinCycleBrowser
+        transcripts={transcripts}
+        isConnected={isBackendOnline}
+        isLoading={isLoading}
+        lastUpdate={lastUpdate}
+        fetchClaimDetail={fetchClaimDetail}
+      />
+    </>
+  )
+}
+
 function App() {
   return (
     <TimezoneProvider>
       <FootyStreamProvider>
-        {/* TODO: Re-enable moon background video when performance issues are resolved */}
-        {/* <MoonBackground /> */}
-        <Routes>
-          <Route path="*" element={<DirectoryListing />} />
-        </Routes>
+        <SpinCycleStreamProvider>
+          {/* TODO: Re-enable moon background video when performance issues are resolved */}
+          {/* <MoonBackground /> */}
+          <Routes>
+            <Route path="*" element={<DirectoryListing />} />
+          </Routes>
+        </SpinCycleStreamProvider>
       </FootyStreamProvider>
     </TimezoneProvider>
   )

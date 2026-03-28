@@ -23,12 +23,14 @@ Dev and prod run on **same machine**, so we use different port ranges to avoid c
   3201     Mongo Express
   3202     MinIO console
 
-3300-3399: legal-tender (future)
-  3300     Dagster webserver
-  3301     Mongo Express
-  3302     MinIO console
+3300-3399: (available)
 
-3400-3499: (next project)
+3400-3499: super-sonic
+  3400     FastAPI backend
+
+3500-3509: spin-cycle
+  3500     FastAPI backend
+  3501     Temporal UI
 ```
 
 ### Development (4xxx)
@@ -45,12 +47,14 @@ Dev and prod run on **same machine**, so we use different port ranges to avoid c
   4201     Mongo Express
   4202     MinIO console
 
-4300-4399: legal-tender (future)
-  4300     Dagster webserver
-  4301     Mongo Express
-  4302     MinIO console
+4300-4399: (available)
 
-4400-4499: (next project)
+4400-4499: super-sonic
+  4400     FastAPI backend
+
+4500-4509: spin-cycle
+  4500     FastAPI backend
+  4501     Temporal UI
 ```
 
 ## 📝 Rules
