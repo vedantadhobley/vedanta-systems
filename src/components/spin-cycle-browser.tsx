@@ -177,13 +177,13 @@ export function SpinCycleBrowser({
     setViewModes(prev => {
       const next = new Map(prev)
       const current = next.get(transcriptId) || 'claims'
-      next.set(transcriptId, current === 'claims' ? 'fulltext' : 'claims')
+      next.set(transcriptId, current === 'fulltext' ? 'claims' : 'fulltext')
       return next
     })
   }, [])
 
   const getViewMode = useCallback((transcriptId: string): 'claims' | 'fulltext' => {
-    return viewModes.get(transcriptId) || 'claims'
+    return viewModes.get(transcriptId) || 'fulltext'
   }, [viewModes])
 
   const groupedTranscripts = groupByDate(transcripts)
@@ -331,26 +331,44 @@ function TranscriptItem({
 
       {isExpanded && (
         <div className="ml-4 border-l border-corpo-border">
-          {/* View toggle */}
-          <div className="pl-4 pr-3 py-2 flex items-center gap-2">
+          {/* View toggle — side by side buttons */}
+          <div className="pl-4 pr-3 py-2 flex items-center gap-3">
             <button
-              onClick={(e) => { e.stopPropagation(); onToggleViewMode() }}
+              onClick={(e) => { e.stopPropagation(); if (viewMode !== 'fulltext') onToggleViewMode() }}
               onTouchStart={() => {}}
-              className="nav-btn flex items-center gap-1.5"
+              className={viewMode === 'fulltext'
+                ? 'flex items-center gap-1.5 text-lavender'
+                : 'nav-btn flex items-center gap-1.5'
+              }
             >
-              {viewMode === 'claims' ? (
+              {viewMode === 'fulltext' ? (
+                <RiFileTextFill className="w-4 h-4" />
+              ) : (
                 <>
                   <RiFileTextLine className="icon-line w-4 h-4" />
                   <RiFileTextFill className="icon-fill w-4 h-4" />
-                  <span className="uppercase tracking-wider text-xs">full text</span>
                 </>
+              )}
+              <span className="uppercase tracking-wider text-xs">transcript</span>
+            </button>
+            <span className="text-corpo-border/50">/</span>
+            <button
+              onClick={(e) => { e.stopPropagation(); if (viewMode !== 'claims') onToggleViewMode() }}
+              onTouchStart={() => {}}
+              className={viewMode === 'claims'
+                ? 'flex items-center gap-1.5 text-lavender'
+                : 'nav-btn flex items-center gap-1.5'
+              }
+            >
+              {viewMode === 'claims' ? (
+                <RiChat1Fill className="w-4 h-4" />
               ) : (
                 <>
                   <RiChat1Line className="icon-line w-4 h-4" />
                   <RiChat1Fill className="icon-fill w-4 h-4" />
-                  <span className="uppercase tracking-wider text-xs">claims only</span>
                 </>
               )}
+              <span className="uppercase tracking-wider text-xs">claims</span>
             </button>
           </div>
 
