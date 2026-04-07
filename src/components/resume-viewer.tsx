@@ -15,8 +15,8 @@ interface ResumeViewerProps {
 
 export function ResumeViewer({ 
   pdfUrl, 
-  downloadFilename = 'Vedanta_Dhobley_Resume_20260129.pdf',
-  lastUpdated = 'January 29, 2026'
+  downloadFilename = 'Vedanta_Dhobley_Resume_20260327.pdf',
+  lastUpdated = 'March 27, 2026'
 }: ResumeViewerProps) {
   const [numPages, setNumPages] = useState<number | null>(null)
   const [loadError, setLoadError] = useState(false)
