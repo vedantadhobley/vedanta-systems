@@ -14,6 +14,7 @@ export default defineConfig({
     strictPort: false,
     open: false,  // Don't auto-open browser on remote server
     host: '0.0.0.0',  // Bind to all interfaces for remote access
+    allowedHosts: true,  // Allow access from any hostname (Tailscale, etc.)
     hmr: {
       // Use the host that the browser connected to (works for Tailscale, local, etc.)
       // Setting host to true makes Vite use the browser's current host
@@ -32,7 +33,7 @@ export default defineConfig({
       // API proxy - all backend requests go through /api
       // This includes btop frames (/api/btop/frame.png) routed through the Express server
       '/api': {
-        target: 'http://api:3001',
+        target: 'http://host.docker.internal:4101',
         changeOrigin: true,
       },
     },

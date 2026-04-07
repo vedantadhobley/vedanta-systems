@@ -43,12 +43,31 @@ set -ga terminal-overrides ",*256col*:Tc"
 set -ga terminal-overrides ",xterm*:Tc"
 EOF
 
+# Ensure SSH agent is available for remote connections
+export SSH_AUTH_SOCK="${SSH_AUTH_SOCK:-/ssh-agent}"
+
 # Determine the command to run
+SSH_OPTS="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+
 if [ "$BTOP_HOST" = "local" ]; then
     BTOP_CMD="/usr/local/bin/btop"
 else
-    # SSH to remote host and run btop
-    BTOP_CMD="ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -t $BTOP_HOST btop"
+    # Sync btop binary, config, and themes to remote host on every startup
+    # This ensures the remote always matches the local build — no manual syncing
+    echo "Syncing btop to $BTOP_HOST..."
+    scp $SSH_OPTS /usr/local/bin/btop "$BTOP_HOST:/tmp/btop_sync" 2>/dev/null && \
+        ssh $SSH_OPTS "$BTOP_HOST" "mkdir -p ~/.config/btop/themes && mv /tmp/btop_sync ~/.local/bin/btop 2>/dev/null || (mkdir -p ~/.local/bin && mv /tmp/btop_sync ~/.local/bin/btop)" 2>/dev/null
+    # Sync config — adjust for native btop on remote host (not containerized)
+    sed -e 's|disks_filter = "/hostfs /hostfs/boot/efi"|disks_filter = "/ /boot/efi"|' \
+        -e 's|only_physical = false|only_physical = true|' \
+        -e 's|use_fstab = false|use_fstab = true|' \
+        /root/.config/btop/btop.conf > /tmp/btop_remote.conf
+    scp $SSH_OPTS /tmp/btop_remote.conf "$BTOP_HOST:~/.config/btop/btop.conf" 2>/dev/null || true
+    # Sync themes
+    scp $SSH_OPTS /root/.config/btop/themes/*.theme "$BTOP_HOST:~/.config/btop/themes/" 2>/dev/null || true
+    echo "Sync complete."
+
+    BTOP_CMD="export SSH_AUTH_SOCK=/ssh-agent; ssh $SSH_OPTS -tt $BTOP_HOST \"TZ=UTC TERM=xterm-256color ~/.local/bin/btop\""
 fi
 
 # Start btop in a detached tmux session with fixed size for consistent capture

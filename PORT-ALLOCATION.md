@@ -16,7 +16,8 @@ Dev and prod run on **same machine**, so we use different port ranges to avoid c
 3100-3199: vedanta-systems
   3100     Frontend (nginx, proxies to API and btop)
   3101     API server (internal, proxied via nginx)
-  3102     btop SSE broadcast (network_mode: host)
+  3102     btop SSE broadcast - luv (network_mode: host)
+  3103     btop SSE broadcast - joi (network_mode: host, SSH to remote)
   
 3200-3299: found-footy
   3200     Dagster webserver
@@ -40,7 +41,8 @@ Dev and prod run on **same machine**, so we use different port ranges to avoid c
 4100-4199: vedanta-systems
   4100     Frontend (vite dev server)
   4101     API server
-  4102     btop SSE broadcast (network_mode: host)
+  4102     btop SSE broadcast - luv (network_mode: host)
+  4103     btop SSE broadcast - joi (network_mode: host, SSH to remote)
 
 4200-4299: found-footy
   4200     Dagster webserver

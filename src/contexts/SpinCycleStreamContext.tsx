@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect, useRef, useCallback, type ReactNode } from 'react'
 import type { Transcript, ClaimDetail } from '@/types/spin-cycle'
 
-const API_BASE = import.meta.env.VITE_SPIN_CYCLE_API_URL || 'http://localhost:4101/api/spin-cycle'
+const API_BASE = import.meta.env.VITE_SPIN_CYCLE_API_URL || '/api/spin-cycle'
 
 interface SpinCycleState {
   transcripts: Transcript[]

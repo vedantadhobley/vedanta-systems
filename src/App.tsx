@@ -185,7 +185,8 @@ function DirectoryListing() {
               <ProjectStatus
                 githubUrl={projectGithubLinks[fsPath]}
               />
-              <BtopMonitor className="mt-4" />
+              <BtopMonitor className="mt-4" label="luv" apiPrefix="/api/btop-luv" />
+              <BtopMonitor className="mt-4" label="joi" apiPrefix="/api/btop-joi" />
             </>
           )}
 

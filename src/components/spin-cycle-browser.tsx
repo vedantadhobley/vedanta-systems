@@ -705,24 +705,64 @@ interface HighlightSegment {
   claims?: TranscriptClaim[]
 }
 
-// Normalize all quote characters to a single form for fuzzy matching
-function normalizeQuotes(s: string): string {
-  return s.replace(/[\u2018\u2019\u201A\u2039\u203A'"\u201C\u201D\u201E\u00AB\u00BB]/g, "'")
+// Normalize for fuzzy matching: collapse quotes and whitespace
+function normalizeForMatch(s: string): string {
+  return s
+    .replace(/[\u2018\u2019\u201A\u2039\u203A'"\u201C\u201D\u201E\u00AB\u00BB]/g, "'")
+    .replace(/\s+/g, ' ')
 }
 
-// Find quote in text, falling back to quote-normalized search
+// Find quote in text with whitespace-flexible matching
+// Returns the position and length in the ORIGINAL text (not normalized)
 function findQuoteInText(text: string, quote: string): { idx: number; len: number } {
   // Exact match first
   const idx = text.indexOf(quote)
   if (idx !== -1) return { idx, len: quote.length }
 
   // Normalize both and search
-  const normText = normalizeQuotes(text)
-  const normQuote = normalizeQuotes(quote)
+  const normText = normalizeForMatch(text)
+  const normQuote = normalizeForMatch(quote)
   const normIdx = normText.indexOf(normQuote)
-  if (normIdx !== -1) return { idx: normIdx, len: normQuote.length }
+  if (normIdx === -1) return { idx: -1, len: 0 }
 
-  return { idx: -1, len: 0 }
+  // Map normalized index back to original text position
+  // Walk the original text, tracking how many original chars map to each normalized position
+  let origIdx = 0
+  let normPos = 0
+  // Find start: advance through original text until we've consumed normIdx normalized chars
+  while (normPos < normIdx && origIdx < text.length) {
+    // If current char is whitespace and next char is also whitespace, skip it (collapsed in norm)
+    if (/\s/.test(text[origIdx])) {
+      origIdx++
+      // Only advance normPos if this whitespace produced a space in the normalized version
+      // (i.e., skip extra whitespace chars that were collapsed)
+      while (origIdx < text.length && /\s/.test(text[origIdx])) {
+        origIdx++
+      }
+      normPos++
+    } else {
+      origIdx++
+      normPos++
+    }
+  }
+  const startInOrig = origIdx
+
+  // Find end: advance through the length of the normalized quote
+  let normConsumed = 0
+  while (normConsumed < normQuote.length && origIdx < text.length) {
+    if (/\s/.test(text[origIdx])) {
+      origIdx++
+      while (origIdx < text.length && /\s/.test(text[origIdx])) {
+        origIdx++
+      }
+      normConsumed++
+    } else {
+      origIdx++
+      normConsumed++
+    }
+  }
+
+  return { idx: startInOrig, len: origIdx - startInOrig }
 }
 
 function buildHighlights(text: string, claims: TranscriptClaim[]): HighlightSegment[] {
@@ -825,11 +865,7 @@ function ClaimDetailPanel({
       {detail.sub_claims.length > 0 && (
         <div>
           <div className="text-corpo-text/40 uppercase tracking-wider text-xs mb-1">sub-claims</div>
-          <div className="space-y-1">
-            {detail.sub_claims.map(sc => (
-              <SubClaimNode key={sc.id} subClaim={sc} depth={0} />
-            ))}
-          </div>
+          <SubClaimList subClaims={detail.sub_claims} depth={0} />
         </div>
       )}
     </div>
@@ -838,8 +874,35 @@ function ClaimDetailPanel({
 
 // ============ SUB-CLAIM TREE ============
 
-function SubClaimNode({ subClaim, depth }: { subClaim: SubClaimType; depth: number }) {
-  const [isExpanded, setIsExpanded] = useState(false)
+// Manages which sibling is expanded at each level — only one open at a time
+function SubClaimList({ subClaims, depth }: { subClaims: SubClaimType[]; depth: number }) {
+  const [expandedId, setExpandedId] = useState<string | null>(null)
+
+  const toggle = useCallback((id: string) => {
+    setExpandedId(prev => prev === id ? null : id)
+  }, [])
+
+  return (
+    <div className="space-y-1">
+      {subClaims.map(sc => (
+        <SubClaimNode
+          key={sc.id}
+          subClaim={sc}
+          depth={depth}
+          isExpanded={expandedId === sc.id}
+          onToggle={() => toggle(sc.id)}
+        />
+      ))}
+    </div>
+  )
+}
+
+function SubClaimNode({ subClaim, depth, isExpanded, onToggle }: {
+  subClaim: SubClaimType
+  depth: number
+  isExpanded: boolean
+  onToggle: () => void
+}) {
   const hasChildren = subClaim.children.length > 0
   const hasEvidence = subClaim.evidence.length > 0
   const canExpand = hasChildren || hasEvidence || !!subClaim.reasoning
@@ -849,7 +912,7 @@ function SubClaimNode({ subClaim, depth }: { subClaim: SubClaimType; depth: numb
       <div className="flex items-start gap-2 py-1">
         {canExpand ? (
           <button
-            onClick={() => setIsExpanded(!isExpanded)}
+            onClick={onToggle}
             className="flex-shrink-0 mt-0.5 text-corpo-text/50 hover:text-corpo-light"
           >
             {isExpanded ? (
@@ -889,11 +952,7 @@ function SubClaimNode({ subClaim, depth }: { subClaim: SubClaimType; depth: numb
           )}
 
           {hasChildren && (
-            <div className="space-y-1">
-              {subClaim.children.map(child => (
-                <SubClaimNode key={child.id} subClaim={child} depth={depth + 1} />
-              ))}
-            </div>
+            <SubClaimList subClaims={subClaim.children} depth={depth + 1} />
           )}
         </div>
       )}

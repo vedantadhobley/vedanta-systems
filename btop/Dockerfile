@@ -38,6 +38,7 @@ RUN apt-get update && apt-get install -y \
     curl \
     unzip \
     fontconfig \
+    openssh-client \
     && rm -rf /var/lib/apt/lists/* \
     && locale-gen en_US.UTF-8
 

@@ -1300,24 +1300,21 @@ namespace Mem {
 		bool big_mem = mem_width > 21;
 
 		out += Mv::to(y + 1, x + 2) + Theme::c("title") + Fx::b + "Total:" + rjust(floating_humanizer(totalMem), mem_width - 9) + Fx::ub + Theme::c("main_fg");
+		if (show_swap and has_swap and not swap_disk) {
+			out += Mv::to(y + 2, x + 2) + Theme::c("title") + Fx::b + "Swap:" + rjust(floating_humanizer(safeVal(mem.stats, "swap_total"s)), mem_width - 8) + Fx::ub + Theme::c("main_fg");
+			cy += 1;
+		}
 		vector<string> comb_names (mem_names.begin(), mem_names.end());
 		if (show_swap and has_swap and not swap_disk) comb_names.insert(comb_names.end(), swap_names.begin(), swap_names.end());
 		for (const auto& name : comb_names) {
 			if (cy > height - 4) break;
 			string title;
 			if (name == "swap_used") {
-				if (cy > height - 5) break;
-				if (height - cy > 6) {
-					if (graph_height > 0) out += Mv::to(y+1+cy, x+1+cx) + divider;
-					cy += 1;
-				}
-				out += Mv::to(y+1+cy, x+1+cx) + Theme::c("title") + Fx::b + "Swap:" + rjust(floating_humanizer(safeVal(mem.stats, "swap_total"s)), mem_width - 8)
-					+ Theme::c("main_fg") + Fx::ub;
-				cy += 1;
-				title = "Used";
+				title = "Swap";
 			}
-			else if (name == "swap_free")
-				title = "Free";
+			else if (name == "swap_free") {
+				continue;
+			}
 
 			if (title.empty()) title = capitalize(name);
 			const string humanized = floating_humanizer(safeVal(mem.stats, name));
@@ -2409,7 +2406,7 @@ namespace Draw {
 			else
 				mem_width = width - 1;
 
-			item_height = has_swap and not swap_disk ? 6 : 4;
+			item_height = 4;
 			if (height - (has_swap and not swap_disk ? 3 : 2) > 2 * item_height)
 				mem_size = 3;
 			else if (mem_width > 25)

@@ -92,8 +92,9 @@ export function createSpinCycleRouter(config: SpinCycleConfig): Router {
       // Fetch all transcripts
       const transcriptsResult = await pool.query(`
         SELECT
-          t.id, t.url, t.title, t.date, t.speakers, t.word_count,
-          t.segment_count, t.display_text, t.status, t.created_at,
+          t.id, t.url, t.title, t.date, t.speakers, t.enriched_speakers,
+          t.word_count, t.segment_count, t.display_text, t.status,
+          t.description, t.created_at,
           COUNT(tc.id) FILTER (WHERE tc.worth_checking = true) AS total_claims,
           COUNT(tc.claim_id) FILTER (WHERE tc.worth_checking = true AND tc.claim_id IS NOT NULL) AS verified_claims
         FROM transcripts t
@@ -112,8 +113,9 @@ export function createSpinCycleRouter(config: SpinCycleConfig): Router {
       const claimsResult = await pool.query(`
         SELECT
           tc.id, tc.transcript_id, tc.claim_id, tc.claim_text, tc.original_quote,
-          tc.speaker, tc.worth_checking, tc.skip_reason,
-          tc.segment_gist, tc.created_at AS tc_created_at,
+          tc.speaker, tc.worth_checking, tc.classification, tc.topic,
+          tc.checkable, tc.is_duplicate, tc.factual_anchor,
+          tc.created_at AS tc_created_at,
           c.status AS claim_status,
           v.verdict, v.confidence, v.reasoning
         FROM transcript_claims tc
@@ -138,8 +140,11 @@ export function createSpinCycleRouter(config: SpinCycleConfig): Router {
           original_quote: claim.original_quote,
           speaker: claim.speaker,
           worth_checking: claim.worth_checking,
-          skip_reason: claim.skip_reason,
-          segment_gist: claim.segment_gist,
+          classification: claim.classification,
+          topic: claim.topic,
+          checkable: claim.checkable,
+          is_duplicate: claim.is_duplicate,
+          factual_anchor: claim.factual_anchor,
           claim_status: claim.claim_status,
           verdict: claim.verdict,
           confidence: claim.confidence,
@@ -153,11 +158,12 @@ export function createSpinCycleRouter(config: SpinCycleConfig): Router {
         url: t.url,
         title: t.title,
         date: t.date,
-        speakers: t.speakers,
+        speakers: t.enriched_speakers || t.speakers,
         word_count: t.word_count,
         segment_count: t.segment_count,
         display_text: t.display_text,
         status: t.status,
+        description: t.description,
         created_at: t.created_at,
         total_claims: parseInt(t.total_claims) || 0,
         verified_claims: parseInt(t.verified_claims) || 0,
@@ -188,8 +194,9 @@ export function createSpinCycleRouter(config: SpinCycleConfig): Router {
       // Fetch claim with verdict
       const claimResult = await pool.query(`
         SELECT
-          c.id, c.text, c.status, c.speaker, c.normalized_claim,
-          c.thesis, c.key_test,
+          c.id, c.text, c.status, c.speaker, c.speaker_description,
+          c.normalized_claim, c.thesis, c.key_test,
+          c.claim_date, c.transcript_title, c.supporting_quotes,
           v.verdict, v.confidence, v.reasoning, v.citations
         FROM claims c
         LEFT JOIN verdicts v ON c.id = v.claim_id
@@ -278,9 +285,12 @@ export function createSpinCycleRouter(config: SpinCycleConfig): Router {
         text: claim.text,
         status: claim.status,
         speaker: claim.speaker,
+        speaker_description: claim.speaker_description,
         normalized_claim: claim.normalized_claim,
         thesis: claim.thesis,
         key_test: claim.key_test,
+        claim_date: claim.claim_date,
+        supporting_quotes: claim.supporting_quotes,
         verdict: claim.verdict,
         confidence: claim.confidence,
         reasoning: claim.reasoning,

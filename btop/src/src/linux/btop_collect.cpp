@@ -976,14 +976,10 @@ namespace Cpu {
 
 	long long get_cpuConsumptionUJoules()
 	{
-		long long consumption = -1;
-		const auto rapl_power_usage_path = "/sys/class/powercap/intel-rapl:0/energy_uj";
-		std::ifstream file(rapl_power_usage_path);
-		if(file.good())
-		{
-			file >> consumption;
-		}
-		return consumption;
+		// Disabled: On AMD APUs (Strix Halo), RAPL reports package power (CPU+GPU+IO)
+		// which is misleading as "CPU power" — the amdgpu PPT sensor already shows
+		// accurate total die power next to GPU temp.
+		return -1;
 	}
 
 	float get_cpuConsumptionWatts()
@@ -2237,7 +2233,7 @@ namespace Mem {
 								#ifdef SNAPPED
 									if (mountpoint == "/mnt") disks.at(mountpoint).name = "root";
 								#endif
-								if (disks.at(mountpoint).name.empty()) disks.at(mountpoint).name = (mountpoint == "/" ? "root" : mountpoint);
+								if (disks.at(mountpoint).name.empty()) disks.at(mountpoint).name = (mountpoint == "/" or mountpoint == "/hostfs" ? "root" : mountpoint);
 								string devname = disks.at(mountpoint).dev.filename();
 								int c = 0;
 								while (devname.size() >= 2) {

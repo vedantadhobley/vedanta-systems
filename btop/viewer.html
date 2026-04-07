@@ -147,7 +147,11 @@
         
         function getStreamUrl() {
             const path = window.location.pathname;
-            if (path.includes('/api/btop')) return '/api/btop/stream';
+            // Derive stream URL from the viewer's path (works for /api/btop/ and /api/btop-joi/)
+            if (path.includes('/api/')) {
+                // Strip trailing slash and append /stream
+                return path.replace(/\/+$/, '') + '/stream';
+            }
             return '/stream';
         }
         

@@ -13,6 +13,7 @@ export interface Transcript {
   segment_count: number
   display_text: string
   status: string  // queued | extracting | verifying | complete | failed
+  description: string | null
   created_at: string
   // Aggregated
   total_claims: number
@@ -28,8 +29,11 @@ export interface TranscriptClaim {
   original_quote: string
   speaker: string
   worth_checking: boolean
-  skip_reason: string | null
-  segment_gist: string | null
+  classification: string | null  // verifiable_fact | subjective_opinion | vague_rhetoric | procedural | future_prediction
+  topic: string | null
+  checkable: boolean | null
+  is_duplicate: boolean
+  factual_anchor: string | null
   // Joined from claims + verdicts tables
   claim_status?: string | null
   verdict?: string | null

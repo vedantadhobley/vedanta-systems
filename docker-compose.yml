@@ -50,9 +50,9 @@ services:
       - vedanta-systems-prod
       - luv-prod
 
-  # btop system monitor - SSE broadcast of terminal output
-  btop:
-    container_name: vedanta-systems-prod-btop
+  # btop system monitor - luv node (local)
+  btop-luv:
+    container_name: vedanta-systems-prod-btop-luv
     hostname: luv
     build:
       context: ./btop
@@ -74,10 +74,10 @@ services:
       # GPU access for AMD ROCm
       - /dev/dri:/dev/dri
       - /dev/kfd:/dev/kfd
-    
     environment:
       - WRAPPER_PORT=3102        # Prod: 3102, Dev: 4102 (binds to host with network_mode: host)
       - BTOP_HOST=local          # "local" or "user@host" for SSH to remote
+      - TZ=UTC
     
     # No ports needed - network_mode: host means it binds directly to host ports
     
@@ -91,6 +91,25 @@ services:
       - "992"  # render
     
     # Note: No networks needed with network_mode: host
+
+  # btop system monitor for joi node - SSH to remote, same broadcast architecture
+  btop-joi:
+    container_name: vedanta-systems-prod-btop-joi
+    hostname: joi
+    build:
+      context: ./btop
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    network_mode: host           # Required for Tailscale/LAN access to joi
+
+    volumes:
+      # SSH agent for key-based auth to joi
+      - /run/user/1000/keyring/ssh:/ssh-agent:ro
+
+    environment:
+      - WRAPPER_PORT=3103
+      - BTOP_HOST=${BTOP_JOI_SSH_HOST}
+      - SSH_AUTH_SOCK=/ssh-agent
 
 networks:
   vedanta-systems-prod:

@@ -272,21 +272,7 @@ bool set_priority(pid_t pid, int priority) {
 }
 
 auto detect_container() -> std::optional<std::string> {
-    std::error_code err;
-
-    if (fs::exists(fs::path("/run/.containerenv"), err)) {
-        return std::make_optional(std::string { "podman" });
-    }
-    if (fs::exists(fs::path("/.dockerenv"), err)) {
-        return std::make_optional(std::string { "docker" });
-    }
-    auto systemd_container = fs::path("/run/systemd/container");
-    if (fs::exists(systemd_container, err)) {
-        auto stream = std::ifstream { systemd_container };
-        auto buf = std::string {};
-        stream >> buf;
-        return std::make_optional(buf);
-    }
-
+    // Disabled: btop runs in a container for broadcast but monitors the host.
+    // Showing "docker" is misleading since it displays host system stats.
     return std::nullopt;
 }

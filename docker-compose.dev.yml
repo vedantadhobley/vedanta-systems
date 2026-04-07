@@ -16,8 +16,10 @@ services:
       - VITE_ENVIRONMENT=development
       - VITE_GITHUB_TOKEN=${VITE_GITHUB_TOKEN}
       # Use localhost for browser access (frontend runs in browser, not in container)
-      - VITE_FOOTY_API_URL=http://localhost:4101/api/found-footy
-      - VITE_SPIN_CYCLE_API_URL=http://localhost:4101/api/spin-cycle
+      # Use relative URLs so dev works from any device (Tailscale, phone, etc.)
+      # Vite proxy handles /api -> api:3001
+      #- VITE_FOOTY_API_URL=http://localhost:4101/api/found-footy
+      #- VITE_SPIN_CYCLE_API_URL=http://localhost:4101/api/spin-cycle
     restart: unless-stopped
     # Enable volumes for live development (Dev Containers)
     volumes:
@@ -66,9 +68,9 @@ services:
       - vedanta-systems-dev
       - luv-dev
 
-  # btop system monitor - serves host metrics via SSE broadcast
-  btop:
-    container_name: vedanta-systems-dev-btop
+  # btop system monitor - luv node (local)
+  btop-luv:
+    container_name: vedanta-systems-dev-btop-luv
     hostname: luv
     build:
       context: ./btop
@@ -90,10 +92,10 @@ services:
       # GPU access for AMD ROCm
       - /dev/dri:/dev/dri
       - /dev/kfd:/dev/kfd
-    
     environment:
       - WRAPPER_PORT=4102        # Dev: 4102, Prod: 3102 (binds to host with network_mode: host)
       - BTOP_HOST=local          # "local" or "user@host" for SSH to remote
+      - TZ=UTC
     
     # No ports needed - network_mode: host means it binds directly to host ports
     
@@ -107,6 +109,24 @@ services:
       - "992"  # render
     
     # No networks - network_mode: host is incompatible with docker networks
+
+  # btop system monitor for joi node
+  btop-joi:
+    container_name: vedanta-systems-dev-btop-joi
+    hostname: joi
+    build:
+      context: ./btop
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    network_mode: host
+
+    volumes:
+      - /run/user/1000/keyring/ssh:/ssh-agent:ro
+
+    environment:
+      - WRAPPER_PORT=4103
+      - BTOP_HOST=${BTOP_JOI_SSH_HOST}
+      - SSH_AUTH_SOCK=/ssh-agent
 
 networks:
   # Internal network for vedanta-systems DEV services
