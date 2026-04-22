@@ -47,7 +47,7 @@ EOF
 export SSH_AUTH_SOCK="${SSH_AUTH_SOCK:-/ssh-agent}"
 
 # Determine the command to run
-SSH_OPTS="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+SSH_OPTS="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -p 22"
 
 if [ "$BTOP_HOST" = "local" ]; then
     BTOP_CMD="/usr/local/bin/btop"

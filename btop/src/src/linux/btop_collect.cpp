@@ -2233,7 +2233,8 @@ namespace Mem {
 								#ifdef SNAPPED
 									if (mountpoint == "/mnt") disks.at(mountpoint).name = "root";
 								#endif
-								if (disks.at(mountpoint).name.empty()) disks.at(mountpoint).name = (mountpoint == "/" or mountpoint == "/hostfs" ? "root" : mountpoint);
+								if (mountpoint == "/" or mountpoint == "/hostfs") disks.at(mountpoint).name = "root";
+								else if (disks.at(mountpoint).name.empty()) disks.at(mountpoint).name = mountpoint;
 								string devname = disks.at(mountpoint).dev.filename();
 								int c = 0;
 								while (devname.size() >= 2) {
