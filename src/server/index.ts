@@ -77,18 +77,6 @@ const BTOP_HOST = process.env.BTOP_HOST || 'host.docker.internal'
 function mountBtopProxy(app: ReturnType<typeof express>, prefix: string, port: string, label: string) {
   const portNum = parseInt(port)
 
-  app.get(`${prefix}/frame.png`, (_req, res) => {
-    const proxyReq = http.request({ hostname: BTOP_HOST, port: portNum, path: '/frame.png', method: 'GET', timeout: 5000 }, (proxyRes) => {
-      res.status(proxyRes.statusCode || 200)
-      res.set('Content-Type', 'image/png')
-      res.set('Cache-Control', 'no-cache, no-store, must-revalidate')
-      proxyRes.pipe(res)
-    })
-    proxyReq.on('error', (err) => { console.error(`btop ${label} proxy error:`, err.message); res.status(503).json({ error: `btop ${label} unavailable` }) })
-    proxyReq.on('timeout', () => { proxyReq.destroy(); res.status(504).json({ error: `btop ${label} timeout` }) })
-    proxyReq.end()
-  })
-
   app.get(`${prefix}/health`, (_req, res) => {
     const proxyReq = http.request({ hostname: BTOP_HOST, port: portNum, path: '/health', method: 'GET', timeout: 2000 }, (proxyRes) => {
       res.status(proxyRes.statusCode || 200)
@@ -96,19 +84,6 @@ function mountBtopProxy(app: ReturnType<typeof express>, prefix: string, port: s
       proxyRes.pipe(res)
     })
     proxyReq.on('error', () => { res.status(503).json({ error: `btop ${label} unavailable` }) })
-    proxyReq.end()
-  })
-
-  app.get(`${prefix}/`, (_req, res) => {
-    const proxyReq = http.request({ hostname: BTOP_HOST, port: portNum, path: '/', method: 'GET', timeout: 5000 }, (proxyRes) => {
-      res.status(proxyRes.statusCode || 200)
-      res.set('Content-Type', 'text/html')
-      proxyRes.pipe(res)
-    })
-    proxyReq.on('error', (err) => {
-      console.error(`btop ${label} viewer proxy error:`, err.message)
-      res.status(503).send(`<html><body style="background:#000;color:#c9a0f0;font-family:monospace;display:flex;align-items:center;justify-content:center;height:100vh;margin:0">${label} monitor unavailable</body></html>`)
-    })
     proxyReq.end()
   })
 

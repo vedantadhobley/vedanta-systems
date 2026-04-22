@@ -377,6 +377,62 @@ export function createFoundFootyRouter(config: FoundFootyConfig): Router {
     return Array.from(allDates).sort().reverse()
   }
 
+  // ============ VIDEO PATH VALIDATION ============
+  // The video/download routes proxy reads to MinIO with the api's credentials.
+  // Without validation, anyone could guess (bucket, objectPath) pairs and read
+  // any bucket the api can see. Only serve paths that appear on a fixture in
+  // Mongo — i.e. URLs the frontend legitimately hands out.
+  //
+  // TTL cache avoids hitting Mongo on every range-chunk request. Positive
+  // entries live longer (active playback); negative entries expire quickly so
+  // newly added videos become reachable, but long enough to absorb probing.
+
+  const videoPathCache = new Map<string, { valid: boolean; expires: number }>()
+  const VALID_TTL_MS = 5 * 60 * 1000
+  const INVALID_TTL_MS = 30 * 1000
+
+  async function isValidVideoPath(bucket: string, objectPath: string): Promise<boolean> {
+    const url = `/video/${bucket}/${objectPath}`
+    const now = Date.now()
+
+    const cached = videoPathCache.get(url)
+    if (cached && cached.expires > now) return cached.valid
+
+    const database = await connectMongo()
+    if (!database) return false
+
+    const filter = {
+      $or: [
+        { 'events._s3_urls': url },
+        { 'events._s3_videos.url': url },
+      ],
+    }
+    const projection = { _id: 1 }
+
+    try {
+      const [completed, active, staging] = await Promise.all([
+        database.collection('fixtures_completed').findOne(filter, { projection }),
+        database.collection('fixtures_active').findOne(filter, { projection }),
+        database.collection('fixtures_staging').findOne(filter, { projection }),
+      ])
+      const valid = !!(completed || active || staging)
+      videoPathCache.set(url, { valid, expires: now + (valid ? VALID_TTL_MS : INVALID_TTL_MS) })
+      return valid
+    } catch (err) {
+      console.error('[found-footy] Video path validation error:', err)
+      return false
+    }
+  }
+
+  // Prune expired cache entries every minute so the Map doesn't grow unbounded
+  // under sustained probing.
+  setInterval(() => {
+    const now = Date.now()
+    for (const [url, entry] of videoPathCache) {
+      if (entry.expires <= now) videoPathCache.delete(url)
+    }
+  }, 60 * 1000)
+
   // ============ ROUTES ============
 
   // GET /health - returns current backend health status
@@ -663,11 +719,15 @@ export function createFoundFootyRouter(config: FoundFootyConfig): Router {
     if (!minioClient) {
       return res.status(503).json({ error: 'MinIO not configured' })
     }
-    
+
+    const bucket = req.params.bucket
+    const objectPath = req.params[0]
+
+    if (!(await isValidVideoPath(bucket, objectPath))) {
+      return res.status(404).json({ error: 'Video not found' })
+    }
+
     try {
-      const bucket = req.params.bucket
-      const objectPath = req.params[0]
-      
       // Get object stats first
       const stat = await minioClient.statObject(bucket, objectPath)
       const fileSize = stat.size
@@ -724,12 +784,17 @@ export function createFoundFootyRouter(config: FoundFootyConfig): Router {
     if (!minioClient) {
       return res.status(503).json({ error: 'MinIO not configured' })
     }
-    
+
+    const bucket = req.params.bucket
+    const objectPath = req.params[0]
+
+    if (!(await isValidVideoPath(bucket, objectPath))) {
+      return res.status(404).json({ error: 'Video not found' })
+    }
+
     try {
-      const bucket = req.params.bucket
-      const objectPath = req.params[0]
       const filename = objectPath.split('/').pop() || 'video.mp4'
-      
+
       // Get object stats
       const stat = await minioClient.statObject(bucket, objectPath)
       

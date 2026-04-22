@@ -51,6 +51,24 @@
   font-display: swap;
 }
 
+@font-face {
+  font-family: 'JetBrainsMono NF';
+  src: url('/fonts/JetBrainsMonoNerdFontMono-Regular.ttf') format('truetype'),
+       local('JetBrainsMono Nerd Font Mono'),
+       local('JetBrainsMono NF');
+  font-weight: normal;
+  font-display: swap;
+}
+
+.btop-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 6px;
+  height: 12px;
+  overflow: hidden;
+}
+
 @layer base {
   .content-scroll {
     bottom: 48px;
