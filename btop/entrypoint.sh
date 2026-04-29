@@ -47,7 +47,10 @@ EOF
 export SSH_AUTH_SOCK="${SSH_AUTH_SOCK:-/ssh-agent}"
 
 # Determine the command to run
-SSH_OPTS="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -p 22"
+# ServerAliveInterval/CountMax cause ssh to die within ~45s if the remote
+# becomes unreachable (e.g. joi reboots), so the watchdog below can exit and
+# Docker's restart policy reconnects with a fresh SSH session.
+SSH_OPTS="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10 -o ServerAliveInterval=15 -o ServerAliveCountMax=3 -p 22"
 
 if [ "$BTOP_HOST" = "local" ]; then
     BTOP_CMD="/usr/local/bin/btop"
@@ -103,5 +106,28 @@ echo "Starting broadcast server on port ${BROADCAST_PORT}..."
 echo "Architecture: btop → tmux → capture → aha → SSE broadcast"
 echo "All clients receive the same pre-rendered HTML (no per-client connections)"
 
-# Start the Python broadcast server (foreground - keeps container alive)
-exec python3 /usr/local/bin/broadcast-server.py
+if [ "$BTOP_HOST" = "local" ]; then
+    # Local: nothing to watch for. Broadcast server keeps the container alive.
+    exec python3 /usr/local/bin/broadcast-server.py
+fi
+
+# Remote: when the SSH session dies (remote reboot, network drop), the shell
+# inside the tmux pane exits and tmux destroys the empty session. Watchdog
+# that condition and exit nonzero so Docker restarts us with a fresh SSH.
+python3 /usr/local/bin/broadcast-server.py &
+BROADCAST_PID=$!
+
+trap 'kill "$BROADCAST_PID" 2>/dev/null; exit 0' TERM INT
+
+while tmux has-session -t btop 2>/dev/null; do
+    # Also bail if the broadcast server itself dies.
+    if ! kill -0 "$BROADCAST_PID" 2>/dev/null; then
+        echo "Broadcast server exited unexpectedly."
+        exit 1
+    fi
+    sleep 5
+done
+
+echo "tmux session ended (SSH to $BTOP_HOST died or remote btop crashed). Exiting for Docker restart..."
+kill "$BROADCAST_PID" 2>/dev/null || true
+exit 1

@@ -128,6 +128,13 @@ services:
       - BTOP_HOST=${BTOP_JOI_SSH_HOST}
       - SSH_AUTH_SOCK=/ssh-agent
 
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:4103/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
 networks:
   # Internal network for vedanta-systems DEV services
   vedanta-systems-dev:

@@ -33,6 +33,8 @@ TOTAL_CELLS = COLS * ROWS
 # Global state
 current_cells = None  # List of [char, fg, bg, bold]
 cells_lock = threading.Lock()
+last_capture_time = 0.0  # monotonic time of last successful tmux capture
+STALE_THRESHOLD_SEC = 30.0  # /health returns 503 if no fresh capture within this window
 
 # ANSI color palette (16 basic colors)
 COLORS_16 = [
@@ -213,13 +215,13 @@ def capture_btop_frame():
 
 def frame_updater():
     """Background thread that captures and parses frames."""
-    global current_cells
+    global current_cells, last_capture_time
     log("Frame updater thread started")
     time.sleep(3)  # Wait for btop to start
-    
+
     # Enforce terminal size on startup
     enforce_terminal_size()
-    
+
     frame_count = 0
     while True:
         try:
@@ -228,6 +230,7 @@ def frame_updater():
                 new_cells = parse_ansi_to_cells(raw_frame)
                 with cells_lock:
                     current_cells = new_cells
+                    last_capture_time = time.monotonic()
             
             # Periodically enforce terminal size (every 60 frames / ~1 minute)
             frame_count += 1
@@ -259,8 +262,16 @@ class BroadcastHandler(BaseHTTPRequestHandler):
             self.send_error(404)
     
     def serve_health(self):
-        content = b'ok'
-        self.send_response(200)
+        with cells_lock:
+            last = last_capture_time
+        age = time.monotonic() - last if last else None
+        if last == 0 or age is None or age > STALE_THRESHOLD_SEC:
+            content = f'stale age={age:.1f}s\n'.encode() if age is not None else b'stale never_captured\n'
+            status = 503
+        else:
+            content = f'ok age={age:.1f}s\n'.encode()
+            status = 200
+        self.send_response(status)
         self.send_header('Content-Type', 'text/plain')
         self.send_header('Content-Length', len(content))
         self.send_header('Access-Control-Allow-Origin', '*')

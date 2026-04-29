@@ -111,6 +111,16 @@ services:
       - BTOP_HOST=${BTOP_JOI_SSH_HOST}
       - SSH_AUTH_SOCK=/ssh-agent
 
+    # Visibility signal — /health returns 503 if no fresh capture in 30s.
+    # Note: compose does not auto-restart on unhealthy; the entrypoint
+    # watchdog is what triggers reconnects when the SSH session to joi dies.
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:3103/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
 networks:
   vedanta-systems-prod:
     name: vedanta-systems-prod
