@@ -8,9 +8,7 @@ services:
       dockerfile: Dockerfile.dev
       args:
         VITE_GITHUB_TOKEN: ${VITE_GITHUB_TOKEN}
-    # Dev uses 4100, prod uses 3100 (both on same machine)
-    ports:
-      - "4100:3000"
+    # Reachable via Caddy at http://vedanta-systems-dev.<base-domain>/
     environment:
       - VITE_API_BASE_URL=http://localhost:8080
       - VITE_ENVIRONMENT=development
@@ -34,6 +32,7 @@ services:
     networks:
       - vedanta-systems-dev
       - luv-dev
+      - proxy
     depends_on:
       - api
 
@@ -42,8 +41,7 @@ services:
     container_name: vedanta-systems-dev-api
     image: node:18-alpine
     working_dir: /app
-    ports:
-      - "4101:3001"
+    # Reachable via Caddy at http://vedanta-systems-dev-api.<base-domain>/
     environment:
       - API_PORT=3001
       - NODE_ENV=development
@@ -67,6 +65,7 @@ services:
     networks:
       - vedanta-systems-dev
       - luv-dev
+      - proxy
 
   # btop system monitor - luv node (local)
   btop-luv:
@@ -145,6 +144,12 @@ networks:
   # Only join this if you need to talk to OTHER projects
   luv-dev:
     name: luv-dev
+    external: true
+
+  # Caddy reverse proxy fronts HTTP services here.
+  # See ~/workspace/proxy/Caddyfile for hostname routes.
+  proxy:
+    name: proxy
     external: true
 
 # Example: Add your backend services here when ready
