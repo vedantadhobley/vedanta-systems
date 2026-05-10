@@ -6,22 +6,39 @@ workspace's `~/workspace/proxy/` stack and `~/.cloudflared/` config — they
 aren't tracked here because they're cross-cutting, but they're listed here
 so the deploy is reproducible from one place.
 
-## 1. Caddyfile additions (luv)
+## 1. Caddy routes (luv)
 
-Append to `~/workspace/proxy/Caddyfile`:
+The Caddy config on luv is split per-project. vedanta-systems is special
+because it owns both the public Cloudflare entry point and a dev tailnet
+route — these live in two different files:
+
+```
+~/workspace/proxy/caddy/caddy.d/public.caddy            # Cloudflare entry (vedanta.systems)
+~/workspace/proxy/caddy/caddy.d/vedanta-systems.caddy   # dev tailnet routes
+```
+
+Reference content (current source of truth is the files above):
 
 ```caddy
-# ─── vedanta-systems (public — Cloudflare tunnel entry) ────────────────────
-vedanta.systems, www.vedanta.systems {
+# in caddy.d/public.caddy
+http://vedanta.systems, http://www.vedanta.systems {
     reverse_proxy vedanta-systems-prod:3000
 }
 
-# ─── vedanta-systems (dev — tailnet only) ──────────────────────────────────
+# in caddy.d/vedanta-systems.caddy
 http://vedanta-systems-dev.{$BASE_DOMAIN}     { reverse_proxy vedanta-systems-dev:3000 }
 http://vedanta-systems-dev-api.{$BASE_DOMAIN} { reverse_proxy vedanta-systems-dev-api:3001 }
 ```
 
-Then: `docker compose -f ~/workspace/proxy/docker-compose.yml restart caddy`.
+After editing either file, reload Caddy without restarting the container:
+
+```bash
+docker exec proxy-caddy caddy reload --config /etc/caddy/Caddyfile
+```
+
+(The proxy stack uses a directory bind mount, so atomic-write edits to
+files inside `caddy/` flow through and `caddy reload` picks them up.
+See `~/workspace/proxy/README.md` for the gotcha mechanics.)
 
 There is intentionally **no `vedanta-systems-prod.<BASE_DOMAIN>` tailnet
 route**. Tailnet users hit the public `vedanta.systems` like everyone else
