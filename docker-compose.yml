@@ -39,6 +39,8 @@ services:
       - MINIO_SECRET_KEY=${FOUND_FOOTY_S3_PASS}
       # Spin Cycle PostgreSQL - connects to spin-cycle-prod-postgres on luv-prod network
       - SPIN_CYCLE_POSTGRES_URI=postgresql://${SPIN_CYCLE_POSTGRES_USER}:${SPIN_CYCLE_POSTGRES_PASS}@spin-cycle-prod-postgres:5432/spincycle
+      # Long Exposure PostgreSQL (TimescaleDB; narratives) - long-exposure-prod-postgres on luv-prod
+      - LONG_EXPOSURE_POSTGRES_URI=postgresql://${LONG_EXPOSURE_POSTGRES_USER:-leuser}:${LONG_EXPOSURE_POSTGRES_PASS:-lepass}@long-exposure-prod-postgres:5432/longexposure
       # btop runs with network_mode:host, so reach it via host gateway
       - BTOP_HOST=host-gateway
     extra_hosts:

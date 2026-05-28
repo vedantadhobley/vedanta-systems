@@ -8,6 +8,7 @@ import { PathSegment } from '@/components/filesystem-nav'
 // import { MoonBackground } from '@/components/moon-background'
 import { FoundFootyBrowser } from '@/components/found-footy-browser'
 import { SpinCycleBrowser } from '@/components/spin-cycle-browser'
+import { LongExposureBrowser } from '@/components/long-exposure-browser'
 import { ResumeViewer } from '@/components/resume-viewer'
 import { ProjectStatus } from '@/components/project-status'
 import { BtopMonitor } from '@/components/btop-monitor'
@@ -21,6 +22,7 @@ const projectGithubLinks: Record<string, string> = {
   '~/workspace/found-footy': 'https://github.com/vedantadhobley/found-footy',
   '~/workspace/vedanta-systems': 'https://github.com/vedantadhobley/vedanta-systems',
   '~/workspace/spin-cycle': 'https://github.com/vedantadhobley/spin-cycle',
+  '~/workspace/long-exposure': 'https://github.com/vedantadhobley/long-exposure',
 }
 
 // Project descriptions for the workspace page
@@ -36,6 +38,10 @@ const projectDescriptions: Record<string, { name: string; blurb: string }> = {
   '~/workspace/spin-cycle': {
     name: 'spin-cycle',
     blurb: 'Automated news claim verification pipeline. Ingests transcripts, extracts claims, and delivers structured verdicts with full evidence chains.'
+  },
+  '~/workspace/long-exposure': {
+    name: 'long-exposure',
+    blurb: 'A full day of IEX market activity, rendered into something you can read. Parses the exchange\'s binary order-by-order feed nightly, detects notable microstructure events (halts, sweeps, layering, post-cancel clusters), and narrates them through a locally-hosted LLM.'
   },
 }
 
@@ -54,6 +60,7 @@ const folderContents: Record<string, FolderContent[]> = {
     { name: 'vedanta-systems', path: '~/workspace/vedanta-systems', type: 'folder' },
     { name: 'found-footy', path: '~/workspace/found-footy', type: 'folder' },
     { name: 'spin-cycle', path: '~/workspace/spin-cycle', type: 'folder' },
+    { name: 'long-exposure', path: '~/workspace/long-exposure', type: 'folder' },
   ],
 }
 
@@ -174,6 +181,16 @@ function DirectoryListing() {
             <SpinCycleContent />
           )}
 
+          {/* Long Exposure Browser - ~/workspace/long-exposure */}
+          {fsPath === '~/workspace/long-exposure' && (
+            <>
+              <ProjectStatus githubUrl={projectGithubLinks[fsPath]} />
+              <div className="mt-6">
+                <LongExposureBrowser />
+              </div>
+            </>
+          )}
+
           {/* About page - Resume */}
           {fsPath === '~/about' && (
             <AboutContent />
@@ -191,7 +208,7 @@ function DirectoryListing() {
           )}
 
           {/* Other project pages - just show GitHub link */}
-          {fsPath !== '~/workspace/found-footy' && fsPath !== '~/workspace/spin-cycle' && fsPath !== '~/workspace/vedanta-systems' && projectGithubLinks[fsPath] && (
+          {fsPath !== '~/workspace/found-footy' && fsPath !== '~/workspace/spin-cycle' && fsPath !== '~/workspace/vedanta-systems' && fsPath !== '~/workspace/long-exposure' && projectGithubLinks[fsPath] && (
             <ProjectStatus
               githubUrl={projectGithubLinks[fsPath]}
             />

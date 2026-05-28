@@ -47,6 +47,8 @@ services:
       - NODE_ENV=development
       # Spin Cycle PostgreSQL
       - SPIN_CYCLE_POSTGRES_URI=postgresql://${SPIN_CYCLE_POSTGRES_USER}:${SPIN_CYCLE_POSTGRES_PASS}@spin-cycle-dev-postgres:5432/spincycle
+      # Long Exposure PostgreSQL (TimescaleDB; narratives table)
+      - LONG_EXPOSURE_POSTGRES_URI=postgresql://${LONG_EXPOSURE_POSTGRES_USER:-leuser}:${LONG_EXPOSURE_POSTGRES_PASS:-lepass}@long-exposure-dev-postgres:5432/longexposure
       # btop proxy target (runs on host network)
       - BTOP_HOST=host.docker.internal
       # MongoDB

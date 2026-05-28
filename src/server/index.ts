@@ -5,6 +5,7 @@ import http from 'http'
 // Import project routes
 import { createFoundFootyRouter } from './routes/found-footy'
 import { createSpinCycleRouter } from './routes/spin-cycle'
+import { createLongExposureRouter } from './routes/long-exposure'
 
 const app = express()
 app.use(cors())
@@ -38,6 +39,11 @@ const spinCycleConfig = {
   postgresUri: process.env.SPIN_CYCLE_POSTGRES_URI || '',
 }
 
+// Long Exposure configuration (from environment)
+const longExposureConfig = {
+  postgresUri: process.env.LONG_EXPOSURE_POSTGRES_URI || '',
+}
+
 // Validate Found Footy config - fail fast if not configured
 if (!foundFootyConfig.mongoUri) {
   throw new Error('MONGODB_URI environment variable is required')
@@ -54,6 +60,11 @@ if (!spinCycleConfig.postgresUri) {
   console.warn('⚠️  SPIN_CYCLE_POSTGRES_URI not set — spin-cycle routes will fail')
 }
 
+// Validate Long Exposure config
+if (!longExposureConfig.postgresUri) {
+  console.warn('⚠️  LONG_EXPOSURE_POSTGRES_URI not set — long-exposure routes will fail')
+}
+
 // ============ MOUNT PROJECT ROUTES ============
 
 // Found Footy - Goal clip aggregator
@@ -66,6 +77,14 @@ app.use('/api/found-footy', foundFootyRouter)
 if (spinCycleConfig.postgresUri) {
   const spinCycleRouter = createSpinCycleRouter(spinCycleConfig)
   app.use('/api/spin-cycle', spinCycleRouter)
+}
+
+// Long Exposure - Daily IEX market-data narrative feed
+// Endpoints: /api/long-exposure/health, /dates, /latest, /day/:date, /symbol/:symbol, /event/:id
+// All read-only — no write/refresh/admin surface, so no public-endpoint blocks needed at nginx.
+if (longExposureConfig.postgresUri) {
+  const longExposureRouter = createLongExposureRouter(longExposureConfig)
+  app.use('/api/long-exposure', longExposureRouter)
 }
 
 // ============ BTOP PROXY ============
