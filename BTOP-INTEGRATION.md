@@ -340,7 +340,40 @@ The `vedanta-lavender.theme` uses colors from the GitHub contribution graph lave
 
 ## Known Issues
 
-None currently. The CSS Grid rendering provides pixel-perfect alignment on both desktop and mobile.
+**iGPU utilization bar reads 0% on Strix Halo under Vulkan workloads.**
+
+Symptom: GPU compute is clearly running (model is generating tokens, the
+power/clock/memory side of the GPU panel spikes, system temps rise), but
+btop's GPU utilization percentage bar stays pinned at 0%.
+
+Cause: btop reads the iGPU's busy percentage from ROCm SMI (which only
+counts HIP / ROCm queues, not Vulkan compute on gfx1151) and from the
+kernel's `/sys/class/drm/card*/device/gpu_busy_percent` sysfs counter,
+which is unreliable for Vulkan compute on Strix Halo APUs as of the
+6.x kernel series. The clock + memory panels read correctly because
+those come from different sysfs paths (`pp_dpm_sclk` / `pp_dpm_mclk`).
+
+This is a kernel/driver-side gap, not something the patches above can
+fix in btop itself. **For accurate iGPU utilization monitoring on
+joi, use [`amdgpu_top`](https://github.com/Umio-Yasuno/amdgpu_top)**:
+
+```bash
+# install (Cargo or pre-built release)
+cargo install amdgpu_top
+# or download the .deb from the GitHub releases page
+
+# live read of GFX / compute / decode / encode engine utilization
+amdgpu_top
+```
+
+`amdgpu_top` reads the per-engine ring busy counters directly from
+`/sys/kernel/debug/dri/*/amdgpu_*` (the kernel side btop doesn't
+plumb), and explicitly handles APU + Vulkan workloads correctly. It's
+the tool of record for any Strix Halo iGPU monitoring this stack
+doesn't surface.
+
+The CSS Grid rendering provides pixel-perfect alignment on both
+desktop and mobile.
 
 ## Future: Multi-System Support
 
