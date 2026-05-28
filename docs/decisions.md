@@ -1,0 +1,76 @@
+# Decisions
+
+Append-only log of architectural decisions for vedanta-systems.
+Newest at the bottom. Each entry: date · short title · context ·
+decision · consequences. When a decision is later reversed, *add a
+new entry* — never edit history in place.
+
+---
+
+## 2026-05-28 — Adopt AGENTS.md + docs/ as the front-door pattern
+
+**Context.** The repo accumulated several top-level MDs over its life
+(`README.md`, `QUICKSTART.md`, `CLOUDFLARE-SETUP.md`,
+`CONTAINER-ARCHITECTURE.md`, `MONITORING_PANE.md`, `PORT-ALLOCATION.md`,
+`BTOP-INTEGRATION.md`, `TIMEZONE-FIXTURE-SCOPING.md`) without a clear
+front-door for agents — each was a topic page; none was the entry
+point. Sibling projects `found-footy/` and `legal-tender/` use an
+`AGENTS.md` (front door) + `CLAUDE.md` symlink + `docs/` (topic pages)
+pattern and reference each other through it.
+
+**Decision.** Adopt the same shape here: `AGENTS.md` at the root,
+`CLAUDE.md` symlinked to it, `docs/` directory for subordinate topic
+docs. Auto-memory under `~/.claude/projects/<project>/memory/` stays
+minimal — project facts belong here in the versioned repo, not in
+per-machine memory.
+
+**Consequences.** The legacy root MDs are now migration targets, not
+the source of truth. The detailed cleanup checklist lives in
+`docs/todo.md` ("Doc cleanup pass"). New project facts land in
+`docs/*.md`; new architectural decisions append below this entry.
+
+---
+
+## 2026-05-28 — Pattern A → Pattern B for cross-project integration
+
+**Context.** `~/workspace/proxy/CONVENTIONS.md` lays out two patterns
+for how vedanta-systems' Express BFF surfaces other projects:
+
+- **Pattern A** — vs-api opens direct DB connections into each
+  project (mongo, minio, postgres) and serves data from there. Schema
+  knowledge and credentials for every project end up in vs-api.
+- **Pattern B** — each project ships its own `*-api`, and vs-api is
+  a thin HTTP proxy: `/api/<project>/*` →
+  `<project>-{env}-api:<port>`. Each project owns its data plane;
+  vs-api owns presentation routing only.
+
+Current snapshot (2026-05-28):
+
+| Project | Status |
+|---|---|
+| found-footy | Pattern A — `src/server/routes/found-footy.ts` reads mongo + minio directly. A `found-footy-dev-api:8080` already exists per `~/workspace/proxy/caddy/caddy.d/found-footy.caddy`. |
+| spin-cycle | Pattern A — reads `spin-cycle-{env}-postgres` directly via `pg`. `spin-cycle-{env}-api:3000` already exists upstream. |
+| long-exposure | Pattern A by design (for now) — reads `long-exposure-{env}-postgres` directly. There is no separate long-exposure API yet; `caddy.d/long-exposure.caddy` documents the current single-source-of-truth choice. |
+| legal-tender | Not surfaced yet. Pattern B from day one when it lands. |
+
+**Decision.** Pattern B is the target. Migrate per project when next
+touched for feature work — no "migrate for its own sake" bundles.
+New project integrations don't add direct-DB peers in
+`src/server/index.ts` or new routers in
+`src/server/routes/<project>.ts` that import database clients.
+
+**Consequences.**
+
+- For new projects: scaffold a thin HTTP proxy router; the project
+  itself ships an `<project>-{env}-api` and a Caddyfile entry. Done.
+- For found-footy + spin-cycle: bundle the migration with the next
+  feature that touches each project's data surface. Don't reshuffle
+  proactively.
+- For long-exposure: revisit when LE grows its own API service. The
+  current `src/server/routes/long-exposure.ts` is acceptable
+  technical debt — explicitly called out as such in the file header.
+
+See `docs/todo.md` "Pattern A → Pattern B migration" for the per-project
+backlog.
+
+---
