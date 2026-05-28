@@ -30,10 +30,16 @@ export default defineConfig({
       interval: 1000,  // Check every second instead of constantly
     },
     proxy: {
-      // API proxy - all backend requests go through /api
-      // This includes btop frames (/api/btop/frame.png) routed through the Express server
+      // API proxy — all backend requests go through /api.
+      // The Vite dev server runs in the `vedanta-systems-dev` container,
+      // so docker-internal hostname resolution applies; targeting the
+      // sibling api container directly is the correct hop. Previous
+      // `host.docker.internal:4101` only worked if a host-side proxy
+      // was forwarding 4101→api, which isn't the case in the current
+      // compose — left dev frontend unable to reach the api, breaking
+      // /api/found-footy/* + /api/btop/* + every other backend route.
       '/api': {
-        target: 'http://host.docker.internal:4101',
+        target: 'http://vedanta-systems-dev-api:3001',
         changeOrigin: true,
       },
     },
