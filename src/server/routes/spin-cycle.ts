@@ -1,6 +1,31 @@
 import { Router, Response, Request } from 'express'
 import { Pool } from 'pg'
 
+/**
+ * Spin Cycle API surface. Currently **Pattern A** — vs-api opens a
+ * direct `pg` pool to `spin-cycle-{env}-postgres` over the shared
+ * `luv-{env}` docker network, and serves claim-verification data
+ * and the SSE refresh stream from there.
+ *
+ * Target shape is **Pattern B** per `~/workspace/proxy/CONVENTIONS.md`
+ * and `docs/decisions.md` ("Pattern A → Pattern B for cross-project
+ * integration"): proxy `/api/spin-cycle/*` to `spin-cycle-{env}-api:3000`
+ * (already exists upstream — see
+ * `~/workspace/proxy/caddy/caddy.d/spin-cycle.caddy`). Swap the pg
+ * pool for an HTTP client.
+ *
+ * Migrate when next touching this file for feature work — don't
+ * migrate proactively. The internal-only `/refresh` hook (404'd at
+ * public nginx, called by the spin-cycle worker over `luv-{env}` →
+ * `vedanta-systems-{env}-api:3001`) needs to keep working through
+ * the migration.
+ *
+ * Maintenance posture: see `docs/todo.md` "spin-cycle maintenance
+ * posture" — this route doesn't degrade gracefully if the upstream
+ * postgres goes away mid-flight (calls surface as 500s from the
+ * pool).
+ */
+
 export interface SpinCycleConfig {
   postgresUri: string
 }

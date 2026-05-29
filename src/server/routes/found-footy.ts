@@ -2,6 +2,29 @@ import { Router, Response, Request } from 'express'
 import { MongoClient, Db } from 'mongodb'
 import { Client as MinioClient } from 'minio'
 
+/**
+ * Found Footy API surface. Currently **Pattern A** — vs-api opens
+ * direct connections to `found-footy-{env}-mongo` and
+ * `found-footy-{env}-minio` over the shared `luv-{env}` docker
+ * network, and serves fixture data, video proxying, and the SSE
+ * refresh stream from there.
+ *
+ * Target shape is **Pattern B** per `~/workspace/proxy/CONVENTIONS.md`
+ * and `docs/decisions.md` ("Pattern A → Pattern B for cross-project
+ * integration"): proxy `/api/found-footy/*` to a per-project API
+ * container. A dev API already exists at `found-footy-dev-api:8080`
+ * (see `~/workspace/proxy/caddy/caddy.d/found-footy.caddy`); the
+ * prod-side `found-footy-prod-api` ships with the next found-footy
+ * feature.
+ *
+ * Migrate when next touching this file for feature work — don't
+ * migrate proactively. When you do: the internal-only `/refresh`
+ * hook (404'd at public nginx, called by the found-footy worker
+ * over `luv-{env}` → `vedanta-systems-{env}-api:3001`) needs to
+ * keep working; the SSE pipe from there to subscribed browsers
+ * lives in this file.
+ */
+
 // Configuration interface for Found Footy routes
 export interface FoundFootyConfig {
   mongoUri: string
