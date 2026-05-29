@@ -115,3 +115,27 @@ artifact of the retired auto-deploy scheme — flagged in
 `docs/todo.md` for follow-up rather than bundled here.
 
 ---
+
+## 2026-05-29 — Remove the dead GitHub Actions deploy workflow
+
+**Context.** `.github/workflows/deploy.yml` SSHed to
+`~/projects/prod/vedanta-systems` (retired workspace path) and did
+`git pull && docker compose up`. Dead since the workspace layout
+moved to `~/workspace/dev/`, and `~/workspace/prod/` (the prod
+replica directory) is not yet set up per the layout note in
+`~/.claude/CLAUDE.md`.
+
+**Decision.** Delete. The planned replacement for "push-to-main
+auto-rebuilds prod" is workspace-level — local code copy or local
+pull into `~/workspace/prod/<project>` with no GitHub round-trip —
+and lives in `~/workspace/` somewhere, not per-project. Carrying a
+misleading per-project workflow until the workspace-level scheme
+exists is worse than no workflow.
+
+**Consequences.** Push-to-main has no auto-deploy effect for this
+repo. Prod deploys are manual
+(`docker compose -f docker-compose.yml up -d --build`) until the
+workspace-level scheme lands. Not tracked here further; that work
+isn't vedanta-systems' scope.
+
+---

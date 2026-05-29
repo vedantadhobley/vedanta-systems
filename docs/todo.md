@@ -117,20 +117,6 @@ SSR-style data injection — is dead: the `$needs_footy_data` map in
 mobile). The dead code path in `og-server.js` could be trimmed; no
 behavior impact, just less surface area.
 
-## Verify — GitHub Actions deploy workflow
-
-`.github/workflows/deploy.yml` SSHes to `~/projects/prod/vedanta-systems`
-(wrong path; current workspace is `~/workspace/`) and runs
-`git pull && docker compose up`. Tied to the same retired
-auto-deploy scheme as the legacy `scripts/setup-auto-pull.sh` /
-`scripts/auto-pull.sh` (deleted in this commit). Either delete the
-workflow file or fix it to target `~/workspace/prod/vedanta-systems`
-(which isn't set up yet per the workspace layout in
-`~/.claude/CLAUDE.md`). Not deleted in the doc-cleanup commit
-because it's a separate system — flag for a follow-up.
-
----
-
 ## Future projects in the portal
 
 Parking lot — not active work.
