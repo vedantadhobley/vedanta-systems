@@ -68,38 +68,6 @@ without code changes.
 
 ---
 
-## Soon — doc cleanup pass (phase 4 of the makeover)
-
-Per the legacy section in `AGENTS.md`. None of these block other
-work; bundle into a single PR when ready.
-
-- `BTOP-INTEGRATION.md` → move (verbatim) to `docs/btop.md`. Currently
-  accurate; relocation only.
-- `CONTAINER-ARCHITECTURE.md` → replace with a shorter
-  `docs/architecture.md` reflecting Caddy + Cloudflared + in-container
-  nginx as it is *now*. The current file describes the pre-Caddy
-  world (`~/projects/` paths, port-as-environment-marker scheme).
-- `CLOUDFLARE-SETUP.md` → prune. Bring-up reference is now
-  `deploy/INFRA-NOTES.md` + `~/workspace/proxy/`.
-- `QUICKSTART.md` → prune. References `~/projects/` and the
-  retired GitHub Actions auto-deploy flow.
-- `MONITORING_PANE.md` → prune. The proposal was a Loki-driven
-  monitoring pane; the vedanta-systems page (with the btop
-  integration) now plays that role.
-- `PORT-ALLOCATION.md` → replace with a one-line pointer to the
-  canonical table in `~/.claude/CLAUDE.md`. Current contents are
-  stale (refs `3101 API` etc.; the Caddy migration eliminated the
-  port-per-service scheme).
-- `TIMEZONE-FIXTURE-SCOPING.md` → verify against
-  `src/contexts/timezone-context.tsx` first. If invariants are
-  still live, move to `docs/timezone.md`. If the surrounding code
-  has moved on, prune.
-
-When this lands, the `AGENTS.md` "Legacy root MDs" section gets
-removed.
-
----
-
 ## Soon — README rewrite
 
 `README.md` still describes the pre-Caddy world: nginx-only, GitHub
@@ -148,24 +116,37 @@ data surface. Don't migrate proactively.
 
 `nginx.conf` is still load-bearing in prod (crawler routing to OG
 server, internal-only webhook 404s, SSE/range quirks, video
-streaming). But two specific blocks look stale and should be
-verified before the next prod cut:
+streaming). One specific block looks stale:
 
-1. The `/btop-luv/` location block sets `$btop_upstream` to
-   `vedanta-systems-prod-btop` — a container name that no longer
-   exists. The actual containers are `vedanta-systems-prod-btop-luv`
-   and `vedanta-systems-prod-btop-joi` (post luv/joi split), and they
-   both run `network_mode: host` so they're not reachable via docker
-   DNS anyway. Btop traffic goes through the Express API
-   (`/api/btop-{luv,joi}/*`), which reaches host ports via
-   `host-gateway`. The `/btop-luv/` block in `nginx.conf` appears
-   dead — verify and remove.
-2. The `Dockerfile` (prod) still bakes `nodejs` into the image for
-   `og-server.js`, and the og-server expects to listen on `:3002`
-   (referenced from `nginx.conf` via `proxy_pass http://127.0.0.1:3002`).
-   Confirm `start.sh` actually starts og-server alongside nginx and
-   `og-server.js` is current; if og-server is dead, this is a
-   reachable surface area to remove.
+- The `/btop-luv/` location block sets `$btop_upstream` to
+  `vedanta-systems-prod-btop` — a container name that no longer
+  exists. The actual containers are `vedanta-systems-prod-btop-luv`
+  and `vedanta-systems-prod-btop-joi` (post luv/joi split), and they
+  both run `network_mode: host` so they're not reachable via docker
+  DNS anyway. Btop traffic goes through the Express API
+  (`/api/btop-{luv,joi}/*`), which reaches host ports via
+  `host-gateway`. The `/btop-luv/` block in `nginx.conf` appears
+  dead — verify and remove.
+
+Related minor cleanup: `og-server.js` is alive (serves dynamic OG
+meta tags for crawlers via the `error_page 418` path; `start.sh`
+launches it alongside nginx). But its second responsibility —
+SSR-style data injection — is dead: the `$needs_footy_data` map in
+`nginx.conf` is commented out (preload added 1.3MB and crashed
+mobile). The dead code path in `og-server.js` could be trimmed; no
+behavior impact, just less surface area.
+
+## Verify — GitHub Actions deploy workflow
+
+`.github/workflows/deploy.yml` SSHes to `~/projects/prod/vedanta-systems`
+(wrong path; current workspace is `~/workspace/`) and runs
+`git pull && docker compose up`. Tied to the same retired
+auto-deploy scheme as the legacy `scripts/setup-auto-pull.sh` /
+`scripts/auto-pull.sh` (deleted in this commit). Either delete the
+workflow file or fix it to target `~/workspace/prod/vedanta-systems`
+(which isn't set up yet per the workspace layout in
+`~/.claude/CLAUDE.md`). Not deleted in the doc-cleanup commit
+because it's a separate system — flag for a follow-up.
 
 ---
 

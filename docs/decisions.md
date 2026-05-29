@@ -74,3 +74,44 @@ See `docs/todo.md` "Pattern A → Pattern B migration" for the per-project
 backlog.
 
 ---
+
+## 2026-05-29 — Doc reorganization: legacy MDs migrated into `docs/`
+
+**Context.** Two days after the AGENTS.md/docs/ bootstrap landed, the
+legacy root MDs needed disposition. They split into three buckets after
+a code-verification pass: still-current (`BTOP-INTEGRATION.md`,
+`TIMEZONE-FIXTURE-SCOPING.md` — the latter surprised me, but its
+contract matches `src/contexts/timezone-context.tsx` and
+`src/components/found-footy-browser.tsx` today), worth-rewriting-from-
+current-truth (`CONTAINER-ARCHITECTURE.md`, `PORT-ALLOCATION.md`), and
+fully-superseded (`CLOUDFLARE-SETUP.md`, `QUICKSTART.md`,
+`MONITORING_PANE.md`). The `scripts/` directory + its README turned
+out to be wholly dead too — every script in there targeted
+`~/projects/prod/vedanta-systems` (retired workspace path) or
+provisioned cloudflared as a systemd service (cloudflared now runs
+as a docker container in `~/workspace/proxy/`).
+
+**Decision.** Migration map (this commit):
+
+| From | To | How |
+|---|---|---|
+| `BTOP-INTEGRATION.md` | `docs/btop.md` | `git mv` — content preserved |
+| `TIMEZONE-FIXTURE-SCOPING.md` | `docs/found-footy-timezone.md` | `git mv` — content preserved, namespaced for future per-project timezone notes |
+| `CONTAINER-ARCHITECTURE.md` | `docs/architecture.md` | fresh write from current truth (Caddy + in-container nginx + Vite-in-dev + btop host-network exception) |
+| `PORT-ALLOCATION.md` | `docs/ports.md` | fresh write — only btop's host ports are current; HTTP services use Caddy |
+| `CLOUDFLARE-SETUP.md` | — (pruned) | superseded by `deploy/INFRA-NOTES.md` + `~/workspace/proxy/` |
+| `QUICKSTART.md` | — (pruned) | superseded by README + `~/workspace/proxy/` |
+| `MONITORING_PANE.md` | — (pruned) | the portal page itself plays this role now |
+| `scripts/setup-cloudflare-tunnel.sh` | — (pruned) | host-systemd cloudflared scheme retired |
+| `scripts/setup-auto-pull.sh`, `scripts/auto-pull.sh`, `scripts/README.md` | — (pruned) | targeted `~/projects/prod/`; retired |
+
+`AGENTS.md`'s "Where to look first" section now points at the new
+`docs/*.md` files; the "Legacy root MDs" section is gone.
+
+**Consequences.** The repo root is no longer a scratchpad of stale
+topic pages. New content goes under `docs/` and gets referenced from
+`AGENTS.md`. The `.github/workflows/deploy.yml` is the only remaining
+artifact of the retired auto-deploy scheme — flagged in
+`docs/todo.md` for follow-up rather than bundled here.
+
+---

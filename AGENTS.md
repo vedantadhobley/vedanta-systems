@@ -63,8 +63,7 @@ The proxy stack itself lives in `~/workspace/proxy/`; its
   for true network/process visibility. luv = local; joi = same image
   but the entrypoint SSHes out to joi and runs btop there.
   AMD-APU-specific patches (GTT memory type, rocm-smi v1.x acceptance,
-  custom theme) in `btop/src/`. See `BTOP-INTEGRATION.md` (queued for
-  `docs/btop.md`).
+  custom theme) in `btop/src/`. See `docs/btop.md`.
 
 ## Surfaced projects (vs-api integration status)
 
@@ -82,21 +81,15 @@ Pattern A vs B is the central architectural call here — see
 ## Where to look first
 
 - @README.md — public-facing project description (stale; rewrite queued in @docs/todo.md)
-- @deploy/INFRA-NOTES.md — Caddy + Cloudflared bring-up reference for this repo's slice of the workspace
+- @deploy/INFRA-NOTES.md — Caddy + Cloudflared bring-up reference for this repo's slice
+- @docs/architecture.md — request paths (prod via Caddy → in-container nginx → SPA / api / og-server; dev via Caddy → Vite proxy → api), network model, btop's network_mode:host exception
+- @docs/btop.md — btop integration deep dive (AMD APU patches, custom theme, SSE protocol, known iGPU Vulkan 0% issue)
+- @docs/ports.md — host-port allocation (btop only; HTTP services go through Caddy)
+- @docs/found-footy-timezone.md — fixture-visibility rule × timezone-toggle interaction (load-bearing for found-footy-browser.tsx)
 - @docs/decisions.md — append-only architectural decisions log
-- @docs/todo.md — active work, deferred items, doc-reorg checklist
-- @BTOP-INTEGRATION.md — current; will move to `docs/btop.md` in the doc cleanup pass
-- `~/workspace/proxy/CONVENTIONS.md` — workspace-wide naming + networking contract (load-bearing for this repo; not @-imported because it's cross-repo)
+- @docs/todo.md — active work + deferred items
+- `~/workspace/proxy/CONVENTIONS.md` — workspace-wide naming + networking contract (cross-repo)
 - `~/workspace/proxy/README.md` — proxy stack mechanics (Caddy / dnsmasq / cloudflared, the `caddy reload` bind-mount gotcha)
-
-**Legacy root MDs (pending cleanup — see @docs/todo.md, not the source of truth anymore):**
-
-- `CONTAINER-ARCHITECTURE.md` — predates Caddy migration (`~/projects/` paths, port-as-environment-marker scheme). Replace with `docs/architecture.md`.
-- `CLOUDFLARE-SETUP.md` — superseded by `deploy/INFRA-NOTES.md` + `~/workspace/proxy/`.
-- `QUICKSTART.md` — references `~/projects/` and the old GitHub Actions auto-deploy flow. Prune; quickstart belongs in README.
-- `MONITORING_PANE.md` — proposed a Loki-driven monitoring pane, but the portal itself (with btop) now plays that role. Prune.
-- `PORT-ALLOCATION.md` — stale (refs `3101 API` etc.); superseded by the canonical table in `~/.claude/CLAUDE.md`. Replace with a one-line pointer.
-- `TIMEZONE-FIXTURE-SCOPING.md` — verify against `src/contexts/timezone-context.tsx` before pruning; may still describe a live invariant.
 
 ## Conventions
 
@@ -124,7 +117,7 @@ Pattern A vs B is the central architectural call here — see
 - **Long Exposure surfaced (v1, landed 2026-05-28)**: `src/components/long-exposure-browser.tsx` + `src/server/routes/long-exposure.ts` + `src/types/long-exposure.ts` + compose env wiring (`LONG_EXPOSURE_POSTGRES_URI` on dev + prod api containers) + a folder card / render block in `App.tsx`. Minimal v1 lists today's narrated events grouped by scorer. Drill-down / daily synthesis / weekly aggregate / quarterly-extensible reusable components are queued — see @docs/todo.md.
 - **Spin-cycle**: route active. Project itself is scheduled for maintenance (out-of-band). vs-api spin-cycle route is gated on `SPIN_CYCLE_POSTGRES_URI` at startup but doesn't currently degrade gracefully if the upstream goes away mid-flight. Decide-during-maintenance is in @docs/todo.md.
 - **Legal Tender**: not surfaced. ETA ≥1 week (out of band).
-- **btop**: working on luv + joi via per-node containers. Known issue: Vulkan iGPU busy% reads 0% (kernel/driver gap; see `BTOP-INTEGRATION.md`).
+- **btop**: working on luv + joi via per-node containers. Known issue: Vulkan iGPU busy% reads 0% (kernel/driver gap; see `docs/btop.md`).
 - **Open infra question**: `nginx.conf`'s `/btop-luv/` location block references `vedanta-systems-prod-btop` (singular) — predates the luv/joi split where the actual container is `vedanta-systems-prod-btop-luv`. Probably stale/dead; verify before pruning. Tracked in @docs/todo.md.
 
 ## Memory model (for me, the agent)
