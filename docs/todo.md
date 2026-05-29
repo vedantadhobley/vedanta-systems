@@ -68,25 +68,6 @@ without code changes.
 
 ---
 
-## Soon — README rewrite
-
-`README.md` still describes the pre-Caddy world: nginx-only, GitHub
-Actions auto-deploy (gone), found-footy as the only surfaced
-project. Rewrite to reflect:
-
-- Current framing (portal + ecosystem + system monitoring; same as
-  the AGENTS.md opener but shaped for a public reader, not an agent).
-- Current bring-up via `~/workspace/proxy/` (not the in-repo
-  `scripts/setup-cloudflare-tunnel.sh`, which is now misleading —
-  cloudflared is no longer bundled with this repo).
-- All four surfaced projects (found-footy, spin-cycle, long-exposure,
-  btop), not just found-footy.
-
-The cyberpunk-aesthetic note from the current README is fine to keep
-— that's still true.
-
----
-
 ## Pattern A → Pattern B migration (per project)
 
 Decision rationale in `docs/decisions.md`. Per-project backlog:
