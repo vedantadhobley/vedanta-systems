@@ -1,25 +1,34 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import type {
+  LongExposureDateRow,
   LongExposureDay,
   LongExposureNarrative,
   LongExposureSynthesis,
+  LongExposureAggregate,
 } from '@/types/long-exposure'
 import { cn } from '@/lib/utils'
 
 /**
  * Long Exposure browser.
  *
- * Renders one trading day in journalist-format from top to bottom:
- *   1. Date header
+ * Renders one trading day (or week) in journalist-format from top to bottom:
+ *   1. DateNavigator: prev/next + date picker + Day|Week toggle
  *   2. Executive summary (5 deterministic bullets, no LLM)
- *   3. Today's themes prose (the SYNTHESIZE paragraph)
- *   4. Notable extremes (largest block, longest halt, biggest sweep, etc.)
- *   5. Per-scorer event groups, each collapsible
+ *   3. Today's themes prose (the SYNTHESIZE / AGGREGATE paragraph)
+ *   4. Notable extremes
+ *   5. Per-scorer event groups (day) OR per-day breakdown (week)
  *
  * Each event card has a one-line preview + DESCRIBE prose; click expands
  * to show INTERPRET surrounding-context + "show source data" toggle for
  * the breakdown JSON (the verifier-moat transparency layer).
+ *
+ * Date navigation: prev/next walk within the available trading-date list
+ * fetched from /api/long-exposure/dates. The date itself is clickable —
+ * opens a popover listing every available date. Week toggle switches to
+ * the AGGREGATE view for the week containing the current date.
  */
+
+type Mode = 'day' | 'week'
 
 const SCORER_LABELS: Record<string, string> = {
   halt: 'Trading halts',
@@ -46,51 +55,294 @@ const SCORER_ORDER = [
 ]
 
 export function LongExposureBrowser() {
-  const [latestDate, setLatestDate] = useState<string | null>(null)
-  const [day, setDay] = useState<LongExposureDay | null>(null)
-  const [synth, setSynth] = useState<LongExposureSynthesis | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [mode, setMode] = useState<Mode>('day')
+  const [currentDate, setCurrentDate] = useState<string | null>(null)
+  const [dates, setDates] = useState<LongExposureDateRow[]>([])
+  const [datesLoading, setDatesLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  // Step 1: fetch the latest available date
+  // Fetch the list of all available dates once on mount.
   useEffect(() => {
     let cancelled = false
-    fetch('/api/long-exposure/latest')
-      .then((r) => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`)
-        return r.json()
-      })
-      .then((data: { date: string | null }) => {
+    Promise.all([
+      fetch('/api/long-exposure/dates').then((r) => {
+        if (!r.ok) throw new Error(`dates HTTP ${r.status}`)
+        return r.json() as Promise<LongExposureDateRow[]>
+      }),
+      fetch('/api/long-exposure/latest').then((r) => {
+        if (!r.ok) throw new Error(`latest HTTP ${r.status}`)
+        return r.json() as Promise<{ date: string | null }>
+      }),
+    ])
+      .then(([dateList, latest]) => {
         if (cancelled) return
-        if (!data.date) {
-          setError('No narrated dates available yet.')
-          setLoading(false)
-          return
-        }
-        setLatestDate(data.date)
+        // Newest first (matches typical date-list UX expectation).
+        const sorted = [...dateList].sort((a, b) => b.date.localeCompare(a.date))
+        setDates(sorted)
+        setCurrentDate(latest.date)
+        setDatesLoading(false)
       })
       .catch((err) => {
         if (cancelled) return
         setError(err.message)
-        setLoading(false)
+        setDatesLoading(false)
       })
     return () => {
       cancelled = true
     }
   }, [])
 
-  // Step 2: in parallel fetch the day's events + the synthesis (with data_table)
+  if (datesLoading) {
+    return <div className="text-corpo-text/50 text-sm">Loading Long Exposure…</div>
+  }
+  if (error) {
+    return <div className="text-red-400 text-sm">Long Exposure error: {error}</div>
+  }
+  if (!currentDate) {
+    return <div className="text-corpo-text/50 text-sm">No narrated dates available yet.</div>
+  }
+
+  return (
+    <div className="space-y-8">
+      <DateNavigator
+        mode={mode}
+        currentDate={currentDate}
+        dates={dates}
+        onModeChange={setMode}
+        onDateChange={setCurrentDate}
+      />
+      {mode === 'day' ? (
+        <DayView date={currentDate} />
+      ) : (
+        <WeekView date={currentDate} />
+      )}
+    </div>
+  )
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// DateNavigator
+// ──────────────────────────────────────────────────────────────────────────
+
+function DateNavigator({
+  mode,
+  currentDate,
+  dates,
+  onModeChange,
+  onDateChange,
+}: {
+  mode: Mode
+  currentDate: string
+  dates: LongExposureDateRow[]
+  onModeChange: (m: Mode) => void
+  onDateChange: (d: string) => void
+}) {
+  const [pickerOpen, setPickerOpen] = useState(false)
+
+  // Build navigation: in 'day' mode, walk dates list directly.
+  // In 'week' mode, walk by week (jump to the prior/next Monday).
+  const { prev, next } = useMemo(() => {
+    if (mode === 'day') {
+      // Dates sorted newest-first. Find current index.
+      const idx = dates.findIndex((d) => d.date === currentDate)
+      // "Prev" (older) = next index. "Next" (newer) = previous index.
+      const prev = idx >= 0 && idx < dates.length - 1 ? dates[idx + 1].date : null
+      const next = idx > 0 ? dates[idx - 1].date : null
+      return { prev, next }
+    }
+    // Week mode: jump by 7 days. Don't validate against available dates here;
+    // the week endpoint will 404 if no aggregate exists, and DayView will
+    // surface that gracefully.
+    return {
+      prev: addDays(currentDate, -7),
+      next: addDays(currentDate, +7),
+    }
+  }, [mode, currentDate, dates])
+
+  return (
+    <div className="space-y-3">
+      {/* Top row: brand + view toggle */}
+      <div className="flex items-baseline justify-between gap-3">
+        <div className="text-xs uppercase tracking-widest text-corpo-text/40">
+          Long Exposure
+        </div>
+        <ViewToggle mode={mode} onChange={onModeChange} />
+      </div>
+
+      {/* Second row: prev / date / next */}
+      <div className="flex items-center gap-3">
+        <NavButton
+          direction="prev"
+          disabled={!prev}
+          onClick={() => prev && onDateChange(prev)}
+        />
+        <button
+          type="button"
+          onClick={() => setPickerOpen(!pickerOpen)}
+          className="text-xl font-medium text-corpo-text hover:text-corpo-text/80 transition-colors text-left"
+        >
+          {mode === 'day' ? formatDate(currentDate) : formatWeekRange(currentDate)}
+        </button>
+        <NavButton
+          direction="next"
+          disabled={!next}
+          onClick={() => next && onDateChange(next)}
+        />
+      </div>
+
+      {/* Picker popover */}
+      {pickerOpen && (
+        <DatePicker
+          mode={mode}
+          dates={dates}
+          currentDate={currentDate}
+          onPick={(d) => {
+            onDateChange(d)
+            setPickerOpen(false)
+          }}
+          onClose={() => setPickerOpen(false)}
+        />
+      )}
+    </div>
+  )
+}
+
+function NavButton({
+  direction,
+  disabled,
+  onClick,
+}: {
+  direction: 'prev' | 'next'
+  disabled: boolean
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      aria-label={direction === 'prev' ? 'Previous' : 'Next'}
+      className={cn(
+        'w-7 h-7 flex items-center justify-center text-sm font-mono transition-colors',
+        disabled
+          ? 'text-corpo-text/15 cursor-default'
+          : 'text-corpo-text/50 hover:text-corpo-text hover:bg-corpo-text/5',
+      )}
+    >
+      {direction === 'prev' ? '◀' : '▶'}
+    </button>
+  )
+}
+
+function ViewToggle({
+  mode,
+  onChange,
+}: {
+  mode: Mode
+  onChange: (m: Mode) => void
+}) {
+  return (
+    <div className="flex items-baseline gap-2 text-xs uppercase tracking-widest">
+      <button
+        type="button"
+        onClick={() => onChange('day')}
+        className={cn(
+          'transition-colors',
+          mode === 'day' ? 'text-corpo-text' : 'text-corpo-text/30 hover:text-corpo-text/60',
+        )}
+      >
+        Day
+      </button>
+      <span className="text-corpo-text/20">|</span>
+      <button
+        type="button"
+        onClick={() => onChange('week')}
+        className={cn(
+          'transition-colors',
+          mode === 'week' ? 'text-corpo-text' : 'text-corpo-text/30 hover:text-corpo-text/60',
+        )}
+      >
+        Week
+      </button>
+    </div>
+  )
+}
+
+function DatePicker({
+  mode,
+  dates,
+  currentDate,
+  onPick,
+  onClose,
+}: {
+  mode: Mode
+  dates: LongExposureDateRow[]
+  currentDate: string
+  onPick: (date: string) => void
+  onClose: () => void
+}) {
+  return (
+    <div className="relative">
+      <div
+        className="absolute z-10 top-0 left-0 mt-1 w-80 max-h-96 overflow-y-auto bg-corpo-bg border border-corpo-border/40 shadow-lg p-2 space-y-0.5"
+        role="dialog"
+        aria-label="Date picker"
+      >
+        <div className="flex justify-between items-center px-2 py-1 mb-1">
+          <span className="text-[10px] uppercase tracking-widest text-corpo-text/40">
+            {mode === 'day' ? `${dates.length} dates` : 'Pick a week'}
+          </span>
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-corpo-text/40 hover:text-corpo-text/80 text-xs"
+          >
+            ✕
+          </button>
+        </div>
+        {dates.map((d) => (
+          <button
+            key={d.date}
+            type="button"
+            onClick={() => onPick(d.date)}
+            className={cn(
+              'w-full px-2 py-1.5 text-left text-sm flex items-baseline justify-between gap-3 transition-colors hover:bg-corpo-text/5',
+              d.date === currentDate && 'bg-corpo-text/10',
+            )}
+          >
+            <span className="font-mono">{formatDate(d.date)}</span>
+            <span className="text-corpo-text/40 text-xs">
+              {d.verified_count} events
+            </span>
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// DayView (the main per-day page)
+// ──────────────────────────────────────────────────────────────────────────
+
+function DayView({ date }: { date: string }) {
+  const [day, setDay] = useState<LongExposureDay | null>(null)
+  const [synth, setSynth] = useState<LongExposureSynthesis | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
   useEffect(() => {
-    if (!latestDate) return
     let cancelled = false
+    setLoading(true)
+    setError(null)
     Promise.all([
-      fetch(`/api/long-exposure/day/${latestDate}`).then((r) => {
+      fetch(`/api/long-exposure/day/${date}`).then((r) => {
         if (!r.ok) throw new Error(`day HTTP ${r.status}`)
         return r.json() as Promise<LongExposureDay>
       }),
-      fetch(`/api/long-exposure/synthesis/${latestDate}`)
+      fetch(`/api/long-exposure/synthesis/${date}`)
         .then((r) => (r.ok ? (r.json() as Promise<LongExposureSynthesis>) : null))
-        .catch(() => null), // synthesis is best-effort; missing is OK
+        .catch(() => null),
     ])
       .then(([dayData, synthData]) => {
         if (cancelled) return
@@ -106,38 +358,22 @@ export function LongExposureBrowser() {
     return () => {
       cancelled = true
     }
-  }, [latestDate])
+  }, [date])
 
-  if (loading) {
-    return <div className="text-corpo-text/50 text-sm">Loading Long Exposure…</div>
-  }
-  if (error) {
-    return <div className="text-red-400 text-sm">Long Exposure error: {error}</div>
-  }
-  if (!day) {
-    return <div className="text-corpo-text/50 text-sm">No data.</div>
-  }
+  if (loading) return <div className="text-corpo-text/50 text-sm">Loading…</div>
+  if (error) return <div className="text-red-400 text-sm">{error}</div>
+  if (!day) return <div className="text-corpo-text/50 text-sm">No data.</div>
 
   const dt = synth?.data_table ?? null
   const orderedScorers = SCORER_ORDER.filter((s) => day.groups[s]?.length)
 
   return (
     <div className="space-y-8">
-      {/* Header */}
-      <header className="space-y-1">
-        <div className="text-xs uppercase tracking-widest text-corpo-text/40">
-          Long Exposure
-        </div>
-        <h2 className="text-xl font-medium text-corpo-text">
-          {formatDate(day.date)}
-        </h2>
-        <p className="text-xs text-corpo-text/50">
-          {day.total} narrated events from IEX, every figure verified against
-          source data
-        </p>
-      </header>
+      <p className="text-xs text-corpo-text/50 -mt-4">
+        {day.total} narrated events from IEX, every figure verified against
+        source data
+      </p>
 
-      {/* Executive Summary (5 deterministic bullets, no LLM) */}
       {dt?.executive_summary && dt.executive_summary.length > 0 && (
         <section>
           <SectionHeader>Executive summary</SectionHeader>
@@ -152,7 +388,6 @@ export function LongExposureBrowser() {
         </section>
       )}
 
-      {/* Today's themes prose (SYNTHESIZE) */}
       {synth?.prose && (
         <section>
           <SectionHeader>Today</SectionHeader>
@@ -160,7 +395,6 @@ export function LongExposureBrowser() {
         </section>
       )}
 
-      {/* Notable extremes */}
       {dt?.notable_extremes && Object.keys(dt.notable_extremes).length > 0 && (
         <section>
           <SectionHeader>Notable extremes</SectionHeader>
@@ -172,7 +406,6 @@ export function LongExposureBrowser() {
         </section>
       )}
 
-      {/* Per-scorer event groups */}
       <section className="space-y-6">
         <SectionHeader>By event type</SectionHeader>
         {orderedScorers.map((scorer) => (
@@ -188,7 +421,153 @@ export function LongExposureBrowser() {
 }
 
 // ──────────────────────────────────────────────────────────────────────────
-// Helpers + sub-components
+// WeekView (mirror of day view at week resolution)
+// ──────────────────────────────────────────────────────────────────────────
+
+function WeekView({ date }: { date: string }) {
+  // The aggregate endpoint expects the ISO Monday of the week.
+  const weekStart = useMemo(() => mondayOf(date), [date])
+  const [agg, setAgg] = useState<LongExposureAggregate | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    setLoading(true)
+    setError(null)
+    fetch(`/api/long-exposure/aggregate/${weekStart}`)
+      .then((r) => {
+        if (r.status === 404) return null
+        if (!r.ok) throw new Error(`aggregate HTTP ${r.status}`)
+        return r.json() as Promise<LongExposureAggregate>
+      })
+      .then((data) => {
+        if (cancelled) return
+        setAgg(data)
+        setLoading(false)
+      })
+      .catch((err) => {
+        if (cancelled) return
+        setError(err.message)
+        setLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [weekStart])
+
+  if (loading) return <div className="text-corpo-text/50 text-sm">Loading…</div>
+  if (error) return <div className="text-red-400 text-sm">{error}</div>
+  if (!agg || !agg.week_start) {
+    return (
+      <div className="text-corpo-text/50 text-sm">
+        No weekly aggregate for the week of {weekStart}.
+      </div>
+    )
+  }
+
+  const dt = agg.data_table ?? null
+
+  return (
+    <div className="space-y-8">
+      <p className="text-xs text-corpo-text/50 -mt-4">
+        Week of {agg.week_start} → {agg.week_end} · {agg.days_considered ?? '—'}{' '}
+        trading days
+      </p>
+
+      {dt?.executive_summary && dt.executive_summary.length > 0 && (
+        <section>
+          <SectionHeader>Executive summary</SectionHeader>
+          <ul className="space-y-1.5 text-sm text-corpo-text/90">
+            {dt.executive_summary.map((bullet, i) => (
+              <li key={i} className="flex gap-2.5">
+                <span className="text-corpo-text/30 mt-0.5">▪</span>
+                <span>{bullet}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {agg.prose && (
+        <section>
+          <SectionHeader>This week</SectionHeader>
+          <p className="text-sm text-corpo-text/90 leading-relaxed">{agg.prose}</p>
+        </section>
+      )}
+
+      {dt?.notable_extremes && Object.keys(dt.notable_extremes).length > 0 && (
+        <section>
+          <SectionHeader>Notable extremes</SectionHeader>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1.5 text-sm">
+            {orderedExtremes(dt.notable_extremes).map(([key, ex]) => (
+              <ExtremeRow
+                key={key}
+                label={extremeLabel(key)}
+                extreme={ex}
+                showDate
+              />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {dt?.per_day && dt.per_day.length > 0 && (
+        <section>
+          <SectionHeader>Per day</SectionHeader>
+          <div className="space-y-1">
+            {dt.per_day.map((d) => (
+              <div
+                key={d.date}
+                className="flex items-baseline justify-between gap-3 text-sm py-1 border-b border-corpo-border/10 last:border-b-0"
+              >
+                <span className="font-mono text-corpo-text/80">
+                  {shortDate(d.date)}
+                </span>
+                <span className="text-corpo-text/60 flex-1">
+                  {SCORER_LABELS[d.dominant_scorer] ?? d.dominant_scorer}
+                  {d.notable_symbol && (
+                    <span className="text-corpo-text/40 ml-2 font-mono text-xs">
+                      · {d.notable_symbol}
+                    </span>
+                  )}
+                </span>
+                <span className="text-corpo-text/60 font-mono tabular-nums">
+                  {d.total}
+                </span>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {dt?.top_symbols && dt.top_symbols.length > 0 && (
+        <section>
+          <SectionHeader>Top symbols this week</SectionHeader>
+          <div className="space-y-1">
+            {dt.top_symbols.slice(0, 8).map((s) => (
+              <div
+                key={s.symbol}
+                className="flex items-baseline justify-between gap-3 text-sm py-1 border-b border-corpo-border/10 last:border-b-0"
+              >
+                <span className="font-mono text-corpo-text/80">{s.symbol}</span>
+                <span className="text-corpo-text/40 text-xs flex-1">
+                  in {s.days_present} {s.days_present === 1 ? 'session' : 'sessions'}
+                </span>
+                <span className="text-corpo-text/60 font-mono tabular-nums">
+                  {s.total_events}
+                </span>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+    </div>
+  )
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// Shared sub-components + helpers
 // ──────────────────────────────────────────────────────────────────────────
 
 function SectionHeader({ children }: { children: React.ReactNode }) {
@@ -200,7 +579,6 @@ function SectionHeader({ children }: { children: React.ReactNode }) {
 }
 
 function formatDate(iso: string): string {
-  // 2026-05-22 → "Friday, May 22, 2026"
   const [y, m, d] = iso.split('-').map(Number)
   const date = new Date(y, m - 1, d)
   return date.toLocaleDateString(undefined, {
@@ -209,6 +587,54 @@ function formatDate(iso: string): string {
     month: 'long',
     day: 'numeric',
   })
+}
+
+function shortDate(iso: string): string {
+  const [y, m, d] = iso.split('-').map(Number)
+  const date = new Date(y, m - 1, d)
+  return date.toLocaleDateString(undefined, {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+  })
+}
+
+function formatWeekRange(date: string): string {
+  const start = mondayOf(date)
+  const end = addDays(start, 4) // Mon..Fri
+  const [sy, sm, sd] = start.split('-').map(Number)
+  const [, em, ed] = end.split('-').map(Number)
+  const startDate = new Date(sy, sm - 1, sd)
+  const endDate = new Date(sy, em - 1, ed)
+  const monthSame = sm === em
+  if (monthSame) {
+    return `Week of ${startDate.toLocaleDateString(undefined, { month: 'long' })} ${sd}–${ed}, ${sy}`
+  }
+  return `Week of ${startDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} – ${endDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}, ${sy}`
+}
+
+/** Return the ISO Monday for the week containing {@code iso}. */
+function mondayOf(iso: string): string {
+  const [y, m, d] = iso.split('-').map(Number)
+  const date = new Date(y, m - 1, d)
+  const day = date.getDay() // 0=Sun, 1=Mon, ..., 6=Sat
+  const offset = day === 0 ? -6 : 1 - day // Sunday → previous Monday
+  date.setDate(date.getDate() + offset)
+  return formatISODate(date)
+}
+
+function addDays(iso: string, days: number): string {
+  const [y, m, d] = iso.split('-').map(Number)
+  const date = new Date(y, m - 1, d)
+  date.setDate(date.getDate() + days)
+  return formatISODate(date)
+}
+
+function formatISODate(date: Date): string {
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
 }
 
 const EXTREME_LABELS: Record<string, string> = {
@@ -229,20 +655,20 @@ function extremeLabel(key: string): string {
 }
 
 function orderedExtremes(
-  extremes: Record<string, { symbol: string; value: string; unit: string }>,
-): Array<[string, { symbol: string; value: string; unit: string }]> {
+  extremes: Record<string, any>,
+): Array<[string, any]> {
   const order = Object.keys(EXTREME_LABELS)
-  return order
-    .filter((k) => extremes[k])
-    .map((k) => [k, extremes[k]] as [string, { symbol: string; value: string; unit: string }])
+  return order.filter((k) => extremes[k]).map((k) => [k, extremes[k]])
 }
 
 function ExtremeRow({
   label,
   extreme,
+  showDate = false,
 }: {
   label: string
-  extreme: { symbol: string; value: string; unit: string }
+  extreme: { symbol: string; value: string; unit: string; date?: string }
+  showDate?: boolean
 }) {
   return (
     <div className="flex items-baseline gap-3">
@@ -251,6 +677,11 @@ function ExtremeRow({
       </span>
       <span className="font-mono text-corpo-text/90">{extreme.symbol}</span>
       <span className="text-corpo-text/90">{extreme.value}</span>
+      {showDate && extreme.date && (
+        <span className="text-corpo-text/40 text-xs font-mono">
+          {shortDate(extreme.date)}
+        </span>
+      )}
       {extreme.unit && !['$ millions', 'duration'].includes(extreme.unit) && (
         <span className="text-corpo-text/40 text-xs">{extreme.unit}</span>
       )}
@@ -350,8 +781,6 @@ function EventCard({ event }: { event: LongExposureNarrative }) {
 }
 
 function formatTime(iso: string): string {
-  // ISO timestamp UTC → "HH:mm ET" (approximate ET via -4hr; production
-  // would use Intl.DateTimeFormat with America/New_York TZ)
   const dt = new Date(iso)
   const et = new Date(dt.getTime() - 4 * 60 * 60 * 1000)
   const hh = String(et.getUTCHours()).padStart(2, '0')
