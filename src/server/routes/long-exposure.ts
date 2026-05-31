@@ -322,6 +322,7 @@ export function createLongExposureRouter(config: LongExposureConfig): Router {
           narrations_considered,
           interpretations_considered,
           day_aggregates,
+          data_table,
           verifier_passed,
           created_at::text           AS created_at
         FROM daily_synthesis
@@ -384,6 +385,7 @@ export function createLongExposureRouter(config: LongExposureConfig): Router {
           aggregate_text    AS prose,
           days_considered,
           week_aggregates,
+          data_table,
           verifier_passed,
           created_at::text  AS created_at
         FROM weekly_aggregate
