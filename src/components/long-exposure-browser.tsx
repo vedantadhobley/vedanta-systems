@@ -67,15 +67,20 @@ export function LongExposureBrowser() {
     Promise.all([
       fetch('/api/long-exposure/dates').then((r) => {
         if (!r.ok) throw new Error(`dates HTTP ${r.status}`)
-        return r.json() as Promise<LongExposureDateRow[]>
+        return r.json() as Promise<{ dates: LongExposureDateRow[] } | LongExposureDateRow[]>
       }),
       fetch('/api/long-exposure/latest').then((r) => {
         if (!r.ok) throw new Error(`latest HTTP ${r.status}`)
         return r.json() as Promise<{ date: string | null }>
       }),
     ])
-      .then(([dateList, latest]) => {
+      .then(([dateListRaw, latest]) => {
         if (cancelled) return
+        // API returns either { dates: [...] } (current shape) or a bare array
+        // (defensive — earlier scaffold assumed bare); handle both.
+        const dateList: LongExposureDateRow[] = Array.isArray(dateListRaw)
+          ? dateListRaw
+          : (dateListRaw?.dates ?? [])
         // Newest first (matches typical date-list UX expectation).
         const sorted = [...dateList].sort((a, b) => b.date.localeCompare(a.date))
         setDates(sorted)
