@@ -374,6 +374,8 @@ function DayView({ date }: { date: string }) {
         source data
       </p>
 
+      <DayTimelineStrip day={day} />
+
       {dt?.executive_summary && dt.executive_summary.length > 0 && (
         <section>
           <SectionHeader>Executive summary</SectionHeader>
@@ -564,6 +566,264 @@ function WeekView({ date }: { date: string }) {
       )}
     </div>
   )
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// DayTimelineStrip — the "long exposure photograph" visual signature.
+//
+// Renders the trading day (09:30 → 16:00 ET) as a horizontal density strip,
+// with each event placed as a colored vertical mark at its event_ts. Inter-
+// day scorers (volume_deviation, time_in_book_drift) are excluded — they're
+// day-level signals with no meaningful clock position.
+//
+// The metaphor: a long exposure photograph captures motion as a continuous
+// arc. The day's events captured as a single visual: density (how much was
+// happening when) + composition (which event types).
+//
+// Implementation: hand-rolled SVG (no chart library dependency). ~60 buckets
+// at 6.5-hour day means ~6.5 min per bucket. Click a mark to scroll the
+// corresponding scorer group into view.
+// ──────────────────────────────────────────────────────────────────────────
+
+const SCORER_COLORS: Record<string, string> = {
+  halt: '#f87171',                    // red-400 — regulatory action, attention-grabbing
+  large_trade: '#facc15',             // yellow-400 — highlight, "big block"
+  liquidity_withdrawal: '#fb923c',    // orange-400 — depth pulled
+  sweep: '#c084fc',                   // purple-400 — aggressive consumption
+  iceberg: '#22d3ee',                 // cyan-400 — hidden, gradual reveal
+  layering: '#60a5fa',                // blue-400 — multi-level
+  post_cancel_cluster: '#7dd3fc',     // sky-300 — rapid cycling
+  volume_deviation: '#f0abfc',        // fuchsia-300 — anomaly (intraday excluded but kept for legend)
+  time_in_book_drift: '#a5b4fc',      // indigo-300 — regime shift (same)
+}
+
+const TIMELINE_SCORERS = [
+  'halt',
+  'large_trade',
+  'liquidity_withdrawal',
+  'sweep',
+  'iceberg',
+  'layering',
+  'post_cancel_cluster',
+]
+
+const REGULAR_OPEN_MIN = 9 * 60 + 30   // 09:30 ET
+const REGULAR_CLOSE_MIN = 16 * 60      // 16:00 ET
+const TRADING_MINUTES = REGULAR_CLOSE_MIN - REGULAR_OPEN_MIN  // 390
+
+function DayTimelineStrip({ day }: { day: LongExposureDay }) {
+  const [hovered, setHovered] = useState<{
+    minute: number
+    bucket: { scorer_id: string; symbol: string; minute: number }[]
+  } | null>(null)
+
+  // Compute per-bucket per-scorer event lists
+  const buckets = useMemo(() => {
+    const m = new Map<
+      number,
+      { scorer_id: string; symbol: string; minute: number }[]
+    >()
+    for (const scorer of TIMELINE_SCORERS) {
+      const events = day.groups[scorer]
+      if (!events) continue
+      for (const event of events) {
+        const minute = etMinuteOfDay(event.event_ts)
+        // Skip events outside regular trading hours (pre-market or after-hours)
+        if (minute < REGULAR_OPEN_MIN || minute >= REGULAR_CLOSE_MIN) continue
+        const bucketMin = Math.floor(minute)
+        if (!m.has(bucketMin)) m.set(bucketMin, [])
+        m.get(bucketMin)!.push({
+          scorer_id: scorer,
+          symbol: event.symbol,
+          minute,
+        })
+      }
+    }
+    return m
+  }, [day])
+
+  // Tally counts per minute for column-height computation
+  const maxStack = useMemo(() => {
+    let max = 0
+    for (const v of buckets.values()) if (v.length > max) max = v.length
+    return Math.max(max, 1)
+  }, [buckets])
+
+  // SVG dimensions
+  const W = 100   // viewBox width in percent-units (we'll scale to width 100%)
+  const H = 32    // viewBox height
+  const PAD_TOP = 2
+  const PAD_BOTTOM = 6  // leaves room for axis labels
+
+  const minuteToX = (minute: number): number => {
+    const t = (minute - REGULAR_OPEN_MIN) / TRADING_MINUTES
+    return t * W
+  }
+
+  // For each minute that has events, render a stacked bar
+  const bars: Array<{
+    x: number
+    segments: Array<{ y: number; h: number; color: string; key: string }>
+    minute: number
+    events: { scorer_id: string; symbol: string; minute: number }[]
+  }> = []
+
+  const barWidth = W / TRADING_MINUTES * 1.8 // slightly wider than 1-minute slot
+  const usableH = H - PAD_TOP - PAD_BOTTOM
+
+  for (const [minute, events] of buckets.entries()) {
+    // Aggregate events per scorer at this minute
+    const perScorer: Record<string, number> = {}
+    for (const e of events) {
+      perScorer[e.scorer_id] = (perScorer[e.scorer_id] ?? 0) + 1
+    }
+    const x = minuteToX(minute) - barWidth / 2
+    const totalCount = events.length
+    const totalH = (totalCount / maxStack) * usableH
+    let cursorY = H - PAD_BOTTOM - totalH
+    const segments: Array<{ y: number; h: number; color: string; key: string }> = []
+    for (const scorer of TIMELINE_SCORERS) {
+      const n = perScorer[scorer]
+      if (!n) continue
+      const segH = (n / maxStack) * usableH
+      segments.push({
+        y: cursorY,
+        h: segH,
+        color: SCORER_COLORS[scorer],
+        key: scorer,
+      })
+      cursorY += segH
+    }
+    bars.push({ x, segments, minute, events })
+  }
+
+  // Hour ticks at 10:00, 11:00, 12:00, 13:00, 14:00, 15:00, 16:00
+  const hourTicks: number[] = []
+  for (let h = 10; h <= 16; h++) hourTicks.push(h * 60)
+  // Also include 09:30 + 16:00 as start/end markers
+  const openX = minuteToX(REGULAR_OPEN_MIN)
+  const closeX = minuteToX(REGULAR_CLOSE_MIN)
+
+  return (
+    <section>
+      <SectionHeader>The day</SectionHeader>
+      <div className="space-y-2">
+        <div className="relative">
+          <svg
+            viewBox={`0 0 ${W} ${H}`}
+            preserveAspectRatio="none"
+            className="w-full h-12"
+            role="img"
+            aria-label="Event density across the trading day"
+          >
+            {/* baseline */}
+            <line
+              x1={openX}
+              y1={H - PAD_BOTTOM + 0.5}
+              x2={closeX}
+              y2={H - PAD_BOTTOM + 0.5}
+              stroke="currentColor"
+              strokeOpacity="0.2"
+              strokeWidth="0.15"
+              className="text-corpo-text"
+            />
+            {/* hour ticks */}
+            {hourTicks.map((min) => {
+              const x = minuteToX(min)
+              return (
+                <line
+                  key={min}
+                  x1={x}
+                  y1={H - PAD_BOTTOM + 0.5}
+                  x2={x}
+                  y2={H - PAD_BOTTOM + 1.5}
+                  stroke="currentColor"
+                  strokeOpacity="0.25"
+                  strokeWidth="0.15"
+                  className="text-corpo-text"
+                />
+              )
+            })}
+            {/* bars */}
+            {bars.map((b, i) => (
+              <g
+                key={`${b.minute}-${i}`}
+                onMouseEnter={() =>
+                  setHovered({ minute: b.minute, bucket: b.events })
+                }
+                onMouseLeave={() => setHovered(null)}
+                style={{ cursor: 'pointer' }}
+              >
+                {b.segments.map((seg) => (
+                  <rect
+                    key={`${b.minute}-${seg.key}`}
+                    x={b.x}
+                    y={seg.y}
+                    width={barWidth}
+                    height={seg.h}
+                    fill={seg.color}
+                    fillOpacity={hovered && hovered.minute === b.minute ? 1 : 0.85}
+                  />
+                ))}
+              </g>
+            ))}
+          </svg>
+          {/* Time labels */}
+          <div className="flex justify-between mt-0.5 text-[10px] font-mono text-corpo-text/40 tabular-nums">
+            <span>09:30</span>
+            <span>11:00</span>
+            <span>12:30</span>
+            <span>14:00</span>
+            <span>16:00</span>
+          </div>
+        </div>
+
+        {/* Hovered minute readout */}
+        {hovered && (
+          <div className="text-xs text-corpo-text/70 font-mono">
+            {minuteToET(hovered.minute)} —{' '}
+            {hovered.bucket
+              .slice(0, 4)
+              .map((e) => `${e.symbol} ${SCORER_LABELS[e.scorer_id] ?? e.scorer_id}`)
+              .join(' · ')}
+            {hovered.bucket.length > 4 && (
+              <span className="text-corpo-text/40">
+                {' '}
+                +{hovered.bucket.length - 4} more
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* Legend */}
+        <div className="flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-corpo-text/50">
+          {TIMELINE_SCORERS.filter((s) => day.groups[s]?.length).map((scorer) => (
+            <span key={scorer} className="flex items-center gap-1">
+              <span
+                className="inline-block w-2 h-2"
+                style={{ backgroundColor: SCORER_COLORS[scorer] }}
+              />
+              <span>{SCORER_LABELS[scorer] ?? scorer}</span>
+            </span>
+          ))}
+        </div>
+      </div>
+    </section>
+  )
+}
+
+/** Convert ISO UTC timestamp → minute-of-day in ET (handles DST via -4hr
+ * EDT approximation; production should use Intl + America/New_York TZ). */
+function etMinuteOfDay(iso: string): number {
+  const dt = new Date(iso)
+  const et = new Date(dt.getTime() - 4 * 60 * 60 * 1000)
+  return et.getUTCHours() * 60 + et.getUTCMinutes()
+}
+
+function minuteToET(minute: number): string {
+  const h = Math.floor(minute / 60)
+  const m = minute % 60
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')} ET`
 }
 
 // ──────────────────────────────────────────────────────────────────────────
