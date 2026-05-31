@@ -105,6 +105,11 @@ function getPathSegmentsFromUrl(url: string): PathSegment[] {
       { name: 'workspace', path: '~/workspace', icon: 'folder' },
       { name: 'found-footy', path: '~/workspace/found-footy', icon: 'folder' }
     ],
+    '~/workspace/long-exposure': [
+      { name: '~', path: '~', icon: 'home' },
+      { name: 'workspace', path: '~/workspace', icon: 'folder' },
+      { name: 'long-exposure', path: '~/workspace/long-exposure', icon: 'folder' }
+    ],
     '~/about': [
       { name: '~', path: '~', icon: 'home' },
       { name: 'about', path: '~/about', icon: 'folder' }
