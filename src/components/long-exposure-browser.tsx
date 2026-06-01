@@ -1,4 +1,10 @@
 import { useState, useEffect, useMemo } from 'react'
+import {
+  RiExpandUpDownLine,
+  RiExpandUpDownFill,
+  RiContractUpDownLine,
+  RiContractUpDownFill,
+} from '@remixicon/react'
 import type {
   LongExposureDateRow,
   LongExposureDay,
@@ -184,7 +190,8 @@ function DateNavigator({
         <button
           type="button"
           onClick={() => setPickerOpen(!pickerOpen)}
-          className="text-xl font-medium text-corpo-text hover:text-corpo-text/80 transition-colors text-left"
+          onTouchStart={() => {}}
+          className="text-xl font-medium text-corpo-text hover:text-corpo-light active:text-lavender transition-none text-left"
         >
           {mode === 'day' ? formatDate(currentDate) : formatWeekRange(currentDate)}
         </button>
@@ -225,13 +232,14 @@ function NavButton({
     <button
       type="button"
       onClick={onClick}
+      onTouchStart={() => {}}
       disabled={disabled}
       aria-label={direction === 'prev' ? 'Previous' : 'Next'}
       className={cn(
-        'w-7 h-7 flex items-center justify-center text-sm font-mono transition-colors',
+        'w-7 h-7 flex items-center justify-center text-sm font-mono transition-none',
         disabled
           ? 'text-corpo-text/15 cursor-default'
-          : 'text-corpo-text/50 hover:text-corpo-text hover:bg-corpo-text/5',
+          : 'text-corpo-text/50 hover:text-corpo-light active:text-lavender hover:bg-corpo-text/5',
       )}
     >
       {direction === 'prev' ? '◀' : '▶'}
@@ -251,9 +259,12 @@ function ViewToggle({
       <button
         type="button"
         onClick={() => onChange('day')}
+        onTouchStart={() => {}}
         className={cn(
-          'transition-colors',
-          mode === 'day' ? 'text-corpo-text' : 'text-corpo-text/30 hover:text-corpo-text/60',
+          'transition-none',
+          mode === 'day'
+            ? 'text-corpo-text'
+            : 'text-corpo-text/30 hover:text-corpo-light active:text-lavender',
         )}
       >
         Day
@@ -262,9 +273,12 @@ function ViewToggle({
       <button
         type="button"
         onClick={() => onChange('week')}
+        onTouchStart={() => {}}
         className={cn(
-          'transition-colors',
-          mode === 'week' ? 'text-corpo-text' : 'text-corpo-text/30 hover:text-corpo-text/60',
+          'transition-none',
+          mode === 'week'
+            ? 'text-corpo-text'
+            : 'text-corpo-text/30 hover:text-corpo-light active:text-lavender',
         )}
       >
         Week
@@ -300,7 +314,8 @@ function DatePicker({
           <button
             type="button"
             onClick={onClose}
-            className="text-corpo-text/40 hover:text-corpo-text/80 text-xs"
+            onTouchStart={() => {}}
+            className="text-corpo-text/40 hover:text-corpo-light active:text-lavender transition-none text-xs"
           >
             ✕
           </button>
@@ -310,8 +325,9 @@ function DatePicker({
             key={d.date}
             type="button"
             onClick={() => onPick(d.date)}
+            onTouchStart={() => {}}
             className={cn(
-              'w-full px-2 py-1.5 text-left text-sm flex items-baseline justify-between gap-3 transition-colors hover:bg-corpo-text/5',
+              'w-full px-2 py-1.5 text-left text-sm flex items-baseline justify-between gap-3 transition-none hover:bg-corpo-text/5 active:text-lavender',
               d.date === currentDate && 'bg-corpo-text/10',
             )}
           >
@@ -335,11 +351,19 @@ function DayView({ date }: { date: string }) {
   const [synth, setSynth] = useState<LongExposureSynthesis | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  // Accordion: only one scorer group and one event card open at a time.
+  // Parent-owned so opening a new one closes the previous (matches the
+  // found-footy-browser pattern).
+  const [expandedScorer, setExpandedScorer] = useState<string | null>(null)
+  const [expandedEventId, setExpandedEventId] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
     setLoading(true)
     setError(null)
+    // Reset accordion when navigating to a new date.
+    setExpandedScorer(null)
+    setExpandedEventId(null)
     Promise.all([
       fetch(`/api/long-exposure/day/${date}`).then((r) => {
         if (!r.ok) throw new Error(`day HTTP ${r.status}`)
@@ -381,6 +405,8 @@ function DayView({ date }: { date: string }) {
 
       <DayTimelineStrip day={day} />
 
+      {/* Deterministic facts: exec summary + notable extremes both live here,
+          stacked, before any LLM prose. Reader sees what's verifiable first. */}
       {dt?.executive_summary && dt.executive_summary.length > 0 && (
         <section>
           <SectionHeader>Executive summary</SectionHeader>
@@ -395,13 +421,6 @@ function DayView({ date }: { date: string }) {
         </section>
       )}
 
-      {synth?.prose && (
-        <section>
-          <SectionHeader>Today</SectionHeader>
-          <p className="text-sm text-corpo-text/90 leading-relaxed">{synth.prose}</p>
-        </section>
-      )}
-
       {dt?.notable_extremes && Object.keys(dt.notable_extremes).length > 0 && (
         <section>
           <SectionHeader>Notable extremes</SectionHeader>
@@ -413,6 +432,14 @@ function DayView({ date }: { date: string }) {
         </section>
       )}
 
+      {/* LLM-generated prose below the deterministic pane. */}
+      {synth?.prose && (
+        <section>
+          <SectionHeader>Today</SectionHeader>
+          <p className="text-sm text-corpo-text/90 leading-relaxed">{synth.prose}</p>
+        </section>
+      )}
+
       <section className="space-y-6">
         <SectionHeader>By event type</SectionHeader>
         {orderedScorers.map((scorer) => (
@@ -420,6 +447,14 @@ function DayView({ date }: { date: string }) {
             key={scorer}
             scorer={scorer}
             events={day.groups[scorer]}
+            isExpanded={expandedScorer === scorer}
+            expandedEventId={expandedEventId}
+            onToggle={() =>
+              setExpandedScorer((s) => (s === scorer ? null : scorer))
+            }
+            onToggleEvent={(id) =>
+              setExpandedEventId((e) => (e === id ? null : id))
+            }
           />
         ))}
       </section>
@@ -957,28 +992,51 @@ function ExtremeRow({
 function ScorerGroup({
   scorer,
   events,
+  isExpanded,
+  expandedEventId,
+  onToggle,
+  onToggleEvent,
 }: {
   scorer: string
   events: LongExposureNarrative[]
+  isExpanded: boolean
+  expandedEventId: string | null
+  onToggle: () => void
+  onToggleEvent: (id: string) => void
 }) {
-  const [expanded, setExpanded] = useState(false)
   const label = SCORER_LABELS[scorer] ?? scorer
 
   return (
     <div>
       <button
         type="button"
-        onClick={() => setExpanded(!expanded)}
-        className="flex items-center gap-2 w-full text-left text-sm font-medium text-corpo-text/80 hover:text-corpo-text mb-2 transition-colors"
+        onClick={onToggle}
+        onTouchStart={() => {}}
+        className="group flex items-center gap-2 w-full text-left text-sm font-medium text-corpo-text hover:text-corpo-light active:text-lavender mb-2 transition-none"
       >
-        <span className="text-corpo-text/40">{expanded ? '▾' : '▸'}</span>
+        {isExpanded ? (
+          <>
+            <RiContractUpDownLine className="w-4 h-4 transition-none flex-shrink-0 text-corpo-text/50 group-hover:hidden group-active:hidden" />
+            <RiContractUpDownFill className="w-4 h-4 transition-none flex-shrink-0 hidden group-hover:block group-hover:text-corpo-light group-active:block group-active:text-lavender" />
+          </>
+        ) : (
+          <>
+            <RiExpandUpDownLine className="w-4 h-4 transition-none flex-shrink-0 text-corpo-text/50 group-hover:hidden group-active:hidden" />
+            <RiExpandUpDownFill className="w-4 h-4 transition-none flex-shrink-0 hidden group-hover:block group-hover:text-corpo-light group-active:block group-active:text-lavender" />
+          </>
+        )}
         <span>{label}</span>
         <span className="text-corpo-text/40 text-xs">({events.length})</span>
       </button>
-      {expanded && (
+      {isExpanded && (
         <div className="ml-4 space-y-3 border-l border-corpo-text/10 pl-4">
           {events.map((event) => (
-            <EventCard key={event.id} event={event} />
+            <EventCard
+              key={event.id}
+              event={event}
+              isExpanded={expandedEventId === event.id}
+              onToggle={() => onToggleEvent(event.id)}
+            />
           ))}
         </div>
       )}
@@ -986,9 +1044,21 @@ function ScorerGroup({
   )
 }
 
-function EventCard({ event }: { event: LongExposureNarrative }) {
-  const [expanded, setExpanded] = useState(false)
+function EventCard({
+  event,
+  isExpanded,
+  onToggle,
+}: {
+  event: LongExposureNarrative
+  isExpanded: boolean
+  onToggle: () => void
+}) {
+  // Local third-level state: whether the "✓ Every figure traces…" panel is
+  // expanded to show the raw breakdown JSON. Reset when the card collapses.
   const [showRaw, setShowRaw] = useState(false)
+  useEffect(() => {
+    if (!isExpanded) setShowRaw(false)
+  }, [isExpanded])
 
   return (
     <article
@@ -999,10 +1069,22 @@ function EventCard({ event }: { event: LongExposureNarrative }) {
     >
       <button
         type="button"
-        onClick={() => setExpanded(!expanded)}
-        className="flex items-baseline gap-3 text-xs text-corpo-text/50 hover:text-corpo-text/70 transition-colors text-left"
+        onClick={onToggle}
+        onTouchStart={() => {}}
+        className="group flex items-baseline gap-3 text-xs text-corpo-text hover:text-corpo-light active:text-lavender transition-none text-left w-full"
       >
-        <span className="font-mono uppercase tracking-wider text-corpo-text/70">
+        {isExpanded ? (
+          <>
+            <RiContractUpDownLine className="w-3.5 h-3.5 self-center transition-none flex-shrink-0 text-corpo-text/50 group-hover:hidden group-active:hidden" />
+            <RiContractUpDownFill className="w-3.5 h-3.5 self-center transition-none flex-shrink-0 hidden group-hover:block group-hover:text-corpo-light group-active:block group-active:text-lavender" />
+          </>
+        ) : (
+          <>
+            <RiExpandUpDownLine className="w-3.5 h-3.5 self-center transition-none flex-shrink-0 text-corpo-text/50 group-hover:hidden group-active:hidden" />
+            <RiExpandUpDownFill className="w-3.5 h-3.5 self-center transition-none flex-shrink-0 hidden group-hover:block group-hover:text-corpo-light group-active:block group-active:text-lavender" />
+          </>
+        )}
+        <span className="font-mono uppercase tracking-wider">
           {event.symbol}
         </span>
         <span className="font-mono">{formatTime(event.event_ts)}</span>
@@ -1013,7 +1095,7 @@ function EventCard({ event }: { event: LongExposureNarrative }) {
         )}
       </button>
       <p className="text-sm text-corpo-text/90 leading-relaxed">{event.prose}</p>
-      {expanded && (
+      {isExpanded && (
         <>
           {event.interpretation && (
             <div className="mt-3 pl-3 border-l border-corpo-text/15">
@@ -1029,9 +1111,16 @@ function EventCard({ event }: { event: LongExposureNarrative }) {
             <button
               type="button"
               onClick={() => setShowRaw(!showRaw)}
-              className="text-[10px] uppercase tracking-widest text-corpo-text/40 hover:text-corpo-text/60 transition-colors"
+              onTouchStart={() => {}}
+              className="group flex items-center gap-1.5 text-[10px] uppercase tracking-widest text-corpo-text/60 hover:text-corpo-light active:text-lavender transition-none"
             >
-              {showRaw ? '▾' : '▸'} Source data
+              <span aria-hidden="true">✓</span>
+              <span>Every figure traces to IEX data</span>
+              {showRaw ? (
+                <RiContractUpDownLine className="w-3 h-3 flex-shrink-0 text-corpo-text/40 group-hover:text-corpo-light group-active:text-lavender" />
+              ) : (
+                <RiExpandUpDownLine className="w-3 h-3 flex-shrink-0 text-corpo-text/40 group-hover:text-corpo-light group-active:text-lavender" />
+              )}
             </button>
             {showRaw && (
               <pre className="mt-2 p-2 text-[11px] font-mono text-corpo-text/60 bg-corpo-bg/50 border border-corpo-border/30 overflow-x-auto whitespace-pre-wrap">
