@@ -59,8 +59,8 @@ const folderContents: Record<string, FolderContent[]> = {
   '~/workspace': [
     { name: 'vedanta-systems', path: '~/workspace/vedanta-systems', type: 'folder' },
     { name: 'found-footy', path: '~/workspace/found-footy', type: 'folder' },
-    { name: 'spin-cycle', path: '~/workspace/spin-cycle', type: 'folder' },
     { name: 'long-exposure', path: '~/workspace/long-exposure', type: 'folder' },
+    { name: 'spin-cycle', path: '~/workspace/spin-cycle', type: 'folder' },
   ],
 }
 

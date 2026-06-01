@@ -9,37 +9,58 @@ they're deleted from this file when the work lands.
 
 ## Now — long-exposure UI roadmap
 
-Minimal v1 just landed: today's narrated events grouped by scorer
-(`src/components/long-exposure-browser.tsx` v1). Queued enhancements
-build on the API surface already exposed in
-`src/server/routes/long-exposure.ts`:
+Major v2 landed end of May (`5b53ea5` rich browser + `f798b8d` date
+navigator + week view + `3136387` day-arc timeline strip, plus
+`b0210b8` + `d5f2ca8` bug fixes). What's still queued:
 
-- **Daily synthesis pane.** `/api/long-exposure/synthesis/:date`
-  serves the day's themes paragraph (the SYNTHESIZE output). Render
-  it as a header above the event groups.
-- **Weekly aggregate view.** `/api/long-exposure/aggregate/latest`
-  and `/aggregate/:weekStart` serve the weekly rollup. Own view —
-  either its own URL within `~/workspace/long-exposure` or a toggle
-  in the long-exposure page.
-- **Single-event drill-down.** `/api/long-exposure/event/:id`
-  returns the full payload (prose + blueprint + raw score breakdown
-  + verifier notes + interpretation). Currently the browser doesn't
-  navigate into individual events; this is the panel that exposes
-  the "why this event?" detail.
-- **Reusable components extensible to quarterly.** Long-exposure
-  will eventually grow a quarterly view too. Design the daily +
-  weekly + drill-down components so quarterly drops in without
-  rewrites — generic timeline/group/card primitives, not
-  "this-is-a-day"-shaped logic. **Hold quarterly until the upstream
-  implementation is finalized**, but build daily + weekly with
-  re-use in mind.
 - **Ticker filtering.** `/api/long-exposure/symbol/:symbol` already
   returns per-ticker history. Add a filter affordance (URL param +
   visible chip) for drilling into one symbol across dates.
+  Component not wired yet — flagged in `5b53ea5`'s commit msg.
+- **Reusable timeline / group / card primitives extensible to
+  quarterly.** DayView and WeekView are structurally similar but
+  don't share extracted primitives yet — building QuarterView as
+  another sibling will mean rewrites unless we extract first. Hold
+  the actual quarterly implementation until upstream long-exposure
+  finalizes it, but the extraction can happen any time.
+- **Component splitting.** `long-exposure-browser.tsx` is now ~1200
+  LOC after the v2 landings. Natural breakpoints:
+  `DateNavigator` / `DatePicker` / `ViewToggle`,
+  `DayView` + `DayTimelineStrip`, `WeekView`, `EventCard`. Not
+  blocking — matches `found-footy-browser.tsx`'s scale. Worth
+  considering before quarterly lands so we extract once, not twice.
+- **Open architectural question — how the frontend learns about
+  new days when the nightly pipeline lands them.** See
+  "Decide — long-exposure data refresh pattern" below.
 
 References: API contract in `src/server/routes/long-exposure.ts`;
 type shapes in `src/types/long-exposure.ts`. Upstream long-exposure
 narration pipeline lives at `~/workspace/dev/long-exposure/`.
+
+---
+
+## Decide — long-exposure data refresh pattern
+
+Long-exposure produces daily output (the nightly narration pipeline
+runs overnight). Right now the frontend fetches
+`/api/long-exposure/latest` on mount and never refetches — if the
+user keeps the page open across the nightly cycle they don't see
+the new day until manual refresh. Three options:
+
+- **(a) Do nothing.** Acceptable for a daily-cadence product;
+  manual refresh is a known workflow. Zero code change.
+- **(b) Periodic poll of `/latest`** (every 5–15 min). On change,
+  surface a "new day available" toast or auto-update. Light touch,
+  no upstream change.
+- **(c) SSE push from the long-exposure pipeline** — same shape
+  found-footy uses. Worker calls `/api/long-exposure/refresh`
+  (internal-only, 404'd at nginx) on vs-api, vs-api fans out an
+  SSE event. Most consistent with the other projects, but a notify
+  hook in long-exposure's pipeline is overkill for daily cadence.
+
+Default lean: **(a)** for now. Revisit before quarterly lands —
+if quarterly grows an intra-day update pattern, the answer is
+probably (b) or (c).
 
 ---
 
