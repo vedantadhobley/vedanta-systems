@@ -138,5 +138,9 @@ dist
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 
+# Build artifacts emitted by `tsc -b` next to vite.config.ts
+vite.config.js
+vite.config.d.ts
+
 # Photo storage - use MinIO instead
 public/photos/
