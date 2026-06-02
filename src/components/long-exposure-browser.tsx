@@ -303,7 +303,7 @@ function DatePicker({
   return (
     <div className="relative">
       <div
-        className="absolute z-10 top-0 left-0 mt-1 w-80 max-h-96 overflow-y-auto bg-corpo-bg border border-corpo-border/40 shadow-lg p-2 space-y-0.5"
+        className="absolute z-10 top-0 left-0 mt-1 w-80 max-h-96 overflow-y-auto bg-corpo-dark border border-corpo-border/40 shadow-lg p-2 space-y-0.5"
         role="dialog"
         aria-label="Date picker"
       >
@@ -1123,7 +1123,7 @@ function EventCard({
               )}
             </button>
             {showRaw && (
-              <pre className="mt-2 p-2 text-[11px] font-mono text-corpo-text/60 bg-corpo-bg/50 border border-corpo-border/30 overflow-x-auto whitespace-pre-wrap">
+              <pre className="mt-2 p-2 text-[11px] font-mono text-corpo-text/60 bg-corpo-dark/50 border border-corpo-border/30 overflow-x-auto whitespace-pre-wrap">
                 {JSON.stringify(event.breakdown, null, 2)}
               </pre>
             )}
