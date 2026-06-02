@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import {
   RiExpandUpDownLine,
   RiExpandUpDownFill,
@@ -149,6 +149,29 @@ function DateNavigator({
   onDateChange: (d: string) => void
 }) {
   const [pickerOpen, setPickerOpen] = useState(false)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  const popoverRef = useRef<HTMLDivElement>(null)
+
+  // Close on outside click + Escape. Trigger button is excluded — its own
+  // onClick toggles pickerOpen, so we'd otherwise fight the toggle.
+  useEffect(() => {
+    if (!pickerOpen) return
+    function handlePointer(e: PointerEvent) {
+      const target = e.target as Node
+      if (popoverRef.current?.contains(target)) return
+      if (triggerRef.current?.contains(target)) return
+      setPickerOpen(false)
+    }
+    function handleEscape(e: KeyboardEvent) {
+      if (e.key === 'Escape') setPickerOpen(false)
+    }
+    document.addEventListener('pointerdown', handlePointer)
+    document.addEventListener('keydown', handleEscape)
+    return () => {
+      document.removeEventListener('pointerdown', handlePointer)
+      document.removeEventListener('keydown', handleEscape)
+    }
+  }, [pickerOpen])
 
   // Build navigation: in 'day' mode, walk dates list directly.
   // In 'week' mode, walk by week (jump to the prior/next Monday).
@@ -188,6 +211,7 @@ function DateNavigator({
           onClick={() => prev && onDateChange(prev)}
         />
         <button
+          ref={triggerRef}
           type="button"
           onClick={() => setPickerOpen(!pickerOpen)}
           onTouchStart={() => {}}
@@ -208,6 +232,7 @@ function DateNavigator({
           mode={mode}
           dates={dates}
           currentDate={currentDate}
+          popoverRef={popoverRef}
           onPick={(d) => {
             onDateChange(d)
             setPickerOpen(false)
@@ -291,18 +316,21 @@ function DatePicker({
   mode,
   dates,
   currentDate,
+  popoverRef,
   onPick,
   onClose,
 }: {
   mode: Mode
   dates: LongExposureDateRow[]
   currentDate: string
+  popoverRef: React.RefObject<HTMLDivElement>
   onPick: (date: string) => void
   onClose: () => void
 }) {
   return (
     <div className="relative">
       <div
+        ref={popoverRef}
         className="absolute z-10 top-0 left-0 mt-1 w-80 max-h-96 overflow-y-auto bg-corpo-dark border border-corpo-border/40 shadow-lg p-2 space-y-0.5"
         role="dialog"
         aria-label="Date picker"
