@@ -14,6 +14,17 @@ there; don't think of them in isolation.
 
 This file is your front door. Read it first; follow the imports below.
 
+## Cross-cutting context
+
+Workspace-wide rules, node topology, and cross-project decisions live in [`~/workspace/vedanta-dhobley/`](../../vedanta-dhobley/). Every agent session reads its global `AGENTS.md` automatically via symlinks (`~/.claude/CLAUDE.md`, `~/.codex/AGENTS.md`, `~/.gemini/GEMINI.md`); this pointer exists so anyone browsing the repo sees the pattern.
+
+- [`AGENTS.md`](../../vedanta-dhobley/AGENTS.md) — operating model, commit conventions, Docker-first policy, host-port scheme, `mem_limit` rules, tailnet FQDN rule, privacy preferences
+- [`docs/topology.md`](../../vedanta-dhobley/docs/topology.md) — aerial view of nodes, services, routing, messaging, roadmap
+- [`docs/decisions.md`](../../vedanta-dhobley/docs/decisions.md) — timestamped rationale for locked-in choices
+- [`docs/plans/2026-08-15-cutover.md`](../../vedanta-dhobley/docs/plans/2026-08-15-cutover.md) — vedanta-systems' frontend redesign is a workstream in this plan
+
+**Where things belong:** if a decision in this project turns out to be cross-project, raise it in dhobley — do not duplicate it here.
+
 ## Run
 
 ```bash
@@ -93,13 +104,12 @@ Pattern A vs B is the central architectural call here — see
 
 ## Conventions
 
-- **Commits**: no `Co-Authored-By: Claude` trailer. Lowercase prefix style: `feat:`, `fix:`, `chore:`, `docs:`, `perf:`, `refactor:`, `test:`. Scope in parens when useful (`fix(dev):`, `chore(api):`). Multi-paragraph messages via HEREDOC.
 - **Container names = URLs** per `~/workspace/proxy/CONVENTIONS.md`. The container `vedanta-systems-prod` (bare project name) is the documented exception — it's the only frontend in the workspace.
 - **Pattern A → Pattern B** for cross-project integration. Don't add new direct-DB peers in vs-api; new projects get Pattern B from day 1.
 - **No host HTTP ports** for vs-prod / vs-prod-api / vs-dev / vs-dev-api. Routing is through Caddy on the `proxy` external docker network.
 - **btop is the documented exception**: `network_mode: host` (needs real network/process visibility), so it binds host ports directly. The Express API proxies to it via `host-gateway` / `host.docker.internal`.
-- **Tailnet identifier**: never commit the FQDN to tracked files. `.env` is gitignored; use `<base-domain>` or `{$BASE_DOMAIN}` as the stand-in.
-- **Dependency installs go inside the running container** (`docker exec`), not on the host. Edit `package.json` directly when changing the dependency list.
+- **Tailnet identifier**: `.env` is gitignored; use `<base-domain>` or `{$BASE_DOMAIN}` as the stand-in per the workspace tailnet-FQDN rule.
+- **Dependency installs**: `docker exec` into the running container per the workspace Docker-first policy. Edit `package.json` directly when changing the dependency list.
 
 ## Things to check before doing X
 
