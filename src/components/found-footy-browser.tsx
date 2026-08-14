@@ -12,7 +12,14 @@ import { useScrollStabilizer } from '@/lib/use-scroll-stabilizer'
  */
 function generateEventTitle(fixture: Fixture, event: GoalEvent): string {
   const { teams } = fixture
-  
+
+  // Red card: no score line — just name the carded team (highlighted). EventItem adds the
+  // red-card mark; _scoring_team carries which side was carded.
+  if (event._kind === 'card') {
+    const team = event._scoring_team === 'home' ? teams.home.name : teams.away.name
+    return `<<${team}>>`
+  }
+
   // Use _score_after for the score at this moment, fallback to fixture goals
   const homeScore = event._score_after?.home ?? fixture.goals?.home ?? 0
   const awayScore = event._score_after?.away ?? fixture.goals?.away ?? 0
@@ -115,7 +122,7 @@ interface FoundFootyBrowserProps {
   onResumeStream?: () => void  // Called when video modal closes
   // Calendar navigation
   currentDate: string          // YYYY-MM-DD format
-  availableDates: string[]     // List of dates with fixtures (descending order)
+  navigableDates: string[]     // Dates the user can navigate to (descending). See FootyStreamContext.
   onDateChange: (date: string) => void
   onGoToToday: () => void
   onPreviousDate: () => void
@@ -143,7 +150,7 @@ export function FoundFootyBrowser({
   onPauseStream,
   onResumeStream,
   currentDate,
-  availableDates,
+  navigableDates,
   onDateChange: _onDateChange,  // Kept for future date picker
   onGoToToday,
   onPreviousDate,
@@ -192,32 +199,14 @@ export function FoundFootyBrowser({
   // Check if viewing today (timezone-aware)
   const isToday = currentDate === getToday()
   const today = getToday()
-  
-  // Navigation: all past dates + today + only the next future date with fixtures
-  const availableDatesInMode = useMemo(() => {
-    const sortedDates = [...availableDates].sort()
-    
-    // All past dates and today
-    const pastAndToday = sortedDates.filter(d => d <= today)
-    
-    // Only the first future date after today
-    const nextFuture = sortedDates.find(d => d > today)
-    
-    const dates = [...pastAndToday]
-    if (nextFuture) {
-      dates.push(nextFuture)
-    }
-    
-    return dates.sort().reverse() // Newest first
-  }, [availableDates, today])
-  
+
   // Timezone-scoped search: filter staging fixtures to only those within viewable date range
   const { filteredSearchResults, filteredSearchCount } = useMemo(() => {
     if (!searchResults.length) return { filteredSearchResults: [] as SearchDateGroup[], filteredSearchCount: 0 }
-    
-    // Cutoff: max date in availableDatesInMode (today or next future date with fixtures)
-    const cutoffDate = availableDatesInMode.length > 0 
-      ? availableDatesInMode[0]  // Already sorted newest-first
+
+    // Cutoff: max date in navigableDates (today or next future date with fixtures)
+    const cutoffDate = navigableDates.length > 0
+      ? navigableDates[0]  // Already sorted newest-first
       : today
     
     // Flatten, filter, and regroup by timezone-local date
@@ -248,13 +237,13 @@ export function FoundFootyBrowser({
       .map(([date, fixtures]) => ({ date, fixtures }))
     
     return { filteredSearchResults: sorted, filteredSearchCount: count }
-  }, [searchResults, availableDatesInMode, today, getDateForTimestamp])
-  
+  }, [searchResults, navigableDates, today, getDateForTimestamp])
+
   // Check if we can navigate
-  const currentIndex = availableDatesInMode.indexOf(currentDate)
-  const nextDateInList = availableDatesInMode.find(d => d > currentDate)
+  const currentIndex = navigableDates.indexOf(currentDate)
+  const nextDateInList = navigableDates.find(d => d > currentDate)
   const canGoNext = currentIndex > 0 || (currentIndex === -1 && !!nextDateInList)
-  const canGoPrevious = currentIndex < availableDatesInMode.length - 1 || (currentIndex === -1 && availableDatesInMode.some(d => d < currentDate))
+  const canGoPrevious = currentIndex < navigableDates.length - 1 || (currentIndex === -1 && navigableDates.some(d => d < currentDate))
   
   // Memoize close handler to prevent VideoModal re-renders
   const closeVideoModal = useCallback(() => {
@@ -1035,8 +1024,15 @@ function EventItem({ event, fixture, isExpanded, onToggle, onOpenVideo, isSearch
         
         {/* Two-line content: title on top, subtitle below */}
         <div className="flex-1 min-w-0">
-          {/* Title line: score at moment of goal - with <<highlighted>> scoring team and icon */}
+          {/* Title line: score at moment of goal (or carded team for a red card) */}
           <div className="flex items-center gap-2">
+            {event._kind === 'card' && (
+              <span
+                className="inline-block flex-shrink-0"
+                style={{ width: '10px', height: '14px', background: '#e5484d' }}
+                title="Red card"
+              />
+            )}
             <span className="truncate">
               <HighlightedText text={generateEventTitle(fixture, event)} />
             </span>

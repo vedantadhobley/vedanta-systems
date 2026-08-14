@@ -51,13 +51,9 @@ services:
       - LONG_EXPOSURE_POSTGRES_URI=postgresql://${LONG_EXPOSURE_POSTGRES_USER:-leuser}:${LONG_EXPOSURE_POSTGRES_PASS:-lepass}@long-exposure-dev-postgres:5432/longexposure
       # btop proxy target (runs on host network)
       - BTOP_HOST=host.docker.internal
-      # MongoDB
-      - MONGODB_URI=mongodb://${FOUND_FOOTY_MONGO_USER}:${FOUND_FOOTY_MONGO_PASS}@found-footy-dev-mongo:27017/found_footy?authSource=admin
-      # MinIO
-      - MINIO_ENDPOINT=found-footy-dev-minio
-      - MINIO_PORT=9000
-      - MINIO_ACCESS_KEY=${FOUND_FOOTY_S3_USER}
-      - MINIO_SECRET_KEY=${FOUND_FOOTY_S3_PASS}
+      # Found Footy — Pattern B: proxy the Go read API (reshaped to the legacy
+      # frontend shape in src/server/routes/found-footy.ts).
+      - FOUND_FOOTY_API_URL=http://found-footy-dev-api:8081
     volumes:
       - .:/app
     command: sh -c "npm install && npx tsx watch src/server/index.ts"

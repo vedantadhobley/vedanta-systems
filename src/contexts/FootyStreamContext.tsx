@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useRef, useCallback, type ReactNode } from 'react'
+import { createContext, useContext, useState, useEffect, useRef, useCallback, useMemo, type ReactNode } from 'react'
 import type { Fixture, SearchDateGroup } from '@/types/found-footy'
 import { useTimezone } from '@/contexts/timezone-context'
 
@@ -32,6 +32,7 @@ interface FootyState {
 
 interface FootyContextValue extends FootyState {
   // Navigation
+  navigableDates: string[]   // Dates the user is allowed to navigate to (descending)
   setDate: (date: string) => void
   goToToday: () => void
   goToPreviousDate: () => void
@@ -56,8 +57,9 @@ interface FootyContextValue extends FootyState {
 const FootyStreamContext = createContext<FootyContextValue | null>(null)
 
 export function FootyStreamProvider({ children }: { children: ReactNode }) {
-  // Get timezone-aware "today" from timezone context
-  const { getToday } = useTimezone()
+  // Get timezone-aware "today" from timezone context. mode is read here so
+  // /dates can be re-bucketed when the user toggles UTC <-> local.
+  const { getToday, mode } = useTimezone()
   
   const [state, setState] = useState<FootyState>(() => ({
     currentDate: '', // Will be set on mount with timezone-aware today
@@ -94,16 +96,20 @@ export function FootyStreamProvider({ children }: { children: ReactNode }) {
     return currentDateRef.current === getToday()
   }, [getToday])
 
-  // Fetch available dates (for calendar navigation)
+  // Fetch available dates (for calendar navigation). Pass the user's current
+  // tz offset so /dates buckets fixtures per their local mode — otherwise a
+  // late-UTC fixture (e.g. 2026-06-13T00:30Z) would never appear under its
+  // true local date (2026-06-12 EDT) and the user couldn't navigate to it.
   const fetchAvailableDates = useCallback(async () => {
     try {
-      const res = await fetch(`${API_BASE}/dates`)
+      const tzMin = mode === 'utc' ? 0 : -new Date().getTimezoneOffset()
+      const res = await fetch(`${API_BASE}/dates?tz=${tzMin}`)
       const data = await res.json()
       setState(s => ({ ...s, availableDates: data.dates || [] }))
     } catch (err) {
       console.warn('[FootyStream] Failed to fetch available dates:', err)
     }
-  }, [])
+  }, [mode])
 
   // Get adjacent days in UTC
   const getAdjacentUtcDates = (dateStr: string): { prev: string; next: string } => {
@@ -292,57 +298,46 @@ export function FootyStreamProvider({ children }: { children: ReactNode }) {
   }, [state.currentDate, state.isChangingDate, state.isLoading, getToday, connectSSE, disconnectSSE])
 
   // Navigation helpers
-  // Go to the most relevant date: today if it has fixtures, otherwise the next upcoming date
+  // Canonical navigable date list, used by both the UI (disable state) and the handlers below.
+  // Rule: all past dates with fixtures, today (always — even with no fixtures), and the first
+  // future date that has fixtures (not necessarily tomorrow). Sorted newest-first.
+  const today = getToday()
+  const navigableDates = useMemo(() => {
+    const past = state.availableDates.filter(d => d < today)
+    const firstFuture = [...state.availableDates].filter(d => d > today).sort()[0]
+    const set = new Set<string>([...past, today])
+    if (firstFuture) set.add(firstFuture)
+    return [...set].sort().reverse()
+  }, [state.availableDates, today])
+
   const goToToday = useCallback(() => {
-    const today = getToday()
-    const { availableDates } = state
-
-    // If today has fixtures, go there
-    if (availableDates.includes(today)) {
-      setDate(today)
-      return
-    }
-
-    // Otherwise find the next upcoming date with fixtures
-    const futureDates = availableDates.filter(d => d > today).sort()
-    if (futureDates.length > 0) {
-      setDate(futureDates[0])
-      return
-    }
-
-    // No future dates — fall back to today anyway (shows "no fixtures")
     setDate(today)
-  }, [setDate, getToday, state])
+  }, [setDate, today])
 
   const goToPreviousDate = useCallback(() => {
-    const { availableDates, currentDate } = state
-    const currentIndex = availableDates.indexOf(currentDate)
-    // Dates are sorted descending, so "previous" means higher index (older)
-    if (currentIndex < availableDates.length - 1) {
-      setDate(availableDates[currentIndex + 1])
-    } else if (currentIndex === -1 && availableDates.length > 0) {
-      // Current date not in list, find nearest older date
-      const olderDates = availableDates.filter(d => d < currentDate)
-      if (olderDates.length > 0) {
-        setDate(olderDates[0]) // Most recent older date
-      }
+    const { currentDate } = state
+    const idx = navigableDates.indexOf(currentDate)
+    // Descending order: "previous" (older) = higher index
+    if (idx >= 0 && idx < navigableDates.length - 1) {
+      setDate(navigableDates[idx + 1])
+    } else if (idx === -1) {
+      // Current date not in list (e.g. URL-jumped to an empty past day): nearest older
+      const older = navigableDates.filter(d => d < currentDate)
+      if (older.length > 0) setDate(older[0])
     }
-  }, [state, setDate])
+  }, [state, setDate, navigableDates])
 
   const goToNextDate = useCallback(() => {
-    const { availableDates, currentDate } = state
-    const currentIndex = availableDates.indexOf(currentDate)
-    // Dates are sorted descending, so "next" means lower index (newer)
-    if (currentIndex > 0) {
-      setDate(availableDates[currentIndex - 1])
-    } else if (currentIndex === -1) {
-      // Current date not in list, find nearest newer date
-      const newerDates = availableDates.filter(d => d > currentDate)
-      if (newerDates.length > 0) {
-        setDate(newerDates[newerDates.length - 1]) // Oldest newer date
-      }
+    const { currentDate } = state
+    const idx = navigableDates.indexOf(currentDate)
+    // Descending order: "next" (newer) = lower index
+    if (idx > 0) {
+      setDate(navigableDates[idx - 1])
+    } else if (idx === -1) {
+      const newer = navigableDates.filter(d => d > currentDate)
+      if (newer.length > 0) setDate(newer[newer.length - 1])
     }
-  }, [state, setDate, goToToday])
+  }, [state, setDate, navigableDates])
 
   // Navigate to a specific event (for shared links) - looks up date and navigates there
   const navigateToEvent = useCallback(async (eventId: string): Promise<boolean> => {
@@ -390,20 +385,24 @@ export function FootyStreamProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (initialSetupDone.current) return
     initialSetupDone.current = true
-    
+
     const today = getToday()
-    
+
     // Set initial date
     setState(s => ({ ...s, currentDate: today }))
     currentDateRef.current = today
-    
-    // Fetch available dates
-    fetchAvailableDates()
-    
+
     // Fetch fixtures for today (initial load)
     // SSE will auto-connect via the effect once fetch completes
     fetchFixturesForDate(today, true)
-  }, [getToday, fetchAvailableDates, fetchFixturesForDate])
+  }, [getToday, fetchFixturesForDate])
+
+  // Fetch (and refetch) the navigable date list. fetchAvailableDates is
+  // memoized on mode, so this fires on mount and whenever the user flips
+  // UTC <-> local — /dates needs to rebucket per the new tz.
+  useEffect(() => {
+    fetchAvailableDates()
+  }, [fetchAvailableDates])
   
   // Visibility change handler - separate effect so it uses current getToday()
   useEffect(() => {
@@ -474,6 +473,7 @@ export function FootyStreamProvider({ children }: { children: ReactNode }) {
   const contextValue: FootyContextValue = {
     ...state,
     fixtures: state.activeFixtures,  // backwards compat alias
+    navigableDates,
     setDate,
     goToToday,
     goToPreviousDate,

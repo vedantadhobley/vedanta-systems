@@ -33,7 +33,8 @@ export interface RankedVideo {
 
 export interface GoalEvent {
   type: 'Goal'
-  detail: string // 'Normal Goal', 'Penalty', 'Own Goal'
+  _kind?: 'goal' | 'card'  // 'card' = a red card — rendered as a compact row, no score/clips
+  detail: string // 'Normal Goal', 'Penalty', 'Own Goal' — or 'Red Card' when _kind==='card'
   time: {
     elapsed: number
     extra: number | null

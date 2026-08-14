@@ -17,21 +17,10 @@ const isDev = process.env.NODE_ENV !== 'production'
 // ============ PROJECT CONFIGURATION ============
 
 // Found Footy configuration (from environment)
+// Pattern B: vs-api proxies the found-footy Go read API (found-footy-{env}-api)
+// and reshapes its DTOs into the legacy shape the frontend expects.
 const foundFootyConfig = {
-  mongoUri: process.env.MONGODB_URI || '',
-  minio: {
-    endpoint: process.env.MINIO_ENDPOINT || '',
-    port: parseInt(process.env.MINIO_PORT || '9000'),
-    accessKey: process.env.MINIO_ACCESS_KEY || '',
-    secretKey: process.env.MINIO_SECRET_KEY || '',
-    useSSL: process.env.MINIO_USE_SSL === 'true' // Default to false (most internal MinIO setups use HTTP)
-  },
-  temporal: {
-    address: process.env.TEMPORAL_ADDRESS || 'temporal:7233'
-  },
-  twitter: {
-    apiKey: process.env.TWITTER_API_KEY || ''
-  }
+  apiUrl: process.env.FOUND_FOOTY_API_URL || '',
 }
 
 // Spin Cycle configuration (from environment)
@@ -44,15 +33,9 @@ const longExposureConfig = {
   postgresUri: process.env.LONG_EXPOSURE_POSTGRES_URI || '',
 }
 
-// Validate Found Footy config - fail fast if not configured
-if (!foundFootyConfig.mongoUri) {
-  throw new Error('MONGODB_URI environment variable is required')
-}
-if (!foundFootyConfig.minio.endpoint) {
-  throw new Error('MINIO_ENDPOINT environment variable is required')
-}
-if (!foundFootyConfig.minio.accessKey || !foundFootyConfig.minio.secretKey) {
-  throw new Error('MINIO_ACCESS_KEY and MINIO_SECRET_KEY environment variables are required')
+// Validate Found Footy config
+if (!foundFootyConfig.apiUrl) {
+  console.warn('⚠️  FOUND_FOOTY_API_URL not set — found-footy routes will return 502')
 }
 
 // Validate Spin Cycle config

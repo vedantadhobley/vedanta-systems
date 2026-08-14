@@ -304,7 +304,7 @@ function FoundFootyContent() {
     pauseStream, 
     resumeStream,
     currentDate,
-    availableDates,
+    navigableDates,
     setDate,
     goToToday,
     goToPreviousDate,
@@ -346,7 +346,7 @@ function FoundFootyContent() {
         onPauseStream={pauseStream}
         onResumeStream={resumeStream}
         currentDate={currentDate}
-        availableDates={availableDates}
+        navigableDates={navigableDates}
         onDateChange={setDate}
         onGoToToday={goToToday}
         onPreviousDate={goToPreviousDate}
