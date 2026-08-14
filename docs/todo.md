@@ -114,6 +114,41 @@ data surface. Don't migrate proactively.
 
 ---
 
+## Found Footy — timezone navigation (fold into the frontend rewrite)
+
+Surfaced 2026-08-11 while auditing the found-footy ingest/retention
+tz contract from the Go-rebuild side. Both items live in the
+timezone-scoping path documented in `docs/found-footy-timezone.md`.
+The frontend is slated for a rewrite, so capture-and-defer rather
+than patch in place — but the rewrite MUST address #1.
+
+1. **"One future day" splits a tz-straddling match day for eastern
+   users.** `navigableDates` (`FootyStreamContext.tsx`) keeps every
+   past date + today + exactly ONE `firstFuture` local date. But a
+   single match day (one UTC calendar day of kickoffs) tz-spills into
+   *two* local calendar days for users east of UTC — e.g. a 20:00-UTC
+   Saturday kickoff is Sunday 05:00 for Tokyo (+9). So the match day's
+   later kickoffs land on `firstFuture + 1`, which is **not
+   navigable** while those fixtures are still `staging`. The eastern
+   user previews only the earlier half of the next match day. (Once
+   the fixtures go active/completed they're always visible, so the gap
+   is staging-preview only — but it's a real gap.) The rule counts
+   *local calendar days* when it should reason about *match days*. The
+   edge case is already half-acknowledged in
+   `found-footy-timezone.md` §"Fixture straddles midnight".
+
+2. **`found-footy-timezone.md` is stale.** §"Server: `/dates`
+   endpoint" (line ~36) and §"`availableDates` are UTC but the cutoff
+   is timezone-local" (lines ~91-95) describe a **UTC-only** `/dates`
+   with "no concept of user timezone." The code has since moved on:
+   `getAvailableDates(offsetMin)` shifts each timestamp by the
+   caller's offset via `$dateAdd`, and the client calls
+   `/dates?tz=<tzMin>`. `availableDates` are now **timezone-local**,
+   not UTC. Update the doc (or delete the stale sections) when the
+   rewrite touches this path.
+
+---
+
 ## Verify — `nginx.conf` cleanup
 
 `nginx.conf` is still load-bearing in prod (crawler routing to OG

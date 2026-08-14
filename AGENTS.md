@@ -92,6 +92,7 @@ Pattern A vs B is the central architectural call here — see
 ## Where to look first
 
 - @README.md — public-facing project description
+- @docs/design.md — **the design north star** (BR2049 grammar × lavender phosphor, Pale Fire / cells-interlinked concept, the 12-token palette). Read before any visual work.
 - @deploy/INFRA-NOTES.md — Caddy + Cloudflared bring-up reference for this repo's slice
 - @docs/architecture.md — request paths (prod via Caddy → in-container nginx → SPA / api / og-server; dev via Caddy → Vite proxy → api), network model, btop's network_mode:host exception
 - @docs/btop.md — btop integration deep dive (AMD APU patches, custom theme, SSE protocol, known iGPU Vulkan 0% issue)

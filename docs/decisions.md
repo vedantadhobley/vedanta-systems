@@ -139,3 +139,60 @@ workspace-level scheme lands. Not tracked here further; that work
 isn't vedanta-systems' scope.
 
 ---
+
+## 2026-08-13 — found-footy Pattern B (dev) + the share_id video-URL model
+
+**Context.** The joi rebuild moved inference off the old
+`llama-small.joi`/Qwen endpoint, which killed the Python found-footy
+prod backend's clip validation. Rather than revive Python, we started
+consuming the **Go rebuild** in dev — a "minimal-first" slice: fixtures
+rendering from the Go read API (`found-footy-dev-api:8081`, REST at
+`/api/v1/*`) with **no frontend changes**, so we don't burn effort on
+UI that's getting redesigned anyway.
+
+**Decision.** `src/server/routes/found-footy.ts` becomes a **Pattern B
+translation shim**: it calls the Go read API and reshapes the flat+nested
+Go DTOs back into the legacy Mongo-shaped `Fixture` the current frontend
+expects. All the change lives in the BFF; the frontend + `src/types/found-footy.ts`
+are untouched. Config flips from `{mongoUri, minio}` → `{apiUrl}`
+(`FOUND_FOOTY_API_URL`). Search is stubbed, `/dates` synthesized from the
+Go window, and the SSE `/stream` is kept alive but **not** yet fed by NATS
+(the NATS→SSE coalescing bridge is the next layer).
+
+**The share_id video-URL model (the new "url sharing").** Video serving
+changes shape:
+
+- **Old:** MinIO object paths, byte-proxied at `/api/found-footy/video/:bucket/*`.
+- **New:** found-footy mints a stable **`share_id`** (`s_<12hex>`) per public
+  clip. The browser hits `/api/found-footy/video/:shareId`; vs-api calls
+  `{go-api}/api/v1/videos/:shareId`, follows the **302 → presigned Garage URL**,
+  and streams the bytes back same-origin (Range-forwarded — Garage isn't
+  browser-reachable, so vs-api stays in the byte path; this is also what prod
+  will need).
+- **Shares are stable across replacement.** When a better clip supersedes an
+  older one, the `share_id` keeps resolving — found-footy walks the supersede
+  chain to the current live asset — so a shared link never 404s, it *upgrades*
+  to the better clip. A VAR-removed clip resolves **410**; a never-minted id
+  **404**. The shareable unit is the `share_id`, not the object path.
+
+**Consequences.**
+
+- Placeholders until they land found-footy-side (approved handoff, sequenced
+  behind their cutover + DB rebuild): `assist` (forward-only, no backfill),
+  event lifecycle `phase` (+`debounce_count`), `event.rank_recalculated`
+  emit + `share_id`, and a grace-TTL on superseded bytes. Logos and HT/ET/pen
+  score breakdown are dropped (mono redesign won't show them).
+- **Prod stays Pattern A** (Python + Mongo/MinIO) — do NOT flip found-footy
+  prod to Go before the BFF NATS subscriber + this shim are proven, or the
+  public site's footy page goes dark.
+- Next layers on this shim: the NATS→SSE coalescing bridge, then real
+  `/dates`/`/search` synthesis, then slot in `phase`/`assist` when found-footy
+  ships them.
+- **Networking:** Garage joins `luv-{env}` — the shared cross-project network,
+  same as every other consumable backend (spin-cycle/long-exposure postgres,
+  found-footy's Go api). vs reaches Garage there; the `garage:3900` presign host
+  resolves over `luv-dev`. (Briefly hacked around this by joining found-footy's
+  private net — reverted; that's the coupling `luv-{env}` exists to prevent.)
+  **Prod follow-up:** add `luv-prod` to the prod Garage service when Go prod deploys.
+
+---
