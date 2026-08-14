@@ -313,6 +313,10 @@ export function createFoundFootyRouter(config: FoundFootyConfig): Router {
       // Go provides `penalty` (the shootout result); HT/FT/ET splits stay dropped.
       score: { halftime: { home: 0, away: 0 }, fulltime: { home: 0, away: 0 }, extratime: null, penalty: g.penalty || null },
       events: g.state === 'staging' ? [] : reshapeEvents(g),
+      // found-footy's last_activity_at is event-anchored (rebuild/go 93606af): it bumps only
+      // on goal/card, status transition, activation, or completion — never on a plain poll.
+      // So it's a stable, monotonic recency key; live fixtures sort by it desc. Staging never
+      // activates → no last_activity_at → falls through to kickoff order.
       _last_activity: g.last_activity_at || undefined,
     }
   }
