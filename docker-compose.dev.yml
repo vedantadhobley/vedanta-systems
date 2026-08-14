@@ -54,6 +54,8 @@ services:
       # Found Footy — Pattern B: proxy the Go read API (reshaped to the legacy
       # frontend shape in src/server/routes/found-footy.ts).
       - FOUND_FOOTY_API_URL=http://found-footy-dev-api:8081
+      # Live-feed bridge: subscribe found-footy.> on the workspace NATS, fan to SSE.
+      - NATS_URL=nats://nats:4222
     volumes:
       - .:/app
     command: sh -c "npm install && npx tsx watch src/server/index.ts"

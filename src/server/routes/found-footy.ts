@@ -32,13 +32,14 @@ import { Readable } from 'node:stream'
 
 // Configuration interface for Found Footy routes
 export interface FoundFootyConfig {
-  apiUrl: string // Go read API base, e.g. http://found-footy-dev-api:8081
+  apiUrl: string  // Go read API base, e.g. http://found-footy-dev-api:8081
+  natsUrl?: string // workspace NATS for the live-feed bridge, e.g. nats://nats:4222
 }
 
 // ---- Go cmd/api DTO shapes (what we consume) ----
 interface GoSide { id: number; name: string; score: number | null; winner: boolean | null }
 interface GoStatus { short: string; long: string; elapsed: number | null; extra: number | null }
-interface GoLeague { id: number; name: string; season: number }
+interface GoLeague { id: number; name: string; season: number; country?: string; round?: string }
 interface GoVideo {
   share_id: string; url: string; rank: number; verified: boolean
   extracted_minute: number | null; popularity: number
@@ -57,6 +58,7 @@ interface GoEvent {
 interface GoFixture {
   id: number; state: 'staging' | 'active' | 'completed'; kickoff: string
   league: GoLeague; home: GoSide; away: GoSide; status: GoStatus
+  penalty?: { home: number; away: number } | null   // shootout result
   last_activity_at: string | null; events: GoEvent[]
 }
 
@@ -66,8 +68,81 @@ export function createFoundFootyRouter(config: FoundFootyConfig): Router {
   const API = (config.apiUrl || '').replace(/\/$/, '')
   const isConfigured = !!API
 
-  // Track connected SSE clients (for the /refresh fan-out + future NATS bridge)
+  // Track connected SSE clients (for the /refresh fan-out + NATS bridge)
   const sseClients: Set<Response> = new Set()
+
+  function broadcastRefresh(reason?: string) {
+    const msg = `data: ${JSON.stringify({ type: 'refresh', timestamp: Date.now(), reason })}\n\n`
+    sseClients.forEach(c => { try { c.write(msg) } catch { /* client gone */ } })
+    console.log(`[found-footy] refresh -> ${sseClients.size} clients${reason ? ` (${reason})` : ''}`)
+  }
+
+  // Coalesce bursty NATS hints (a monitor cycle can fire several update/video messages)
+  // into one refresh per ~250ms window — the frontend refetches the window once per burst.
+  let refreshTimer: ReturnType<typeof setTimeout> | null = null
+  function coalescedRefresh() {
+    if (refreshTimer) return
+    refreshTimer = setTimeout(() => { refreshTimer = null; broadcastRefresh('nats') }, 250)
+  }
+
+  // fixture.clock -> forward minute ticks as an SSE 'clock'; the frontend patches the
+  // displayed minute in place (no refetch). Producer emits one batched message per monitor
+  // cycle, so no coalescing needed.
+  function broadcastClock(fixtures: any[]) {
+    if (!Array.isArray(fixtures) || fixtures.length === 0) return
+    const msg = `data: ${JSON.stringify({ type: 'clock', fixtures })}\n\n`
+    sseClients.forEach(c => { try { c.write(msg) } catch { /* client gone */ } })
+  }
+
+  // ---- NATS live-feed bridge: found-footy.> -> SSE ----
+  // Per the producer's bridge handoff (found-footy/docs/design/frontend-bridge-handoff.md):
+  // REST is truth; each NATS message is a "refetch" hint. For the current window-refetching
+  // frontend we coalesce fixture.update + event.video into the SSE `refresh` it already acts
+  // on, and re-emit on our OWN NATS reconnect (closes the BFF<->NATS blip: the browser sees
+  // no disconnect, so it must be told to re-snapshot). fixture.clock (in-place minute tick,
+  // no fetch) is the next slice; until then the minute refreshes with the next update.
+  if (config.natsUrl) {
+    ;(async () => {
+      let nats: any
+      try { nats = await import('nats') } catch (e) {
+        console.error('[found-footy] NATS client not installed — bridge disabled:', (e as Error).message)
+        return
+      }
+      const jc = nats.JSONCodec()
+      const connectLoop = async () => {
+        try {
+          const nc = await nats.connect({
+            servers: config.natsUrl, name: 'vedanta-systems-bff',
+            maxReconnectAttempts: -1, reconnectTimeWait: 2000,
+          })
+          console.log(`✅ [found-footy] NATS bridge connected (${config.natsUrl})`)
+          ;(async () => {
+            for await (const s of nc.status()) {
+              if (s.type === 'reconnect') { console.log('[found-footy] NATS reconnected — resync'); broadcastRefresh('nats-resync') }
+            }
+          })().catch(() => { /* status stream closed */ })
+          const sub = nc.subscribe('found-footy.>')
+          for await (const m of sub) {
+            try {
+              const env: any = jc.decode(m.data)
+              const subject: string = env?.subject || m.subject || ''
+              if (subject.endsWith('fixture.clock')) {
+                broadcastClock(env?.payload?.fixtures || [])
+              } else if (subject.endsWith('fixture.update') || subject.endsWith('event.video')) {
+                coalescedRefresh()
+              }
+            } catch (err) {
+              console.error('[found-footy] NATS message parse error:', (err as Error).message)
+            }
+          }
+        } catch (e) {
+          console.error('[found-footy] NATS bridge connect failed, retrying in 5s:', (e as Error).message)
+          setTimeout(connectLoop, 5000)
+        }
+      }
+      connectLoop()
+    })()
+  }
 
   // ---- helpers ----
   async function goJson<T>(path: string): Promise<T> {
@@ -229,14 +304,14 @@ export function createFoundFootyRouter(config: FoundFootyConfig): Router {
         // completed detection + the live-minute highlight. Uppercase so they match.
         status: { long: g.status.long, short: (g.status.short || '').toUpperCase(), elapsed: g.status.elapsed, extra: g.status.extra },
       },
-      league: { id: g.league.id, name: g.league.name, country: '', logo: '', flag: '', season: g.league.season, round: '' },
+      league: { id: g.league.id, name: g.league.name, country: g.league.country || '', logo: '', flag: '', season: g.league.season, round: g.league.round || '' },
       teams: {
         home: { id: g.home.id, name: g.home.name, winner: g.home.winner, logo: '' },
         away: { id: g.away.id, name: g.away.name, winner: g.away.winner, logo: '' },
       },
       goals: { home: g.home.score, away: g.away.score },
-      // Go dropped the HT/ET/penalty breakdown; placeholder to satisfy the shape.
-      score: { halftime: { home: 0, away: 0 }, fulltime: { home: 0, away: 0 }, extratime: null, penalty: null },
+      // Go provides `penalty` (the shootout result); HT/FT/ET splits stay dropped.
+      score: { halftime: { home: 0, away: 0 }, fulltime: { home: 0, away: 0 }, extratime: null, penalty: g.penalty || null },
       events: g.state === 'staging' ? [] : reshapeEvents(g),
       _last_activity: g.last_activity_at || undefined,
     }
@@ -388,11 +463,10 @@ export function createFoundFootyRouter(config: FoundFootyConfig): Router {
     })
   })
 
-  // POST /refresh - internal-only webhook; fan out a lightweight refresh signal
+  // POST /refresh - internal-only webhook; fan out a lightweight refresh signal.
+  // (Legacy Pattern-A path; the live feed is now the NATS bridge above. Kept harmless.)
   router.post('/refresh', (_req: Request, res: Response) => {
-    const msg = `data: ${JSON.stringify({ type: 'refresh', timestamp: Date.now() })}\n\n`
-    sseClients.forEach(c => { try { c.write(msg) } catch { /* client gone */ } })
-    console.log(`[found-footy] Broadcast refresh to ${sseClients.size} clients`)
+    broadcastRefresh('webhook')
     res.json({ success: true, clientsNotified: sseClients.size })
   })
 

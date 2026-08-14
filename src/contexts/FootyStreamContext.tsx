@@ -222,6 +222,22 @@ export function FootyStreamProvider({ children }: { children: ReactNode }) {
             console.log('[FootyStream] SSE refresh signal, refetching...')
             fetchFixturesForDate(currentDateRef.current)
             break
+          case 'clock': {
+            // In-place minute tick — patch each live fixture's clock directly, NO refetch
+            // (per the bridge contract: fixture.clock is a display tick, not a data change).
+            const ticks: Array<{ fixture_id: number; minute: number; extra: number | null }> = event.fixtures || []
+            if (ticks.length === 0) break
+            const byId = new Map(ticks.map(t => [t.fixture_id, t]))
+            setState(s => ({
+              ...s,
+              activeFixtures: s.activeFixtures.map(f => {
+                const t = byId.get(f._id)
+                if (!t) return f
+                return { ...f, fixture: { ...f.fixture, status: { ...f.fixture.status, elapsed: t.minute, extra: t.extra } } }
+              }),
+            }))
+            break
+          }
           case 'heartbeat':
             // Connection alive
             break

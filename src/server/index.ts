@@ -21,6 +21,7 @@ const isDev = process.env.NODE_ENV !== 'production'
 // and reshapes its DTOs into the legacy shape the frontend expects.
 const foundFootyConfig = {
   apiUrl: process.env.FOUND_FOOTY_API_URL || '',
+  natsUrl: process.env.NATS_URL || '',
 }
 
 // Spin Cycle configuration (from environment)
