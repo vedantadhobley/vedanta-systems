@@ -391,7 +391,17 @@ export function FoundFootyBrowser({
   const filteredActive = useMemo(() => filterFixturesByDate(sortedFixtures), [filterFixturesByDate, sortedFixtures])
   const filteredCompleted = useMemo(() => filterFixturesByDate(sortedCompleted), [filterFixturesByDate, sortedCompleted])
   
-  const currentFilteredFixtures = sortFixturesCustom([...filteredStaging, ...filteredActive, ...filteredCompleted])
+  // Render order is status-primary: live first, then finished, then upcoming — recency only
+  // orders WITHIN a status. Don't globally sort all three by _last_activity: found-footy made
+  // it event-anchored (bumps only on goal/card + activation/completion, never on polls), so a
+  // quiet live game freezes at its last-goal time while a just-finished game's completion
+  // timestamp is seconds old — a global sort would float finished matches above still-live ones.
+  // filteredActive/filteredCompleted are already _last_activity-desc; staging sorts by kickoff.
+  const currentFilteredFixtures = [
+    ...filteredActive,
+    ...filteredCompleted,
+    ...sortFixturesCustom([...filteredStaging]),
+  ]
   
   // Keep a ref of the last non-empty fixtures to show during date transitions
   // This prevents layout collapse when filtering returns 0 results during date change
