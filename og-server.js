@@ -70,24 +70,56 @@ async function findEvent(eventId) {
   }
 }
 
+// Event display label. Mirror of formatEventDetail() in
+// src/components/found-footy-browser.tsx — keep the two in sync by hand (og-server is
+// CommonJS + prod-only, so it can't import the TS version).
+function eventLabel(detail, kind) {
+  if (kind === 'card') return 'Red Card';
+  if (kind === 'penalty-miss') return 'Penalty Miss';
+  switch ((detail || '').toLowerCase()) {
+    case 'normal goal': return 'Goal';
+    case 'penalty': return 'Penalty Goal';
+    case 'own goal': return 'Own Goal';
+    case 'red card': return 'Red Card';
+    case 'missed penalty': return 'Penalty Miss';
+    default: return detail || 'Goal';
+  }
+}
+
 /**
- * Generate event display title: "Home X-(Y) Away".
- * Parentheses around the scoring team's score. Uses `_score_after`
- * (the score at the moment of the goal) and `_scoring_team` from
- * the event.
+ * Generate the share title.
+ *
+ * Scoring (goal / penalty goal / own goal):
+ *   "<scorer>[ (assister | pen. | o.g.)] — Home (X) - Y Away"
+ *   Parens sit on the team whose score went up (event._scoring_team). An own goal's scorer is
+ *   on the OTHER team, so we never attach a team to the name — the parens disambiguate which
+ *   side scored. Only a normal goal carries an assister; penalty/own get a (pen.)/(o.g.) tag.
+ *
+ * Non-scoring (red card / missed penalty):
+ *   "<player> (<team>) — <label>", no score line. Here event._scoring_team is the player's own
+ *   team, so naming it is unambiguous.
  */
 function generateEventTitle(fixture, event) {
   const { teams, goals } = fixture;
+  const player = event.player?.name || 'Unknown';
+  const teamName = event._scoring_team === 'home' ? teams.home.name : teams.away.name;
+
+  if (event._kind === 'card') return `${player} (${teamName}) — Red Card`;
+  if (event._kind === 'penalty-miss') return `${player} (${teamName}) — Penalty missed`;
 
   const homeScore = event._score_after?.home ?? goals?.home ?? 0;
   const awayScore = event._score_after?.away ?? goals?.away ?? 0;
-  const scoringTeamIsHome = event._scoring_team === 'home';
+  const scoreLine = event._scoring_team === 'home'
+    ? `${teams.home.name} (${homeScore}) - ${awayScore} ${teams.away.name}`
+    : `${teams.home.name} ${homeScore} - (${awayScore}) ${teams.away.name}`;
 
-  if (scoringTeamIsHome) {
-    return `${teams.home.name} (${homeScore}) - ${awayScore} ${teams.away.name}`;
-  } else {
-    return `${teams.home.name} ${homeScore} - (${awayScore}) ${teams.away.name}`;
-  }
+  const detail = (event.detail || '').toLowerCase();
+  let tag = '';
+  if (detail === 'penalty') tag = ' (pen.)';
+  else if (detail === 'own goal') tag = ' (o.g.)';
+  else if (event.assist?.name) tag = ` (${event.assist.name})`; // normal goal only
+
+  return `${player}${tag} — ${scoreLine}`;
 }
 
 /**
@@ -98,7 +130,7 @@ function generateEventSubtitle(event) {
     ? `${event.time.elapsed}+${event.time.extra}'`
     : `${event.time?.elapsed || '?'}'`;
 
-  const eventType = event.detail || event.type || 'Goal';
+  const eventType = eventLabel(event.detail, event._kind);
   const scorerName = event.player?.name || 'Unknown';
   const assistName = event.assist?.name;
 
