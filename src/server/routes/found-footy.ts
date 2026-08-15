@@ -364,13 +364,22 @@ export function createFoundFootyRouter(config: FoundFootyConfig): Router {
       const all = await goJson<GoFixture[]>('/api/v1/fixtures')
       const dateParam = req.query.date as string | undefined
       const inDate = (g: GoFixture) => !dateParam || g.kickoff.slice(0, 10) === dateParam
-      // found-footy sometimes leaves a finished fixture in state='active' (its ft->completed
-      // transition can stall), which would then count as "live" and sort as in-play. Trust the
-      // status: a finished status buckets as completed regardless of state. (status is uppercased
-      // in reshapeFixture; raw Go is lowercase, so normalize here.)
+      // found-footy moves fixtures between staging/active/completed on its own schedule, and that
+      // location can disagree with the actual match status: a not-yet-kicked-off game is pulled
+      // into 'active' early to ride the fast monitor cycle (status still NS), and a finished game
+      // can linger in 'active' (its ft->completed transition stalls). Either way the frontend
+      // would mis-report it as live. So bucket by the match STATUS, which is unambiguous; fall
+      // back to the backend state only for statuses we don't classify. (Raw Go status is lowercase.)
+      const NOT_STARTED = ['NS', 'TBD']
+      const LIVE = ['1H', '2H', 'HT', 'ET', 'BT', 'P', 'SUSP', 'INT', 'LIVE']
       const FINISHED = ['FT', 'AET', 'PEN', 'AWD', 'WO']
-      const effectiveState = (g: GoFixture): string =>
-        g.state === 'active' && FINISHED.includes((g.status.short || '').toUpperCase()) ? 'completed' : g.state
+      const effectiveState = (g: GoFixture): string => {
+        const s = (g.status.short || '').toUpperCase()
+        if (NOT_STARTED.includes(s)) return 'staging'
+        if (LIVE.includes(s)) return 'active'
+        if (FINISHED.includes(s)) return 'completed'
+        return g.state // CANC/PST/ABD/unknown -> keep the backend state (usually completed)
+      }
       const pick = (state: string) => all.filter(g => effectiveState(g) === state && inDate(g)).map(reshapeFixture)
       const body: any = { staging: pick('staging'), active: pick('active'), completed: pick('completed') }
       if (dateParam) body.date = dateParam
