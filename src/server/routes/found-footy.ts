@@ -432,11 +432,15 @@ export function createFoundFootyRouter(config: FoundFootyConfig): Router {
     }
   })
 
-  // GET /event/:eventId - which date an event is on (for shared links)
+  // GET /event/:eventId - which date an event is on (for shared-link navigation). found-footy
+  // dropped single-resource GETs (N7) — everything is the batch ?ids= form now, even for one id
+  // ("single event is just ?ids=<one>"). Take the first result; empty array => not found.
   router.get('/event/:eventId', async (req: Request, res: Response) => {
     try {
-      const ev = await goJson<GoEvent>(`/api/v1/events/${encodeURIComponent(req.params.eventId)}`)
-      const fx = await goJson<GoFixture>(`/api/v1/fixtures/${ev.fixture_id}`)
+      const [ev] = await goJson<GoEvent[]>(`/api/v1/events?ids=${encodeURIComponent(req.params.eventId)}`)
+      if (!ev) return res.json({ eventId: req.params.eventId, found: false })
+      const [fx] = await goJson<GoFixture[]>(`/api/v1/fixtures?ids=${ev.fixture_id}`)
+      if (!fx) return res.json({ eventId: req.params.eventId, found: false })
       res.json({ eventId: req.params.eventId, date: fx.kickoff.slice(0, 10), found: true })
     } catch {
       res.json({ eventId: req.params.eventId, found: false })
