@@ -22,6 +22,8 @@ const isDev = process.env.NODE_ENV !== 'production'
 const foundFootyConfig = {
   apiUrl: process.env.FOUND_FOOTY_API_URL || '',
   natsUrl: process.env.NATS_URL || '',
+  // Scopes the NATS subscription to found-footy.<env>.> — one broker serves both envs.
+  env: (isDev ? 'dev' : 'prod') as 'dev' | 'prod',
 }
 
 // Spin Cycle configuration (from environment)

@@ -34,6 +34,7 @@ import { Readable } from 'node:stream'
 export interface FoundFootyConfig {
   apiUrl: string  // Go read API base, e.g. http://found-footy-dev-api:8081
   natsUrl?: string // workspace NATS for the live-feed bridge, e.g. nats://nats:4222
+  env?: 'dev' | 'prod' // our environment — scopes the NATS subscription to found-footy.<env>.>
 }
 
 // ---- Go cmd/api DTO shapes (what we consume) ----
@@ -95,7 +96,7 @@ export function createFoundFootyRouter(config: FoundFootyConfig): Router {
     sseClients.forEach(c => { try { c.write(msg) } catch { /* client gone */ } })
   }
 
-  // ---- NATS live-feed bridge: found-footy.> -> SSE ----
+  // ---- NATS live-feed bridge: found-footy.<env>.> -> SSE ----
   // Per the producer's bridge handoff (found-footy/docs/design/frontend-bridge-handoff.md):
   // REST is truth; each NATS message is a "refetch" hint. For the current window-refetching
   // frontend we coalesce fixture.update + event.video into the SSE `refresh` it already acts
@@ -122,7 +123,12 @@ export function createFoundFootyRouter(config: FoundFootyConfig): Router {
               if (s.type === 'reconnect') { console.log('[found-footy] NATS reconnected — resync'); broadcastRefresh('nats-resync') }
             }
           })().catch(() => { /* status stream closed */ })
-          const sub = nc.subscribe('found-footy.>')
+          // Scope to OUR env: one shared broker serves dev + prod, and subjects carry the env
+          // token (found-footy.<env>.<domain>.<event>). Subscribing to found-footy.> would pull
+          // the other env's events into this SSE feed. Env isolation is by subject, not account
+          // (broker is open mode — no creds). See ~/workspace/nats/schemas/README.md.
+          const env = config.env || 'dev'
+          const sub = nc.subscribe(`found-footy.${env}.>`)
           for await (const m of sub) {
             try {
               const env: any = jc.decode(m.data)
