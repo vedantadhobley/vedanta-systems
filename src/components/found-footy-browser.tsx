@@ -89,6 +89,13 @@ function formatRound(round: string | undefined): string {
   return m ? `Matchweek ${m[1]}` : round
 }
 
+// Cancelled / postponed: no result, no clips, and no live time — rendered as a static row and
+// sorted to the very end of the list (a voided fixture shouldn't compete with real results for
+// recency; among themselves they order by scheduled kickoff).
+function isVoidedFixture(f: Fixture): boolean {
+  return ['CANC', 'PST'].includes(f.fixture.status.short)
+}
+
 // Synced pulse animation - all icons sync to wall clock
 // Each icon calculates delay at mount: -(Date.now() % duration)
 // This makes all icons appear to have started at the same epoch-aligned time
@@ -472,10 +479,16 @@ export function FoundFootyBrowser({
   // quiet live game freezes at its last-goal time while a just-finished game's completion
   // timestamp is seconds old — a global sort would float finished matches above still-live ones.
   // filteredActive/filteredCompleted are already _last_activity-desc; staging sorts by kickoff.
+  // Cancelled/postponed fixtures are pulled OUT of the completed group and appended at the very
+  // end (no live time left), ordered among themselves by scheduled kickoff.
+  const voided = filteredCompleted.filter(isVoidedFixture)
+    .sort((a, b) => a.fixture.date.localeCompare(b.fixture.date))
+  const completedReal = filteredCompleted.filter(f => !isVoidedFixture(f))
   const currentFilteredFixtures = [
     ...filteredActive,
-    ...filteredCompleted,
+    ...completedReal,
     ...sortFixturesCustom([...filteredStaging]),
+    ...voided,
   ]
   
   // Keep a ref of the last non-empty fixtures to show during date transitions
@@ -1015,7 +1028,33 @@ function FixtureItem({
   const isCompleted = ['FT', 'AET', 'PEN', 'AWD', 'WO'].includes(fixtureInfo.status.short)
   const homeWins = isCompleted && teams.home.winner === true
   const awayWins = isCompleted && teams.away.winner === true
-  
+
+  // Cancelled / postponed: no result, no clips. found-footy buckets these 'completed' (the
+  // fixture is terminal), but they never produced a scoreline or events — so render a static,
+  // non-expandable row with the status in place of the score.
+  const isVoided = isVoidedFixture(fixture)
+  if (isVoided) {
+    const voidedLabel = fixtureInfo.status.short === 'PST' ? 'Postponed' : 'Cancelled'
+    return (
+      <div className="border border-corpo-border">
+        <div className="w-full flex items-center gap-2 px-3 py-2 text-corpo-text/50" style={{ fontSize: 'var(--text-size-base)' }}>
+          {/* spacer keeps teams aligned with expandable rows; no toggle — not clickable */}
+          <span className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
+          <span className="flex-1 flex flex-col min-w-0">
+            <span className="truncate flex items-center">
+              <span>{teams.home.name}</span>
+              <span className="text-corpo-text/40 mx-2 text-sm uppercase tracking-wider">{voidedLabel}</span>
+              <span>{teams.away.name}</span>
+            </span>
+            {competitionText && (
+              <span className={cn("text-sm truncate font-light", competitionText === 'Final' ? "text-lavender" : "text-corpo-text/40")}>{competitionText}</span>
+            )}
+          </span>
+        </div>
+      </div>
+    )
+  }
+
   // Sort events by _first_seen descending (most recent first)
   const sortedEvents = [...(events || [])].sort((a, b) => {
     const aTime = a._first_seen ? new Date(a._first_seen).getTime() : 0
