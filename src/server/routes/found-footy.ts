@@ -280,6 +280,8 @@ export function createFoundFootyRouter(config: FoundFootyConfig): Router {
           url: videoUrl(v.share_id),
           perceptual_hash: '',
           resolution_score: (v.width || 0) * (v.height || 0),
+          width: v.width || 0,
+          height: v.height || 0,
           popularity: v.popularity || 0,
           rank: v.rank,
         })),
@@ -362,7 +364,14 @@ export function createFoundFootyRouter(config: FoundFootyConfig): Router {
       const all = await goJson<GoFixture[]>('/api/v1/fixtures')
       const dateParam = req.query.date as string | undefined
       const inDate = (g: GoFixture) => !dateParam || g.kickoff.slice(0, 10) === dateParam
-      const pick = (state: string) => all.filter(g => g.state === state && inDate(g)).map(reshapeFixture)
+      // found-footy sometimes leaves a finished fixture in state='active' (its ft->completed
+      // transition can stall), which would then count as "live" and sort as in-play. Trust the
+      // status: a finished status buckets as completed regardless of state. (status is uppercased
+      // in reshapeFixture; raw Go is lowercase, so normalize here.)
+      const FINISHED = ['FT', 'AET', 'PEN', 'AWD', 'WO']
+      const effectiveState = (g: GoFixture): string =>
+        g.state === 'active' && FINISHED.includes((g.status.short || '').toUpperCase()) ? 'completed' : g.state
+      const pick = (state: string) => all.filter(g => effectiveState(g) === state && inDate(g)).map(reshapeFixture)
       const body: any = { staging: pick('staging'), active: pick('active'), completed: pick('completed') }
       if (dateParam) body.date = dateParam
       res.json(body)

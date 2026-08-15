@@ -108,8 +108,16 @@ function generateEventSubtitle(event) {
   return `${timeStr} ${eventType} - ${scorerName}`;
 }
 
-// Generate OG HTML for a shared video
-function generateVideoOgHtml(fixture, event, videoHash) {
+// Generate OG HTML for a shared clip, keyed on the stable share_id.
+//
+// The share_id resolves to the CURRENT BEST clip (it self-upgrades when a better clip
+// supersedes an older one; 410 if VAR-removed, 404 if never minted). We point og:video at
+// the shim's byte-streaming endpoint (`/api/found-footy/video/:shareId`) — a same-origin
+// HTTPS video/mp4 with Range support, which is exactly what iMessage/Twitter need for an
+// inline player. Because the OG URL is the *stable* share_id, we never re-mint per clip
+// version: unfurlers cache a snapshot at share time, and opening the link always resolves
+// to the current best.
+function generateVideoOgHtml(fixture, event, shareId) {
   const { league } = fixture;
 
   const title = generateEventTitle(fixture, event);
@@ -118,21 +126,23 @@ function generateVideoOgHtml(fixture, event, videoHash) {
     description += ` | ${league.name}`;
   }
 
-  // Find the specific video if hash provided
+  // Resolve the clip by its share_id (confirm it belongs to this event before emitting og:video).
   let videoUrl = null;
-  if (videoHash && event._s3_videos?.length) {
-    const video = event._s3_videos.find(v => v.url?.includes(videoHash));
+  let vw = 1280, vh = 720; // 16:9 fallback; players read the real dimensions from the video itself
+  if (shareId && event._s3_videos?.length) {
+    const video = event._s3_videos.find(v => v.url?.includes(shareId));
     if (video?.url) {
       videoUrl = video.url.startsWith('http')
         ? video.url
         : `https://vedanta.systems${video.url}`;
+      if (video.width && video.height) { vw = video.width; vh = video.height; }
     }
   }
 
-  // Use site OG image as fallback (we could generate thumbnails later)
+  // Use site OG image as fallback (a real per-clip poster frame is a future enhancement).
   const imageUrl = 'https://vedanta.systems/og-image.png?v=3';
-  const pageUrl = videoHash
-    ? `https://vedanta.systems/workspace/found-footy?v=${event._event_id}&h=${videoHash}`
+  const pageUrl = shareId
+    ? `https://vedanta.systems/workspace/found-footy?v=${event._event_id}&s=${shareId}`
     : `https://vedanta.systems/workspace/found-footy?v=${event._event_id}`;
 
   return `<!DOCTYPE html>
@@ -152,7 +162,10 @@ function generateVideoOgHtml(fixture, event, videoHash) {
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
   ${videoUrl ? `<meta property="og:video" content="${videoUrl}">
-  <meta property="og:video:type" content="video/mp4">` : ''}
+  <meta property="og:video:secure_url" content="${videoUrl}">
+  <meta property="og:video:type" content="video/mp4">
+  <meta property="og:video:width" content="${vw}">
+  <meta property="og:video:height" content="${vh}">` : ''}
 
   <!-- Twitter Card -->
   <meta name="twitter:card" content="${videoUrl ? 'player' : 'summary_large_image'}">
@@ -161,7 +174,9 @@ function generateVideoOgHtml(fixture, event, videoHash) {
   <meta name="twitter:image" content="${imageUrl}">
   ${videoUrl ? `<meta name="twitter:player" content="${pageUrl}">
   <meta name="twitter:player:stream" content="${videoUrl}">
-  <meta name="twitter:player:stream:content_type" content="video/mp4">` : ''}
+  <meta name="twitter:player:stream:content_type" content="video/mp4">
+  <meta name="twitter:player:width" content="${vw}">
+  <meta name="twitter:player:height" content="${vh}">` : ''}
 
   <!-- Redirect to actual page -->
   <meta http-equiv="refresh" content="0;url=${pageUrl}">
@@ -230,7 +245,7 @@ const server = http.createServer(async (req, res) => {
     const url = new URL(req.url, `http://${req.headers.host}`);
     const path = url.pathname;
     const eventId = url.searchParams.get('v');
-    const videoHash = url.searchParams.get('h');
+    const shareId = url.searchParams.get('s');
 
     console.log(`[OG Server] ${req.method} ${path}`);
 
@@ -238,7 +253,7 @@ const server = http.createServer(async (req, res) => {
     if (eventId) {
       const result = await findEvent(eventId);
       if (result) {
-        html = generateVideoOgHtml(result.fixture, result.event, videoHash);
+        html = generateVideoOgHtml(result.fixture, result.event, shareId);
       } else {
         html = generateDefaultOgHtml(path);
       }
