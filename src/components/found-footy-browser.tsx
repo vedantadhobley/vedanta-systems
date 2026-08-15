@@ -523,7 +523,13 @@ export function FoundFootyBrowser({
       grp.fixtures.push(f)
     }
     return Array.from(groups.values())
-      .map(g => ({ ...g, liveCount: g.fixtures.filter(f => liveIds.has(f._id)).length }))
+      .map(g => ({
+        ...g,
+        liveCount: g.fixtures.filter(f => liveIds.has(f._id)).length,
+        // A final can't be collapsed (see render). Match round EXACTLY "Final" so semis /
+        // quarters don't qualify. Finals are ~always their single fixture.
+        isFinal: g.fixtures.length > 0 && g.fixtures.every(f => (f.league?.round || '').trim().toLowerCase() === 'final'),
+      }))
       .sort((a, b) => a.league.id - b.league.id)
   }, [allDateFixtures, filteredActive])
 
@@ -759,34 +765,58 @@ export function FoundFootyBrowser({
           ) : (
             <>
               {competitionGroups.map(group => {
-                const isOpen = expandedCompetition === group.league.id
+                const isFinal = group.isFinal
+                const isOpen = isFinal || expandedCompetition === group.league.id
                 return (
                   <div key={group.league.id}>
-                    {/* Competition header — collapsible; one league open at a time */}
-                    <button
-                      onClick={() => toggleCompetition(group.league.id)}
-                      className="group w-full flex items-center gap-2 px-1 py-1.5 text-left transition-none"
-                      style={{ fontSize: 'var(--text-size-base)' }}
-                    >
-                      <RiArrowRightSLine className={cn(
-                        "w-4 h-4 flex-shrink-0 text-lavender/50 group-hover:text-lavender",
-                        isOpen && "rotate-90"
-                      )} />
-                      <span className="flex-1 min-w-0 truncate text-lavender/70 font-light uppercase tracking-wider">
-                        {competitionLabel(group.league)}
-                      </span>
-                      {group.liveCount > 0 && (
-                        <span
-                          className="flex-shrink-0 text-xs font-light uppercase tracking-wider tabular-nums"
-                          style={{ color: '#e5484d' }}
-                        >
-                          {group.liveCount} live
+                    {isFinal ? (
+                      /* Finals are never hidden — the filled down arrow, permanently (open + locked). No toggle. */
+                      <div
+                        className="w-full flex items-center gap-2 px-1 py-1.5"
+                        style={{ fontSize: 'var(--text-size-base)' }}
+                      >
+                        <RiArrowRightSFill className="w-4 h-4 transition-none flex-shrink-0 text-lavender/70 rotate-90" />
+                        <span className="flex-1 min-w-0 truncate text-lavender/70 font-light uppercase tracking-wider">
+                          {competitionLabel(group.league)}
                         </span>
-                      )}
-                      <span className="flex-shrink-0 tabular-nums text-corpo-text/40 text-sm">
-                        [{group.fixtures.length}]
-                      </span>
-                    </button>
+                        {group.liveCount > 0 && (
+                          <span className="flex-shrink-0 text-xs font-light uppercase tracking-wider tabular-nums" style={{ color: '#e5484d' }}>
+                            {group.liveCount} live
+                          </span>
+                        )}
+                      </div>
+                    ) : (
+                      /* Competition header — collapsible; one league open at a time */
+                      <button
+                        onClick={() => toggleCompetition(group.league.id)}
+                        onTouchStart={() => {}} // required for iOS :active (group-active) to fire
+                        className="group w-full flex items-center gap-2 px-1 py-1.5 text-left transition-none"
+                        style={{ fontSize: 'var(--text-size-base)' }}
+                      >
+                        {/* Line by default, Fill on hover/active — same pattern as the fixture
+                            icons, but color held at lavender (no dim→bright). Rotates to point
+                            down when open. */}
+                        <RiArrowRightSLine className={cn(
+                          "w-4 h-4 transition-none flex-shrink-0 text-lavender/70 group-hover:hidden group-active:hidden",
+                          isOpen && "rotate-90"
+                        )} />
+                        <RiArrowRightSFill className={cn(
+                          "w-4 h-4 transition-none flex-shrink-0 text-lavender/70 hidden group-hover:block group-active:block",
+                          isOpen && "rotate-90"
+                        )} />
+                        <span className="flex-1 min-w-0 truncate text-lavender/70 font-light uppercase tracking-wider">
+                          {competitionLabel(group.league)}
+                        </span>
+                        {group.liveCount > 0 && (
+                          <span className="flex-shrink-0 text-xs font-light uppercase tracking-wider tabular-nums" style={{ color: '#e5484d' }}>
+                            {group.liveCount} live
+                          </span>
+                        )}
+                        <span className="flex-shrink-0 tabular-nums text-corpo-text/40 text-sm">
+                          [{group.fixtures.length}]
+                        </span>
+                      </button>
+                    )}
                     {isOpen && (
                       <div className="space-y-1 mt-1 mb-2">
                         {group.fixtures.map(fixture => {
@@ -919,7 +949,7 @@ function StagingFixtureItem({ fixture, formatKickoff, searchTeamMatch, roundOnly
           </span>
           {/* Competition line — full in search; just the matchweek in the grouped view */}
           {competitionText && (
-            <span className="text-corpo-text/40 text-sm truncate font-light">{competitionText}</span>
+            <span className={cn("text-sm truncate font-light", competitionText === 'Final' ? "text-lavender" : "text-corpo-text/40")}>{competitionText}</span>
           )}
         </span>
 
@@ -1032,7 +1062,7 @@ function FixtureItem({
           </span>
           {/* Competition line — full in search; just the matchweek in the grouped view */}
           {competitionText && (
-            <span className="text-corpo-text/40 text-sm truncate font-light">{competitionText}</span>
+            <span className={cn("text-sm truncate font-light", competitionText === 'Final' ? "text-lavender" : "text-corpo-text/40")}>{competitionText}</span>
           )}
           
         </span>
