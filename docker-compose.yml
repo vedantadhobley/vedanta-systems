@@ -30,13 +30,12 @@ services:
     environment:
       - NODE_ENV=production
       - API_PORT=3001
-      # MongoDB - connects to found-footy-prod-mongo on luv-prod network
-      - MONGODB_URI=mongodb://${FOUND_FOOTY_MONGO_USER}:${FOUND_FOOTY_MONGO_PASS}@found-footy-prod-mongo:27017/found_footy?authSource=admin
-      # MinIO - connects to found-footy-prod-minio on luv-prod network
-      - MINIO_ENDPOINT=found-footy-prod-minio
-      - MINIO_PORT=9000
-      - MINIO_ACCESS_KEY=${FOUND_FOOTY_S3_USER}
-      - MINIO_SECRET_KEY=${FOUND_FOOTY_S3_PASS}
+      # Found Footy — Pattern B: proxy the Go read API (reshaped to the legacy frontend shape
+      # in src/server/routes/found-footy.ts). Replaces the old direct Mongo/MinIO reads.
+      - FOUND_FOOTY_API_URL=http://found-footy-prod-api:8081
+      # Live-feed bridge: NODE_ENV=production scopes the subscription to found-footy.prod.>
+      # on the shared workspace NATS, fanned to SSE.
+      - NATS_URL=nats://nats:4222
       # Spin Cycle PostgreSQL - connects to spin-cycle-prod-postgres on luv-prod network
       - SPIN_CYCLE_POSTGRES_URI=postgresql://${SPIN_CYCLE_POSTGRES_USER}:${SPIN_CYCLE_POSTGRES_PASS}@spin-cycle-prod-postgres:5432/spincycle
       # Long Exposure PostgreSQL (TimescaleDB; narratives) - long-exposure-prod-postgres on luv-prod
