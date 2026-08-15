@@ -56,6 +56,23 @@ function generateEventSubtitle(event: GoalEvent): string {
   return `${timeStr} ${eventType} - <<${scorerName}>>`
 }
 
+// Competition group label: "{country} - {name}". League only — NO round: fixtures within one
+// league can span matchweeks on the same day, so round is a per-fixture property, not a group
+// one. country is blank for some continental comps (UEFA CL / Super Cup — found-footy leaves it
+// empty, not "World"), so fall back to name alone.
+function competitionLabel(league: Fixture['league']): string {
+  return league.country ? `${league.country} - ${league.name}` : league.name
+}
+
+// Matchweek/round for a fixture ROW. In the grouped view the header carries the league, so the
+// row only shows the part that varies per fixture: "Regular Season - 5" -> "MW 5"; cup rounds
+// ("Round of 64", "Final", "Group Stage") shown as-is; roundless comps -> "" (no line).
+function formatRound(round: string | undefined): string {
+  if (!round) return ''
+  const m = round.match(/^Regular Season - (\d+)$/i)
+  return m ? `MW ${m[1]}` : round
+}
+
 // Synced pulse animation - all icons sync to wall clock
 // Each icon calculates delay at mount: -(Date.now() % duration)
 // This makes all icons appear to have started at the same epoch-aligned time
@@ -166,6 +183,7 @@ export function FoundFootyBrowser({
   onExitSearch,
   onSearch
 }: FoundFootyBrowserProps) {
+  const [expandedCompetition, setExpandedCompetition] = useState<number | null>(null)
   const [expandedFixture, setExpandedFixture] = useState<number | null>(null)
   const [expandedEvent, setExpandedEvent] = useState<string | null>(null)
   const [videoModal, setVideoModal] = useState<VideoInfo | null>(null)
@@ -181,7 +199,7 @@ export function FoundFootyBrowser({
   }, [])
   const scrollSpacerRef = useScrollStabilizer(
     scrollContainerRef,
-    [currentDate, expandedFixture, expandedEvent, isChangingDate, searchMode]
+    [currentDate, expandedCompetition, expandedFixture, expandedEvent, isChangingDate, searchMode]
   )
   
   const { mode, formatTime, getTimezoneAbbr, getDateForTimestamp, getToday } = useTimezone()
@@ -300,6 +318,15 @@ export function FoundFootyBrowser({
     setExpandedEvent(prev => prev === eventId ? null : eventId)
   }, [])
 
+  // Toggle competition — one league open at a time (same accordion rule as fixtures/events).
+  // Switching leagues resets the inner fixture/event accordion; their path belongs to the
+  // league being collapsed.
+  const toggleCompetition = useCallback((leagueId: number) => {
+    setExpandedCompetition(prev => prev === leagueId ? null : leagueId)
+    setExpandedFixture(null)
+    setExpandedEvent(null)
+  }, [])
+
   // Handle navigating to the correct date for shared video links
   useEffect(() => {
     if (!initialVideo || initialVideoNavigated.current || !onNavigateToEvent) return
@@ -326,7 +353,8 @@ export function FoundFootyBrowser({
         // Mark as processed so we don't re-run on fixture updates
         initialVideoProcessed.current = true
         
-        // Expand the fixture and event
+        // Expand the fixture and event (and open their competition — collapsed by default)
+        setExpandedCompetition(fixture.league.id)
         setExpandedFixture(fixture._id)
         setExpandedEvent(event._event_id)
         
@@ -421,6 +449,7 @@ export function FoundFootyBrowser({
   
   // Close expanded fixture and video when date changes to prevent stale references
   useEffect(() => {
+    setExpandedCompetition(null)
     setExpandedFixture(null)
     setExpandedEvent(null)
     // Don't close video modal - let user finish watching
@@ -431,6 +460,26 @@ export function FoundFootyBrowser({
   const allDateFixtures = isChangingDate && currentFilteredFixtures.length === 0 
     ? lastFixturesRef.current 
     : currentFilteredFixtures
+
+  // Group fixtures by competition (league.id — country is unreliable, blank for UEFA comps).
+  // WITHIN a group, fixtures keep allDateFixtures' status-primary order (live -> finished ->
+  // upcoming). The GROUPS sort by league.id ASCENDING: API-Football numbers marquee comps low
+  // (2 CL, 3 EL, 39 PL, 140 La Liga), so the big ones float up — and it's STABLE, which matters
+  // because these are collapsible: the live badge signals action in place instead of sections
+  // reshuffling under you. liveCount = fixtures currently in the active bucket.
+  const competitionGroups = useMemo(() => {
+    const liveIds = new Set(filteredActive.map(f => f._id))
+    const groups = new Map<number, { league: Fixture['league']; fixtures: Fixture[] }>()
+    for (const f of allDateFixtures) {
+      const id = f.league.id
+      let grp = groups.get(id)
+      if (!grp) { grp = { league: f.league, fixtures: [] }; groups.set(id, grp) }
+      grp.fixtures.push(f)
+    }
+    return Array.from(groups.values())
+      .map(g => ({ ...g, liveCount: g.fixtures.filter(f => liveIds.has(f._id)).length }))
+      .sort((a, b) => a.league.id - b.league.id)
+  }, [allDateFixtures, filteredActive])
 
   // Check if we have any fixtures for this date
   const hasFixtures = allDateFixtures.length > 0
@@ -663,26 +712,64 @@ export function FoundFootyBrowser({
             </div>
           ) : (
             <>
-              {allDateFixtures.map(fixture => {
-                // Check if fixture is still pending (not started)
-                const isPending = fixture.fixture.status.short === 'NS'
-                
-                return isPending ? (
-                  <StagingFixtureItem
-                    key={fixture._id}
-                    fixture={fixture}
-                    formatKickoff={formatKickoff}
-                  />
-                ) : (
-                  <FixtureItem
-                    key={fixture._id}
-                    fixture={fixture}
-                    isExpanded={expandedFixture === fixture._id}
-                    expandedEvent={expandedEvent}
-                    onToggle={() => toggleFixture(fixture._id)}
-                    onToggleEvent={toggleEvent}
-                    onOpenVideo={openVideoModal}
-                  />
+              {competitionGroups.map(group => {
+                const isOpen = expandedCompetition === group.league.id
+                return (
+                  <div key={group.league.id}>
+                    {/* Competition header — collapsible; one league open at a time */}
+                    <button
+                      onClick={() => toggleCompetition(group.league.id)}
+                      className="group w-full flex items-center gap-2 px-1 py-1.5 text-left transition-none"
+                      style={{ fontSize: 'var(--text-size-base)' }}
+                    >
+                      <RiArrowRightSLine className={cn(
+                        "w-4 h-4 flex-shrink-0 text-lavender/50 group-hover:text-lavender",
+                        isOpen && "rotate-90"
+                      )} />
+                      <span className="flex-1 min-w-0 truncate text-lavender/70 font-light uppercase tracking-wider">
+                        {competitionLabel(group.league)}
+                      </span>
+                      {group.liveCount > 0 && (
+                        <span
+                          className="flex-shrink-0 text-xs font-light uppercase tracking-wider tabular-nums"
+                          style={{ color: '#e5484d' }}
+                        >
+                          {group.liveCount} live
+                        </span>
+                      )}
+                      <span className="flex-shrink-0 tabular-nums text-corpo-text/40 text-sm">
+                        [{group.fixtures.length}]
+                      </span>
+                    </button>
+                    {isOpen && (
+                      <div className="space-y-1 mt-1 mb-2">
+                        {group.fixtures.map(fixture => {
+                          // Check if fixture is still pending (not started)
+                          const isPending = fixture.fixture.status.short === 'NS'
+
+                          return isPending ? (
+                            <StagingFixtureItem
+                              key={fixture._id}
+                              fixture={fixture}
+                              formatKickoff={formatKickoff}
+                              roundOnly
+                            />
+                          ) : (
+                            <FixtureItem
+                              key={fixture._id}
+                              fixture={fixture}
+                              isExpanded={expandedFixture === fixture._id}
+                              expandedEvent={expandedEvent}
+                              onToggle={() => toggleFixture(fixture._id)}
+                              onToggleEvent={toggleEvent}
+                              onOpenVideo={openVideoModal}
+                              roundOnly
+                            />
+                          )
+                        })}
+                      </div>
+                    )}
+                  </div>
                 )
               })}
             </>
@@ -712,13 +799,17 @@ interface StagingFixtureItemProps {
   fixture: Fixture
   formatKickoff: (dateStr: string) => string
   searchTeamMatch?: boolean
+  roundOnly?: boolean   // grouped view: header owns the league, so the row shows only the matchweek
 }
 
-function StagingFixtureItem({ fixture, formatKickoff, searchTeamMatch }: StagingFixtureItemProps) {
+function StagingFixtureItem({ fixture, formatKickoff, searchTeamMatch, roundOnly }: StagingFixtureItemProps) {
   const [countdown, setCountdown] = useState<string>('')
-  
+
   const { teams, fixture: fixtureInfo, league } = fixture
   const kickoffTime = formatKickoff(fixtureInfo.date)
+  const competitionText = roundOnly
+    ? formatRound(league?.round)
+    : (league ? `${league.country} - ${league.name}${league.round ? ` (${league.round})` : ''}` : 'Unknown Competition')
   
   // Calculate and update countdown - synced to minute boundary
   useEffect(() => {
@@ -780,12 +871,12 @@ function StagingFixtureItem({ fixture, formatKickoff, searchTeamMatch }: Staging
             <span className="text-corpo-text/50 mx-2">vs</span>
             <span>{teams.away.name}</span>
           </span>
-          {/* Competition name with country and round */}
-          <span className="text-corpo-text/40 text-sm truncate font-light">
-            {league ? `${league.country} - ${league.name}${league.round ? ` (${league.round})` : ''}` : 'Unknown Competition'}
-          </span>
+          {/* Competition line — full in search; just the matchweek in the grouped view */}
+          {competitionText && (
+            <span className="text-corpo-text/40 text-sm truncate font-light">{competitionText}</span>
+          )}
         </span>
-        
+
         {/* Kickoff time stacked - time on top, countdown below */}
         <span className="text-corpo-text/60 flex-shrink-0 text-right font-light flex flex-col items-end">
           <span className="tabular-nums">{kickoffTime}</span>
@@ -816,6 +907,7 @@ interface FixtureItemProps {
   onOpenVideo: (info: VideoInfo) => void
   searchMatchedEventIds?: string[]  // Event IDs that matched the search query
   searchTeamMatch?: boolean          // True if fixture matched via team name
+  roundOnly?: boolean                // grouped view: row shows only the matchweek
 }
 
 function FixtureItem({ 
@@ -826,10 +918,14 @@ function FixtureItem({
   onToggleEvent,
   onOpenVideo,
   searchMatchedEventIds,
-  searchTeamMatch
+  searchTeamMatch,
+  roundOnly
 }: FixtureItemProps) {
   
   const { teams, goals, score, fixture: fixtureInfo, events, league } = fixture
+  const competitionText = roundOnly
+    ? formatRound(league?.round)
+    : (league ? `${league.country} - ${league.name}${league.round ? ` (${league.round})` : ''}` : 'Unknown Competition')
   const isLive = ['1H', '2H', 'HT', 'ET', 'BT', 'P', 'SUSP', 'INT', 'LIVE'].includes(fixtureInfo.status.short)
   // Only show elapsed time for statuses where game is actively playing
   const showElapsedTime = ['1H', '2H', 'ET', 'LIVE'].includes(fixtureInfo.status.short)
@@ -888,10 +984,10 @@ function FixtureItem({
             </span>
             <span className={cn(awayWins && "text-lavender")}>{teams.away.name}</span>
           </span>
-          {/* Competition name with country and round */}
-          <span className="text-corpo-text/40 text-sm truncate font-light">
-            {league ? `${league.country} - ${league.name}${league.round ? ` (${league.round})` : ''}` : 'Unknown Competition'}
-          </span>
+          {/* Competition line — full in search; just the matchweek in the grouped view */}
+          {competitionText && (
+            <span className="text-corpo-text/40 text-sm truncate font-light">{competitionText}</span>
+          )}
           
         </span>
         
