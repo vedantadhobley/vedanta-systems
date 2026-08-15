@@ -153,6 +153,59 @@ export function createFoundFootyRouter(config: FoundFootyConfig): Router {
 
   const videoUrl = (shareId: string) => `/api/found-footy/video/${shareId}`
 
+  // Non-scoring searchable events (red cards, missed penalties). found-footy's contract:
+  // both run the SAME detected->searching->complete lifecycle and surface clips exactly like
+  // goals (toEventDTO does no type-branching) — they just aren't goals, so no score line and
+  // the running-score tally never sees them (they're filtered out by type upstream). The
+  // involved team (card offender / penalty taker) rides in _scoring_team so generateEventTitle
+  // names the right side; `detail` is the display label. player is always known (no unknown-
+  // scorer case), so phase=detected maps straight to the debouncing state.
+  function reshapeNonScoring(g: GoFixture, e: GoEvent, kind: string, detailLabel: string): any {
+    const team: 'home' | 'away' = e.team.id === g.home.id ? 'home' : 'away'
+    const vids = [...(e.videos || [])].sort((x, y) => x.rank - y.rank)
+    let monitorComplete: boolean
+    let downloadComplete: boolean
+    let removed = false
+    switch (e.phase) {
+      case 'removed':   monitorComplete = true;  downloadComplete = true;  removed = true; break
+      case 'complete':  monitorComplete = true;  downloadComplete = true;  break
+      case 'searching': monitorComplete = true;  downloadComplete = false; break
+      case 'detected':  monitorComplete = false; downloadComplete = false; break // debouncing/validating
+      default:          monitorComplete = true;  downloadComplete = g.state === 'completed' || vids.length > 0
+    }
+    return {
+      type: 'Goal',
+      _kind: kind,
+      detail: detailLabel,
+      time: { elapsed: e.minute, extra: e.extra },
+      team: { id: e.team.id, name: e.team.name, logo: '' },
+      player: e.player ? { id: e.player.id, name: e.player.name } : { id: null, name: null },
+      assist: { id: null, name: null },
+      comments: null,
+      _event_id: e.id,
+      _display_title: '',
+      _display_subtitle: '',
+      _score_before: null,
+      _score_after: null,        // non-scoring — no score line
+      _scoring_team: team,       // reused by generateEventTitle to name the involved team
+      _twitter_search: '',
+      _discovered_videos: [],
+      _s3_urls: vids.map(v => videoUrl(v.share_id)),
+      _s3_videos: vids.map(v => ({
+        url: videoUrl(v.share_id),
+        perceptual_hash: '',
+        resolution_score: (v.width || 0) * (v.height || 0),
+        popularity: v.popularity || 0,
+        rank: v.rank,
+      })),
+      _perceptual_hashes: [],
+      _monitor_complete: monitorComplete,
+      _download_complete: downloadComplete,
+      _removed: removed,
+      _first_seen: new Date(new Date(g.kickoff).getTime() + ((e.minute || 0) + (e.extra || 0)) * 60000).toISOString(),
+    }
+  }
+
   // Go event -> legacy GoalEvent, with a running-score tally to reconstruct
   // the display fields the Go API no longer sends (_display_title, _score_after,
   // _scoring_team). Goals only — the old UI renders type:'Goal'.
@@ -235,59 +288,17 @@ export function createFoundFootyRouter(config: FoundFootyConfig): Router {
       }
     })
 
-    // Red cards are full searchable events — same detected->searching->complete lifecycle
-    // and clips as goals; they just aren't goals. Reshape them like goals (phase->flags,
-    // videos) but with _kind='card', the carded team as _scoring_team (so the title names
-    // the right team), and no score line. found-footy only ingests reds.
+    // Non-scoring searchable events, both via reshapeNonScoring: red cards + missed penalties.
+    // found-footy surfaces only red cards among card events; missed penalties are their own
+    // `missed penalty` type (never type:'goal', so the score tally above never sees them).
     const cardEvents = (g.events || [])
       .filter(e => e.type === 'card' && /red/i.test(e.detail || ''))
-      .map(e => {
-        const cardedTeam: 'home' | 'away' = e.team.id === g.home.id ? 'home' : 'away'
-        const vids = [...(e.videos || [])].sort((x, y) => x.rank - y.rank)
-        let monitorComplete: boolean
-        let downloadComplete: boolean
-        let removed = false
-        switch (e.phase) {
-          case 'removed':   monitorComplete = true;  downloadComplete = true;  removed = true; break
-          case 'complete':  monitorComplete = true;  downloadComplete = true;  break
-          case 'searching': monitorComplete = true;  downloadComplete = false; break
-          case 'detected':  monitorComplete = false; downloadComplete = false; break // debouncing/validating
-          default:          monitorComplete = true;  downloadComplete = g.state === 'completed' || vids.length > 0
-        }
-        return {
-          type: 'Goal',
-          _kind: 'card',
-          detail: 'Red Card',
-          time: { elapsed: e.minute, extra: e.extra },
-          team: { id: e.team.id, name: e.team.name, logo: '' },
-          player: e.player ? { id: e.player.id, name: e.player.name } : { id: null, name: null },
-          assist: { id: null, name: null },
-          comments: null,
-          _event_id: e.id,
-          _display_title: '',
-          _display_subtitle: '',
-          _score_before: null,
-          _score_after: null,        // no score line for a card
-          _scoring_team: cardedTeam, // reused by generateEventTitle to name the carded team
-          _twitter_search: '',
-          _discovered_videos: [],
-          _s3_urls: vids.map(v => videoUrl(v.share_id)),
-          _s3_videos: vids.map(v => ({
-            url: videoUrl(v.share_id),
-            perceptual_hash: '',
-            resolution_score: (v.width || 0) * (v.height || 0),
-            popularity: v.popularity || 0,
-            rank: v.rank,
-          })),
-          _perceptual_hashes: [],
-          _monitor_complete: monitorComplete,
-          _download_complete: downloadComplete,
-          _removed: removed,
-          _first_seen: new Date(new Date(g.kickoff).getTime() + ((e.minute || 0) + (e.extra || 0)) * 60000).toISOString(),
-        }
-      })
+      .map(e => reshapeNonScoring(g, e, 'card', 'Red Card'))
+    const missedPenEvents = (g.events || [])
+      .filter(e => e.type === 'missed penalty')
+      .map(e => reshapeNonScoring(g, e, 'penalty-miss', 'Missed Penalty'))
 
-    return [...goalEvents, ...cardEvents]
+    return [...goalEvents, ...cardEvents, ...missedPenEvents]
   }
 
   function reshapeFixture(g: GoFixture): any {

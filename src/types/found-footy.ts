@@ -33,8 +33,11 @@ export interface RankedVideo {
 
 export interface GoalEvent {
   type: 'Goal'
-  _kind?: 'goal' | 'card'  // 'card' = a red card — rendered as a compact row, no score/clips
-  detail: string // 'Normal Goal', 'Penalty', 'Own Goal' — or 'Red Card' when _kind==='card'
+  // Non-scoring searchable events. 'card' = red card, 'penalty-miss' = missed penalty. Both
+  // carry clips and the detected->searching->complete lifecycle exactly like goals — the only
+  // difference is no score line (and the title names the involved team, not a scoreline).
+  _kind?: 'goal' | 'card' | 'penalty-miss'
+  detail: string // 'Normal Goal' | 'Penalty' | 'Own Goal' — or 'Red Card' / 'Missed Penalty' for non-scoring kinds
   time: {
     elapsed: number
     extra: number | null

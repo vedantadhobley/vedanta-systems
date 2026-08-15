@@ -13,9 +13,10 @@ import { useScrollStabilizer } from '@/lib/use-scroll-stabilizer'
 function generateEventTitle(fixture: Fixture, event: GoalEvent): string {
   const { teams } = fixture
 
-  // Red card: no score line — just name the carded team (highlighted). EventItem adds the
-  // red-card mark; _scoring_team carries which side was carded.
-  if (event._kind === 'card') {
+  // Non-scoring events (red card, missed penalty): no score line — just name the involved
+  // team (highlighted). EventItem adds a kind-specific mark; _scoring_team carries which side
+  // (carded offender / penalty taker). The subtitle's `detail` says which it is.
+  if (event._kind === 'card' || event._kind === 'penalty-miss') {
     const team = event._scoring_team === 'home' ? teams.home.name : teams.away.name
     return `<<${team}>>`
   }
@@ -1042,6 +1043,11 @@ function EventItem({ event, fixture, isExpanded, onToggle, onOpenVideo, isSearch
                 style={{ width: '10px', height: '14px', background: '#e5484d' }}
                 title="Red card"
               />
+            )}
+            {event._kind === 'penalty-miss' && (
+              <span className="inline-flex flex-shrink-0" title="Penalty missed">
+                <RiCloseFill className="w-3.5 h-3.5" style={{ color: '#e5484d' }} />
+              </span>
             )}
             <span className="truncate">
               <HighlightedText text={generateEventTitle(fixture, event)} />
