@@ -80,7 +80,7 @@ The proxy stack itself lives in `~/workspace/proxy/`; its
 
 | Project | What vs-api does today | Target shape |
 |---|---|---|
-| **found-footy** | Reads `found-footy-{env}-mongo` + `found-footy-{env}-minio` directly (Pattern A) | Proxy `/api/found-footy/*` → `found-footy-{env}-api:8080` (a dev api already exists per `~/workspace/proxy/caddy/caddy.d/found-footy.caddy`). |
+| **found-footy** | **Pattern B, live both envs.** Proxies the Go read API (`found-footy-{env}-api:8081`) for fixtures/search/events (reshaped by the shim), plus a NATS live-feed bridge (`found-footy.<env>.>` → SSE) and share_id video re-proxy (302 → presigned Garage). Dev 2026-08-13, prod 2026-08-15. | Done — no direct mongo/minio peers. |
 | **spin-cycle** | Reads `spin-cycle-{env}-postgres` directly (Pattern A) | `spin-cycle-{env}-api:3000` already exists — vs-api just needs to swap from pg pool to HTTP proxy. |
 | **long-exposure** | Reads `long-exposure-{env}-postgres` directly (Pattern A, by design until LE grows its own API) | Pattern B once LE has a separate api service. The `caddy.d/long-exposure.caddy` file documents the current design. |
 | **btop-luv / btop-joi** | Express proxies `/api/btop-{luv,joi}/{health,stream}` to the per-node btop container via host gateway (4102/4103 dev, 3102/3103 prod). | n/a — `network_mode: host` is incompatible with Caddy fronting. |
@@ -124,6 +124,7 @@ Pattern A vs B is the central architectural call here — see
 
 ## Active state
 
+- **found-footy Pattern B — live both envs (prod cutover 2026-08-15)**: `src/server/routes/found-footy.ts` shims the Go read API (`found-footy-{env}-api:8081`; fixtures/search/events reshaped to the legacy frontend shape) + a NATS→SSE bridge (env-scoped to `found-footy.<env>.>`) + share_id video/download re-proxy (302 → presigned `garage:3900`, streamed same-origin). **Load-bearing:** `found-footy-{env}-garage` must be aliased `garage` on `luv-{env}` or video 502s; the NATS broker is open mode (env isolation is by subject token, no creds). Dev landed 2026-08-13, prod verified end-to-end 2026-08-15 — see @docs/decisions.md.
 - **Caddy migration**: complete and load-bearing. cloudflared moved out of vs-prod into `~/workspace/proxy/` (commit `6c8c480`). Vite dev proxy target fixed to `vedanta-systems-dev-api:3001` (commit `62ba907`). Internal in-container nginx kept — it's not redundant with Caddy.
 - **Long Exposure surfaced (v1, landed 2026-05-28)**: `src/components/long-exposure-browser.tsx` + `src/server/routes/long-exposure.ts` + `src/types/long-exposure.ts` + compose env wiring (`LONG_EXPOSURE_POSTGRES_URI` on dev + prod api containers) + a folder card / render block in `App.tsx`. Minimal v1 lists today's narrated events grouped by scorer. Drill-down / daily synthesis / weekly aggregate / quarterly-extensible reusable components are queued — see @docs/todo.md.
 - **Spin-cycle**: route active. Project itself is scheduled for maintenance (out-of-band). vs-api spin-cycle route is gated on `SPIN_CYCLE_POSTGRES_URI` at startup but doesn't currently degrade gracefully if the upstream goes away mid-flight. Decide-during-maintenance is in @docs/todo.md.
