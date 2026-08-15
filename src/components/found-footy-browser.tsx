@@ -37,16 +37,32 @@ function generateEventTitle(fixture: Fixture, event: GoalEvent): string {
   }
 }
 
+// Display label for an event, from its semantic detail (+ _kind for non-scoring events). The
+// shim carries the raw detail across the API; the display copy lives here (design.md: the
+// backend derives phase/detail, the frontend renders it). The five events we surface today.
+function formatEventDetail(detail: string, kind?: string): string {
+  if (kind === 'card') return 'Red Card'
+  if (kind === 'penalty-miss') return 'Penalty Miss'
+  switch ((detail || '').toLowerCase()) {
+    case 'normal goal':    return 'Goal'
+    case 'penalty':        return 'Penalty Goal'
+    case 'own goal':       return 'Own Goal'
+    case 'red card':       return 'Red Card'
+    case 'missed penalty': return 'Penalty Miss'
+    default:               return detail || 'Goal'
+  }
+}
+
 /**
  * Generate event display subtitle with <<highlighted>> markers around scorer name
  * Format: "45' Goal - <<Scorer Name>> (Assister Name)" or "45+2' Goal - <<Scorer Name>>"
  */
 function generateEventSubtitle(event: GoalEvent): string {
-  const timeStr = event.time.extra 
-    ? `${event.time.elapsed}+${event.time.extra}'` 
+  const timeStr = event.time.extra
+    ? `${event.time.elapsed}+${event.time.extra}'`
     : `${event.time.elapsed}'`
-  
-  const eventType = event.detail || event.type || 'Goal'
+
+  const eventType = formatEventDetail(event.detail, event._kind)
   const scorerName = event.player?.name || 'Unknown'
   const assistName = event.assist?.name
   
@@ -70,7 +86,7 @@ function competitionLabel(league: Fixture['league']): string {
 function formatRound(round: string | undefined): string {
   if (!round) return ''
   const m = round.match(/^Regular Season - (\d+)$/i)
-  return m ? `MW ${m[1]}` : round
+  return m ? `Matchweek ${m[1]}` : round
 }
 
 // Synced pulse animation - all icons sync to wall clock
@@ -107,9 +123,11 @@ function isUnknownPlayer(player: { name: string | null } | null | undefined): bo
   return !player?.name || player.name === 'Unknown'
 }
 
-// Extract content hash from video URL (e.g., "0235165c" from "..._0235165c.mp4")
-function getVideoHash(url: string): string {
-  const match = url.match(/_([a-f0-9]{8})\.mp4$/i)
+// Extract the share_id from a clip URL (e.g. "s_8445a5f3a3dc" from ".../video/s_8445a5f3a3dc").
+// The share_id is the stable, shareable unit — it self-upgrades to the current best clip
+// (VAR-removed → 410, never-minted → 404), so a shared link never rots.
+function getShareId(url: string): string {
+  const match = url.match(/\/video\/(s_[a-f0-9]+)/i)
   return match?.[1] || ''
 }
 
@@ -124,7 +142,7 @@ interface VideoInfo {
 // URL params for deep linking
 interface InitialVideoParams {
   eventId: string
-  hash?: string  // Content hash from URL - if provided, open specific video
+  shareId?: string  // clip share_id from ?s= — if provided, open that clip (self-upgrades)
 }
 
 interface FoundFootyBrowserProps {
@@ -358,12 +376,12 @@ export function FoundFootyBrowser({
         setExpandedFixture(fixture._id)
         setExpandedEvent(event._event_id)
         
-        // If hash provided, try to find and open that specific video
+        // If a share_id was provided, find and open that clip.
         // Defer modal opening to next frame to prevent UI freeze on slower devices
-        if (initialVideo.hash) {
+        if (initialVideo.shareId) {
           const videos = event._s3_videos || []
-          // Find video by content hash in URL
-          const video = videos.find(v => getVideoHash(v.url) === initialVideo.hash)
+          // Match by the share_id embedded in the clip URL
+          const video = videos.find(v => getShareId(v.url) === initialVideo.shareId)
           
           if (video) {
             // Use double rAF to ensure DOM has updated before opening modal
@@ -392,10 +410,10 @@ export function FoundFootyBrowser({
   useEffect(() => {
     if (videoModal) {
       hasOpenedVideoRef.current = true
-      // Use content hash from video URL for sharing
-      const hash = getVideoHash(videoModal.url)
-      const shareUrl = hash 
-        ? `/workspace/found-footy?v=${videoModal.eventId}&h=${hash}`
+      // Reflect the clip's share_id in the URL so it's shareable / survives refresh
+      const shareId = getShareId(videoModal.url)
+      const shareUrl = shareId
+        ? `/workspace/found-footy?v=${videoModal.eventId}&s=${shareId}`
         : `/workspace/found-footy?v=${videoModal.eventId}`
       window.history.replaceState(null, '', shareUrl)
     } else if (hasOpenedVideoRef.current) {
@@ -1351,12 +1369,13 @@ const MemoizedVideoModal = memo(function VideoModal({ url, title, subtitle, even
     return () => document.removeEventListener('keydown', handleKeyDown)
   }, [onClose])
 
-  // Build shareable URL using content hash from video URL
+  // Build a shareable URL from the clip's stable share_id (self-upgrades to the current best
+  // clip; 410 if VAR-removed, 404 if never minted). Falls back to event-only if absent.
   const getShareUrl = () => {
-    const hash = getVideoHash(url)
+    const shareId = getShareId(url)
     const baseUrl = window.location.origin
-    return hash 
-      ? `${baseUrl}/workspace/found-footy?v=${eventId}&h=${hash}`
+    return shareId
+      ? `${baseUrl}/workspace/found-footy?v=${eventId}&s=${shareId}`
       : `${baseUrl}/workspace/found-footy?v=${eventId}`
   }
 
@@ -1372,10 +1391,19 @@ const MemoizedVideoModal = memo(function VideoModal({ url, title, subtitle, even
   }
 
   const handleDownload = () => {
-    // Use download endpoint which sets Content-Disposition: attachment
-    // This works on iOS and forces download instead of playing
-    const downloadUrl = url.replace('/video/', '/download/')
-    window.open(downloadUrl, '_blank')
+    // Filesystem-safe name from the event title (e.g. "Fiorentina-1-0-Benevento.mp4"); the
+    // shim also sets Content-Disposition, which is authoritative.
+    const base = (title || 'clip').replace(/<<|>>/g, '').replace(/[^\w]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) || 'clip'
+    const filename = `${base}.mp4`
+    const downloadUrl = `${url.replace('/video/', '/download/')}?filename=${encodeURIComponent(filename)}`
+    // Programmatic same-origin anchor click: with the attachment header it downloads in place,
+    // no new tab (the old window.open('_blank') behavior).
+    const a = document.createElement('a')
+    a.href = downloadUrl
+    a.download = filename
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
   }
 
   const handleUnmute = (e: React.MouseEvent) => {

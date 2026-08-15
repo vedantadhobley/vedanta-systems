@@ -321,12 +321,12 @@ function FoundFootyContent() {
   } = useFootyStream()
   const location = useLocation()
   
-  // Parse URL params for deep linking (e.g., ?v=event_id&h=video_hash)
+  // Parse URL params for deep linking (e.g., ?v=event_id&s=share_id)
   const searchParams = new URLSearchParams(location.search)
   const eventId = searchParams.get('v')
-  const hash = searchParams.get('h')
-  
-  const initialVideo = eventId ? { eventId, hash: hash || undefined } : null
+  const shareId = searchParams.get('s')
+
+  const initialVideo = eventId ? { eventId, shareId: shareId || undefined } : null
   
   return (
     <>

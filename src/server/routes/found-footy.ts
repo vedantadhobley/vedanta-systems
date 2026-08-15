@@ -49,6 +49,7 @@ interface GoEvent {
   id: string; fixture_id: number; type: string; detail: string
   minute: number; extra: number | null
   team: { id: number; name: string }; player: { id: number; name: string } | null
+  assist?: { id: number; name: string } | null   // captured end-to-end now (was parsed-but-dropped); goals only
   videos: GoVideo[]
   // Backend-derived lifecycle (design.md "Data contracts" contract). Optional so the
   // shim still works against an API that predates the field.
@@ -258,7 +259,7 @@ export function createFoundFootyRouter(config: FoundFootyConfig): Router {
         time: { elapsed: e.minute, extra: e.extra },
         team: { id: e.team.id, name: e.team.name, logo: '' },
         player: e.player ? { id: e.player.id, name: e.player.name } : { id: null, name: null },
-        assist: { id: null, name: null }, // Go doesn't send assist yet (lands later, forward-only)
+        assist: e.assist ? { id: e.assist.id, name: e.assist.name } : { id: null, name: null }, // forward-only; older fixtures aged out
         comments: null,
         _event_id: e.id,
         _display_title: displayTitle,
@@ -380,9 +381,49 @@ export function createFoundFootyRouter(config: FoundFootyConfig): Router {
     }
   })
 
-  // GET /search - stubbed for the minimal slice (Go has no search endpoint; BFF will synthesize later)
-  router.get('/search', (req: Request, res: Response) => {
-    res.json({ results: [], query: (req.query.q as string) || '' })
+  // GET /search?q= - proxy Go's /api/v1/search (case-insensitive substring across competition,
+  // team, scorer, and assist names). Go returns a flat []fixtureDTO (same shape as /fixtures);
+  // we reshape, re-derive which part matched for the UI's highlight metadata (_search), and
+  // group by UTC date. The frontend re-buckets per timezone + applies its navigable cutoff.
+  router.get('/search', async (req: Request, res: Response) => {
+    const q = ((req.query.q as string) || '').trim()
+    // Frontend already gates <2 chars; guard here too, and never send an empty q (Go 400s it).
+    if (!isConfigured || q.length < 2) {
+      return res.json({ results: [], query: q, totalFixtures: 0 })
+    }
+    try {
+      const all = await goJson<GoFixture[]>(`/api/v1/search?q=${encodeURIComponent(q)}`)
+      const needle = q.toLowerCase()
+      const has = (s?: string | null) => !!s && s.toLowerCase().includes(needle)
+
+      const fixtures = all.map(g => {
+        const f = reshapeFixture(g)
+        const teamMatch = has(g.home.name) || has(g.away.name)
+        const matchedEventIds = (f.events as any[])
+          .filter(e => has(e.player?.name) || has(e.assist?.name))
+          .map(e => e._event_id)
+        f._search = { teamMatch, matchedEventIds, matchCount: matchedEventIds.length + (teamMatch ? 1 : 0) }
+        return f
+      })
+
+      // Group by UTC date, newest first (the frontend regroups by tz-local date).
+      const byDate = new Map<string, any[]>()
+      for (const f of fixtures) {
+        const date = (f.fixture.date || '').slice(0, 10)
+        if (!byDate.has(date)) byDate.set(date, [])
+        byDate.get(date)!.push(f)
+      }
+      const results = Array.from(byDate.entries())
+        .sort((a, b) => b[0].localeCompare(a[0]))
+        .map(([date, groupFixtures]) => ({ date, fixtures: groupFixtures }))
+
+      res.json({ results, query: q, totalFixtures: fixtures.length })
+    } catch (e) {
+      // Pre-migration Go /search 404s (goJson throws on non-2xx) — degrade to empty results
+      // rather than surfacing an error in the search UI.
+      console.warn('[found-footy] /search:', (e as Error).message)
+      res.json({ results: [], query: q, totalFixtures: 0 })
+    }
   })
 
   // GET /event/:eventId - which date an event is on (for shared links)
@@ -396,10 +437,12 @@ export function createFoundFootyRouter(config: FoundFootyConfig): Router {
     }
   })
 
-  // GET /video/:shareId - re-proxy Go's presigned Garage redirect, Range-forwarded.
-  // Must survive constant client disconnects: <video> opens/aborts range requests on
-  // every seek and on unmount, so an aborted upstream stream is normal, not a 500.
-  router.get('/video/:shareId', async (req: Request, res: Response) => {
+  // Stream a clip by share_id: re-proxy Go's presigned Garage redirect, Range-forwarded.
+  // Must survive constant client disconnects: <video> opens/aborts range requests on every
+  // seek and on unmount, so an aborted upstream stream is normal, not a 500. When `attachment`
+  // (a filename) is set, force a download via Content-Disposition instead of inline playback
+  // (Garage serves the object inline, so the header has to be added on this hop).
+  async function streamClip(shareId: string, req: Request, res: Response, attachment?: string) {
     if (!isConfigured) return res.status(503).json({ error: 'found-footy api not configured' })
     const controller = new AbortController()
     // Abort the upstream fetch only if the client leaves mid-stream (seek/close).
@@ -408,7 +451,7 @@ export function createFoundFootyRouter(config: FoundFootyConfig): Router {
       const range = req.headers.range
       // redirect:'follow' lets undici follow Go's 302 to the presigned Garage URL,
       // forwarding Range through the hop; the final response is the (ranged) bytes.
-      const upstream = await fetch(`${API}/api/v1/videos/${encodeURIComponent(req.params.shareId)}`, {
+      const upstream = await fetch(`${API}/api/v1/videos/${encodeURIComponent(shareId)}`, {
         headers: range ? { Range: range } : {},
         redirect: 'follow',
         signal: controller.signal,
@@ -426,6 +469,7 @@ export function createFoundFootyRouter(config: FoundFootyConfig): Router {
       res.setHeader('Cache-Control', 'public, max-age=300')
       res.setHeader('Access-Control-Allow-Origin', '*')
       res.setHeader('Access-Control-Expose-Headers', 'Content-Length, Content-Range, Accept-Ranges')
+      if (attachment) res.setHeader('Content-Disposition', `attachment; filename="${attachment}"`)
 
       if (!upstream.body) return res.end()
       const nodeStream = Readable.fromWeb(upstream.body as any)
@@ -433,7 +477,7 @@ export function createFoundFootyRouter(config: FoundFootyConfig): Router {
       // aborts the upstream — expected; swallow it, log anything genuinely unexpected.
       nodeStream.on('error', (err: any) => {
         if (err?.name !== 'AbortError' && err?.code !== 'ABORT_ERR') {
-          console.error('[found-footy] /video stream:', err?.message)
+          console.error('[found-footy] stream:', err?.message)
         }
         if (!res.writableEnded) res.destroy()
       })
@@ -445,9 +489,20 @@ export function createFoundFootyRouter(config: FoundFootyConfig): Router {
         if (!res.writableEnded) res.destroy()
         return
       }
-      console.error('[found-footy] /video:', err?.message)
+      console.error('[found-footy] stream:', err?.message)
       if (!res.headersSent) res.status(502).json({ error: 'Failed to stream video' })
     }
+  }
+
+  // GET /video/:shareId — inline playback.
+  router.get('/video/:shareId', (req: Request, res: Response) => streamClip(req.params.shareId, req, res))
+
+  // GET /download/:shareId?filename= — same stream, forced download. filename is the caller's
+  // meaningful name (teams + minute), sanitized to filesystem-safe chars; defaults to share_id.
+  router.get('/download/:shareId', (req: Request, res: Response) => {
+    const raw = (req.query.filename as string) || `${req.params.shareId}.mp4`
+    const filename = (raw.replace(/[^\w.\- ]+/g, '').trim().slice(0, 80)) || `${req.params.shareId}.mp4`
+    streamClip(req.params.shareId, req, res, filename)
   })
 
   // GET /stream - SSE kept alive (connected/health/heartbeat). No live NATS
