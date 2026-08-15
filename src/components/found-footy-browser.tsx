@@ -1038,18 +1038,21 @@ function FixtureItem({
     return (
       <div className="border border-corpo-border">
         <div className="w-full flex items-center gap-2 px-3 py-2 text-corpo-text/50" style={{ fontSize: 'var(--text-size-base)' }}>
-          {/* spacer keeps teams aligned with expandable rows; no toggle — not clickable */}
+          {/* spacer keeps teams aligned with the other rows; no toggle — not clickable */}
           <span className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
+          {/* Teams with 'vs' (same layout as a not-started match) + competition subtitle */}
           <span className="flex-1 flex flex-col min-w-0">
             <span className="truncate flex items-center">
               <span>{teams.home.name}</span>
-              <span className="text-corpo-text/40 mx-2 text-sm uppercase tracking-wider">{voidedLabel}</span>
+              <span className="text-corpo-text/50 mx-2">vs</span>
               <span>{teams.away.name}</span>
             </span>
             {competitionText && (
               <span className={cn("text-sm truncate font-light", competitionText === 'Final' ? "text-lavender" : "text-corpo-text/40")}>{competitionText}</span>
             )}
           </span>
+          {/* Status on the right, where the kickoff time sits for a pending match */}
+          <span className="flex-shrink-0 text-sm uppercase tracking-wider text-corpo-text/40">{voidedLabel}</span>
         </div>
       </div>
     )
