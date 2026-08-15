@@ -196,3 +196,38 @@ changes shape:
   **Prod follow-up:** add `luv-prod` to the prod Garage service when Go prod deploys.
 
 ---
+
+## 2026-08-15 — found-footy prod cutover to Pattern B (Go API + NATS + Garage)
+
+**Context.** The 2026-08-13 shim proved out in dev — fixtures, search, assist,
+`phase`, download, share_id, and the NATS→SSE bridge all consuming the found-footy
+Go read API. found-footy then stood up its Go **prod** stack (`found-footy-prod-api`,
+`found-footy-prod-garage`, workers), clearing the "don't flip prod before Go prod is
+up, or the footy page goes dark" gate from the 2026-08-13 entry.
+
+**Decision.** Flip `vedanta-systems-prod` to Pattern B. The prod api env swaps the
+direct Mongo/MinIO config for `FOUND_FOOTY_API_URL=http://found-footy-prod-api:8081`
++ `NATS_URL=nats://nats:4222`; `NODE_ENV=production` scopes the NATS subscription to
+`found-footy.prod.>` (one shared broker serves both envs, so subjects carry an env
+token — `found-footy.<env>.<domain>.<event>`). Redeployed with
+`docker compose -f docker-compose.yml up -d --build`.
+
+**Consequences.**
+
+- Prod's footy page is now the same shim path proven in dev: Go REST → reshape,
+  NATS live feed, share_id video re-proxy. Direct Mongo/MinIO reads are gone; that
+  env is removed from the prod api service.
+- **Garage on `luv-prod` is load-bearing** and was the last blocker. The video path
+  follows the Go API's 302 to a presigned `garage:3900` URL, which only resolves if
+  `found-footy-prod-garage` is aliased `garage` on `luv-prod`. The pre-deploy gate
+  caught it (`garage:3900` was "bad address" from vs-prod-api); found-footy added
+  `luv-prod` to the prod Garage service and it cleared. Before any future prod Garage
+  change, check `docker network inspect luv-prod | grep garage`.
+- NATS broker is **open mode** (no creds) — env isolation is by subject, not account.
+  If accounts/creds land later, the prod api needs a `vedanta-systems` creds file;
+  until then, none.
+- Verified live at cutover: public `200`, shim health `healthy`, fixtures from Go
+  prod, NATS bridge connected. First real clip end-to-end (share_id → 302 → garage →
+  bytes) is pending prod's first minted clip; the path is confirmed reachable.
+
+---

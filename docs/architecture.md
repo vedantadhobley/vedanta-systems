@@ -45,22 +45,30 @@ so the SPA stays same-origin. If `/api/*` 502s in dev, that proxy
 target is the first place to check — it was wrong recently (host
 port that didn't exist; fixed in commit `62ba907`).
 
-### Cross-project — non-HTTP
+### Cross-project — the data plane
 
-Express on `vedanta-systems-{env}-api` reaches into other projects
-over the `luv-{env}` shared docker network. Today's connections
-(Pattern A — see `docs/decisions.md`):
+Express on `vedanta-systems-{env}-api` reaches other projects over the
+`luv-{env}` shared docker network. Two shapes coexist:
+
+**Pattern B (HTTP) — found-footy**, both envs as of the 2026-08-15 prod
+cutover (`docs/decisions.md`):
+
+| Caller | Callee | Purpose |
+|---|---|---|
+| `vs-{env}-api` | `found-footy-{env}-api:8081` | fixtures / search / event resolution — REST, reshaped by the shim |
+| `vs-{env}-api` | `nats:4222` | live-feed bridge — subscribes `found-footy.<env>.>`, fans to SSE |
+| `vs-{env}-api` | `garage:3900` | video/download — follows the Go API's 302 to a presigned Garage URL and re-streams the bytes (Garage isn't browser-reachable) |
+
+**Pattern A (direct DB) — the remaining projects**, until each grows its
+own API:
 
 | Caller | Callee | Network |
 |---|---|---|
-| `vedanta-systems-{env}-api` | `found-footy-{env}-mongo` | `luv-{env}` |
-| `vedanta-systems-{env}-api` | `found-footy-{env}-minio` | `luv-{env}` |
-| `vedanta-systems-{env}-api` | `spin-cycle-{env}-postgres` | `luv-{env}` |
-| `vedanta-systems-{env}-api` | `long-exposure-{env}-postgres` | `luv-{env}` |
+| `vs-{env}-api` | `spin-cycle-{env}-postgres` | `luv-{env}` |
+| `vs-{env}-api` | `long-exposure-{env}-postgres` | `luv-{env}` |
 
-Pattern B target: each project ships its own `<project>-{env}-api`
-and vs-api proxies HTTP. Migration is tracked per project in
-`docs/todo.md`.
+Pattern B is the target for all of them; migration is tracked per project
+in `docs/todo.md`.
 
 ### btop — the host-network exception
 
@@ -118,7 +126,7 @@ only frontend in the workspace.
 | Caddy public host | `~/workspace/proxy/caddy/caddy.d/public.caddy` | The `vedanta.systems` Cloudflare entry |
 | Caddy dev tailnet hosts | `~/workspace/proxy/caddy/caddy.d/vedanta-systems.caddy` | `vedanta-systems-dev.<base-domain>` + `vedanta-systems-dev-api.<base-domain>` |
 | In-container nginx | `nginx.conf` | Crawler routing, internal webhook 404s, SSE/range quirks, btop legacy block (see todo) |
-| Express + project routers | `src/server/index.ts`, `src/server/routes/<project>.ts` | Per-project routers (currently Pattern A) + inline btop proxy |
+| Express + project routers | `src/server/index.ts`, `src/server/routes/<project>.ts` | Per-project routers (found-footy Pattern B; spin-cycle/long-exposure Pattern A) + inline btop proxy |
 | Vite dev proxy | `vite.config.ts` | `/api/*` → `vedanta-systems-dev-api:3001` |
 | OG meta server | `og-server.js` + `start.sh` | Runs in vs-prod alongside nginx; data-injection half is currently disabled |
 

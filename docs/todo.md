@@ -93,14 +93,11 @@ without code changes.
 
 Decision rationale in `docs/decisions.md`. Per-project backlog:
 
-- **found-footy.** vs-api reads `found-footy-{env}-mongo` +
-  `-minio` directly. `found-footy-dev-api:8080` already exists per
-  `caddy.d/found-footy.caddy`. Migration: swap
-  `src/server/routes/found-footy.ts` from mongo+minio clients to an
-  HTTP proxy to `found-footy-{env}-api:8080`. The SSE refresh hook
-  (`/api/found-footy/refresh`, internal-only — nginx 404s the public
-  path) needs to keep working; the new shape just changes who's on
-  the other side.
+- **found-footy. ✅ Done (both envs).** `src/server/routes/found-footy.ts` is now
+  a Pattern-B shim over the Go read API (`found-footy-{env}-api:8081`) + the NATS
+  live-feed bridge (`found-footy.<env>.>` → SSE) + share_id video re-proxy. Dev
+  landed 2026-08-13, prod cut over 2026-08-15 — see `docs/decisions.md`. No more
+  mongo/minio peers.
 - **spin-cycle.** vs-api reads `spin-cycle-{env}-postgres`.
   `spin-cycle-{env}-api:3000` exists. Migration: swap
   `src/server/routes/spin-cycle.ts` from `pg` pool to HTTP proxy.
