@@ -131,6 +131,34 @@ function getShareId(url: string): string {
   return match?.[1] || ''
 }
 
+// Copy text to the clipboard, working in dev too. navigator.clipboard only exists in a secure
+// context (HTTPS / localhost); dev is served over plain HTTP on the tailnet, where it's
+// undefined — so fall back to the legacy execCommand textarea hack. Prod (HTTPS) uses the
+// modern API.
+async function copyToClipboard(text: string): Promise<boolean> {
+  try {
+    if (window.isSecureContext && navigator.clipboard) {
+      await navigator.clipboard.writeText(text)
+      return true
+    }
+  } catch { /* fall through to the legacy path */ }
+  try {
+    const ta = document.createElement('textarea')
+    ta.value = text
+    ta.style.position = 'fixed'
+    ta.style.top = '0'
+    ta.style.opacity = '0'
+    document.body.appendChild(ta)
+    ta.focus()
+    ta.select()
+    const ok = document.execCommand('copy')
+    document.body.removeChild(ta)
+    return ok
+  } catch {
+    return false
+  }
+}
+
 // Video info for modal and sharing
 interface VideoInfo {
   url: string
@@ -1380,13 +1408,12 @@ const MemoizedVideoModal = memo(function VideoModal({ url, title, subtitle, even
   }
 
   const handleShare = async () => {
-    const shareUrl = getShareUrl()
-    try {
-      await navigator.clipboard.writeText(shareUrl)
+    const ok = await copyToClipboard(getShareUrl())
+    if (ok) {
       setCopied(true)
       setTimeout(() => setCopied(false), 3000)
-    } catch (err) {
-      console.error('Failed to copy:', err)
+    } else {
+      console.error('[FoundFooty] clipboard copy failed')
     }
   }
 
