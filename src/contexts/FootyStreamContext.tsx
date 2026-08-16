@@ -59,7 +59,7 @@ const FootyStreamContext = createContext<FootyContextValue | null>(null)
 export function FootyStreamProvider({ children }: { children: ReactNode }) {
   // Get timezone-aware "today" from timezone context. mode is read here so
   // /dates can be re-bucketed when the user toggles UTC <-> local.
-  const { getToday, mode } = useTimezone()
+  const { getToday, mode, getDateForTimestamp } = useTimezone()
   
   const [state, setState] = useState<FootyState>(() => ({
     currentDate: '', // Will be set on mount with timezone-aware today
@@ -362,10 +362,13 @@ export function FootyStreamProvider({ children }: { children: ReactNode }) {
       const res = await fetch(`${API_BASE}/event/${eventId}`)
       const data = await res.json()
       
-      if (data.found && data.date) {
-        console.log(`[FootyStream] Event found on date ${data.date}`)
-        // Navigate to that date
-        setDate(data.date)
+      if (data.found && (data.kickoff || data.date)) {
+        // Navigate to the event's date in the user's timezone. The shim's `date` is the UTC
+        // day; fixtures bucket by LOCAL date, so for users east/west of UTC the UTC day can be
+        // the wrong day (a 00:30Z kickoff is the previous evening in the Americas).
+        const targetDate = data.kickoff ? getDateForTimestamp(data.kickoff) : data.date
+        console.log(`[FootyStream] Event found on ${targetDate}`)
+        setDate(targetDate)
         return true
       } else {
         console.warn(`[FootyStream] Event ${eventId} not found`)
@@ -375,7 +378,7 @@ export function FootyStreamProvider({ children }: { children: ReactNode }) {
       console.error('[FootyStream] Failed to look up event:', err)
       return false
     }
-  }, [setDate])
+  }, [setDate, getDateForTimestamp])
 
   // Pause/resume for video modal
   const pauseStream = useCallback(() => {

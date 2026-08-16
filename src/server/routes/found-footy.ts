@@ -459,7 +459,9 @@ export function createFoundFootyRouter(config: FoundFootyConfig): Router {
       if (!ev) return res.json({ eventId: req.params.eventId, found: false })
       const [fx] = await goJson<GoFixture[]>(`/api/v1/fixtures?ids=${ev.fixture_id}`)
       if (!fx) return res.json({ eventId: req.params.eventId, found: false })
-      res.json({ eventId: req.params.eventId, date: fx.kickoff.slice(0, 10), found: true })
+      // `date` is the UTC day; also return the raw kickoff so the client can navigate to the
+      // event's date in the USER's timezone (fixtures bucket by local date, not UTC).
+      res.json({ eventId: req.params.eventId, date: fx.kickoff.slice(0, 10), kickoff: fx.kickoff, found: true })
     } catch {
       res.json({ eventId: req.params.eventId, found: false })
     }
