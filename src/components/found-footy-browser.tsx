@@ -411,29 +411,30 @@ export function FoundFootyBrowser({
         setExpandedFixture(fixture._id)
         setExpandedEvent(event._event_id)
         
-        // If a share_id was provided, find and open that clip.
-        // Defer modal opening to next frame to prevent UI freeze on slower devices
+        // If a share_id was provided, open that clip. The shared share_id may have been
+        // SUPERSEDED (a better clip replaced it, so it's no longer among the event's current
+        // videos) — but /video/:shareId still self-resolves to the current best clip, so open
+        // the modal on the share_id URL directly rather than requiring an exact match against
+        // the current list. (A never-minted / VAR-removed id will 404/410 at the <video> —
+        // the rare edge; the common case is supersession, which upgrades cleanly.)
+        // Defer modal opening to next frame to prevent UI freeze on slower devices.
         if (initialVideo.shareId) {
           const videos = event._s3_videos || []
-          // Match by the share_id embedded in the clip URL
-          const video = videos.find(v => getShareId(v.url) === initialVideo.shareId)
-          
-          if (video) {
-            // Use double rAF to ensure DOM has updated before opening modal
+          const matched = videos.find(v => getShareId(v.url) === initialVideo.shareId)
+          const url = matched?.url || `/api/found-footy/video/${initialVideo.shareId}`
+          // Use double rAF to ensure DOM has updated before opening modal
+          requestAnimationFrame(() => {
             requestAnimationFrame(() => {
-              requestAnimationFrame(() => {
-                // Pause SSE before opening video modal
-                onPauseStream?.()
-                setVideoModal({
-                  url: video.url,
-                  title: generateEventTitle(fixture, event),
-                  subtitle: generateEventSubtitle(event),
-                  eventId: event._event_id
-                })
+              // Pause SSE before opening video modal
+              onPauseStream?.()
+              setVideoModal({
+                url,
+                title: generateEventTitle(fixture, event),
+                subtitle: generateEventSubtitle(event),
+                eventId: event._event_id
               })
             })
-          }
-          // If hash not found, video was removed - just show expanded event (no modal)
+          })
         }
         break
       }

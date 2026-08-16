@@ -159,17 +159,16 @@ function generateVideoOgHtml(fixture, event, shareId) {
     description += ` | ${league.name}`;
   }
 
-  // Resolve the clip by its share_id (confirm it belongs to this event before emitting og:video).
+  // Build the video URL straight from the share_id. It may have been SUPERSEDED (no longer among
+  // the event's current videos), but /video/:shareId still self-resolves to the current best
+  // clip — so we don't require a match against the current list (that would drop the video on a
+  // superseded share). Use the matched clip's real dimensions when it's still present.
   let videoUrl = null;
   let vw = 1280, vh = 720; // 16:9 fallback; players read the real dimensions from the video itself
-  if (shareId && event._s3_videos?.length) {
-    const video = event._s3_videos.find(v => v.url?.includes(shareId));
-    if (video?.url) {
-      videoUrl = video.url.startsWith('http')
-        ? video.url
-        : `https://vedanta.systems${video.url}`;
-      if (video.width && video.height) { vw = video.width; vh = video.height; }
-    }
+  if (shareId) {
+    videoUrl = `https://vedanta.systems/api/found-footy/video/${shareId}`;
+    const video = event._s3_videos?.find(v => v.url?.includes(shareId));
+    if (video && video.width && video.height) { vw = video.width; vh = video.height; }
   }
 
   // Use site OG image as fallback (a real per-clip poster frame is a future enhancement).
