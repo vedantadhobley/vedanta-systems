@@ -104,8 +104,9 @@ function generateEventTitle(fixture, event) {
   const player = event.player?.name || 'Unknown';
   const teamName = event._scoring_team === 'home' ? teams.home.name : teams.away.name;
 
-  if (event._kind === 'card') return `${player} (${teamName}) — Red Card`;
-  if (event._kind === 'penalty-miss') return `${player} (${teamName}) — Penalty missed`;
+  if (event._kind === 'card' || event._kind === 'penalty-miss') {
+    return `${player} (${teamName}) — ${eventLabel(event.detail, event._kind)}`;
+  }
 
   const homeScore = event._score_after?.home ?? goals?.home ?? 0;
   const awayScore = event._score_after?.away ?? goals?.away ?? 0;
