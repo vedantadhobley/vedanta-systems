@@ -42,17 +42,57 @@ make four moments directly testable:
 Use representative local fixture/status data. Do not couple this design
 study to unfinished backend work.
 
+## First review — rejected direction (2026-08-17)
+
+The first implementation proved the reveal could be fast, and its CRT
+overshoot and initial load-in contained useful motion studies. It failed the
+larger design test:
+
+- It replaced an information-rich operational site with a sparse invented
+  dashboard. That was a functional and visual downgrade.
+- It reduced btop to a few fake summary rows even though the full live luv
+  and joi monitors are central to the portal.
+- It assigned lavender, red, green, and amber as broad shell roles. That
+  drifted from the intended almost-monochrome, two- or three-color display
+  grammar. Btop's existing lavender display is the stronger reference.
+- Its fog, scanline, vignette, and glow layers simulated the outside of a
+  CRT. They did not make the real interface elements behave like emitted
+  light.
+- Its cells merely appeared in sequence. They did not implement the intended
+  fast `pop → pop → pop` expansion of an old-computer surface.
+
+Keep the quick load-in and short overshoot as motion references. Discard the
+stem map, invented operational readings, global screen filter, and decorative
+multi-role shell palette.
+
+## Second exploration slice
+
+Evolve the existing portal instead of replacing it with a concept screen:
+
+1. Make Vedanta Systems the default instrument and render the real luv and
+   joi btop streams. Do not summarize them into cards.
+2. Keep project navigation compact, direct, always visible, and nearly
+   monochrome. Do not assign a decorative identity color to each project.
+3. Open the selected surface through three rapid nested expansion beats.
+   Content and controls become available immediately; the border/aperture
+   motion settles around them in a few hundred milliseconds.
+4. Tie phosphor excitation to actual btop delta cells and changed values.
+   Remove the global scanline/fog/glow layer as the source of the look.
+5. Keep additional colors local to real data that needs them, and keep the
+   contribution history as real data rather than a decorative substitute.
+
 ## Rendering model
 
 Keep three layers independent:
 
 1. **Semantic DOM** — content, layout, focus, selection, hit targets, and
    immediate state. This layer stays sharp and accessible.
-2. **Emission** — duplicate visual layers or localized canvas effects for
-   bloom, overshoot, persistence, and afterimages. They never receive input.
-3. **Screen material** — restrained scanlines, noise floor, fog, and glass.
-   Prefer static or low-frequency effects over a continuous full-screen
-   post-processing pass.
+2. **Emission** — the real cell or value that changes owns its excitation and
+   decay. A localized duplicate or canvas layer is acceptable only when the
+   source node cannot express the effect efficiently. Emission never receives
+   input.
+3. **Ground and hardware** — layout, black level, borders, and inactive
+   surfaces. Do not rely on a full-screen post-processing layer.
 
 The interface responds first; emitted light decays afterward.
 

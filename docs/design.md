@@ -30,10 +30,16 @@ These are the standards against which an exploration succeeds or fails:
    on both.
 5. **Operational usefulness.** The portal is an instrument Vedanta uses,
    not only a portfolio visitors observe. Live and historical data remain
-   fast, accurate, and easy to inspect.
+   fast, accurate, and easy to inspect. The two live btop surfaces are a
+   primary part of the product, not secondary decoration or a status-card
+   summary that a redesign may abstract away.
 6. **Atmosphere.** The interface should feel like precise light emitted
    through a physical phosphor display: sharp cores, controlled bloom,
    fast excitation, and a quieter afterglow.
+7. **Color restraint.** Keep the shell close to Blade Runner's almost
+   monochrome, two- or three-color display grammar. Lavender, neutral text,
+   and one status color are enough for the shell. Additional colors belong
+   only inside real instruments when they encode a concrete data distinction.
 
 ## How to read the rest of this document
 
@@ -96,21 +102,27 @@ rather than the filesystem directory metaphor that exists today. The
 exploration must prove that this remains clearer than conventional
 navigation on both desktop and mobile.
 
-## Working color direction: 2049 grammar, lavender phosphor
+## Working color direction: restrained displays
 
-2049's screen glow is Wallace-cyan. The current site uses **lavender**
-as its phosphor, which gives the interface its own identity instead of
-copying the film. The fog, desaturation, blood-red live accent, warm
-hardware details, record cards, reticles, and monumental space remain
-references to test rather than elements that must all ship.
+2049's screen glow is Wallace-cyan, and its displays are often almost
+monochrome. That restraint is part of the direction. The current site's
+**lavender** remains its identity color; btop's existing lavender theme is
+the clearest working reference. Neutral text and a quiet live/nominal color
+complete most surfaces.
+
+Real project data may add a small semantic palette where distinctions would
+otherwise be lost, but the shell does not assign a decorative color to each
+project. Phosphor describes how the displayed colors emit and decay. The fog,
+desaturation, blood-red live accent, warm hardware details, record cards,
+reticles, and monumental space remain references to test rather than elements
+that must all ship.
 
 ## Working palette
 
-The current implementation has overlapping semantic tokens and
-hardcoded colors. This compact palette is the starting hypothesis for
-the exploration. Values and roles may change, but additions must earn
-their place by communicating information or materially improving the
-atmosphere.
+The current implementation has overlapping semantic tokens and hardcoded
+colors. This compact palette is a starting hypothesis. Values and roles may
+change, but additions must encode real information and remain local to the
+instrument that needs them.
 
 | Role | Token | Value | Notes |
 |---|---|---|---|
@@ -126,10 +138,10 @@ atmosphere.
 | Nominal | `--good` | `#6fae8f` | Muted sage-green. Quiet "OK" state. |
 | Hardware | `--bezel` | `#c8a56a` | Warm amber. Bezel chrome / caution only. |
 
-Semantic colors (`--live`, `--good`, `--bezel`) are **separate from
-the accent budget** and stay muted. If red ever fights the fog, drop
-its saturation before you reach for a second hot color. There is no
-second hot color.
+Semantic colors (`--live`, `--good`, `--bezel`) are separate from the shell
+identity color, but they are not all required on every display. Most screens
+should settle at two or three visible color families. The test is clarity,
+consistent meaning, and restraint.
 
 ## Working typography
 
@@ -149,8 +161,11 @@ second hot color.
 Pulled directly from the film's instruments (the ESPER/VK scan
 monitors, the spinner HUD, the replicant-record lookups):
 
-- **Phosphor scanlines + CRT bloom** over the whole screen — the
-  unifying "this is a screen" texture. Subtle; never eats legibility.
+- **Luminous implementation, not a CRT costume** — excitation and decay
+  should be driven by the real value or terminal cell that changed. A
+  global scanline, fog, vignette, or glow overlay cannot be the main source
+  of the effect. The UI should feel as though it is the display, not a web
+  page placed behind an imitation-display filter.
 - **Fog + depth** as the ground: content floats *above* a hazy well
   with city-lights scattering in the cloud far below. The current moon
   samples `moon.mp4` into a low-resolution pixel canvas and contains
@@ -167,9 +182,11 @@ monitors, the spinner HUD, the replicant-record lookups):
   afterglow. It's a **universal masthead component whose data = the
   active project** (found-footy: goal/clip discovery; monitor: system
   load; photos: uploads). A found event deposits a lasting bright cell.
-- **Motion = spiky calm.** Ambient layers drift *slowly* (fog, moon,
-  wave). Interactions **snap** (80–120ms linear). The contrast is the
-  point. `radius: 0` everywhere. Respect `prefers-reduced-motion`.
+- **Motion = spiky calm.** Interactions snap in short mechanical beats.
+  Startup and surface expansion may use the fast three-beat
+  `pop → pop → pop` behavior from the early artifact, but the full reveal
+  must settle in a few hundred milliseconds and never block input. Ambient
+  motion must justify its runtime cost. Respect `prefers-reduced-motion`.
 
 ## Non-negotiable constraints (what the redesign must NOT break)
 
@@ -193,8 +210,8 @@ or fiddly is failure.
   the instrument register or increasing font cost unnecessarily?
 - How much phosphor persistence reads as physical before it begins to
   reduce contrast or make state changes feel slow?
-- Which screen-material effects belong globally, and which should appear
-  only when a component is newly energized?
+- Does the material need any global treatment at all once live cells and
+  values own their excitation behavior?
 - How often should the startup reveal replay? The current hypothesis is
   once per session, never as a blocking splash screen.
 - How much visual identity should every project share, and where should
@@ -218,14 +235,15 @@ baseline test; Sapper's fogged dead tree; the ESPER/VK scan monitor;
 the spinner HUD + detective ID card; the mortuary/replicant record;
 the spinner rising through cloud into starlight):
 
-- **Color** — near-black grounds that are never flat; desaturated
-  sage-blue neutral; one phosphor glow; a single blood-red; warm amber
-  only on hardware. Five families, rationed hard.
+- **Color** — near-black grounds that are never flat; nearly monochrome
+  instrument displays with two or three visible color families. Additional
+  semantic colors must be rare, local, and data-bearing.
 - **Type** — thin tracked caps for the poetic register; tiny mono
   labels on instruments; segmented LCD readouts.
-- **Materials** — horizontal phosphor scanlines + bloom; physical
-  bezels with labeled keys; record cards with labeled fields; reticles;
-  radial diagrams.
+- **Materials** — fast excitation and decay at the actual emitting value;
+  physical bezels with labeled keys; record cards with labeled fields;
+  reticles; radial diagrams. Scanlines and bloom are optional evidence,
+  not default layers.
 - **Atmosphere** — fog with real depth; light scatter far below; the
   terminal floating above the well. Lonely, cold, quiet, precise,
   after-hours. "Blood-black nothingness."

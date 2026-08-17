@@ -7,6 +7,8 @@ interface BtopMonitorProps {
   label?: string
   /** API path prefix (e.g., "/api/btop-luv" or "/api/btop-joi") */
   apiPrefix?: string
+  /** Excite only terminal cells changed by a live delta frame. */
+  phosphor?: boolean
 }
 
 const COLS = 132
@@ -18,6 +20,7 @@ const TERM_W = COLS * CELL_W
 const TERM_H = ROWS * CELL_H
 const ASPECT_RATIO = TERM_W / TERM_H
 const MAX_RECONNECT_DELAY = 30000
+const MAX_PHOSPHOR_EXCITATIONS_PER_DELTA = 64
 
 type Cell = [string, string | null, string | null, 0 | 1]
 type FullFrame = { t: 'f'; c: Cell[] }
@@ -28,6 +31,7 @@ export function BtopMonitor({
   className,
   label = 'local',
   apiPrefix = '/api/btop',
+  phosphor = false,
 }: BtopMonitorProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const terminalRef = useRef<HTMLDivElement>(null)
@@ -74,13 +78,43 @@ export function BtopMonitor({
     let reconnectTimeout: ReturnType<typeof setTimeout> | null = null
     let reconnectAttempts = 0
 
-    const updateCell = (index: number, char: string, fg: string | null, bg: string | null, bold: 0 | 1) => {
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)')
+
+    const updateCell = (
+      index: number,
+      char: string,
+      fg: string | null,
+      bg: string | null,
+      bold: 0 | 1,
+      excite = false,
+    ) => {
       const span = spansRef.current[index]
       if (!span) return
-      span.textContent = char === ' ' ? '\u00A0' : char
-      span.style.color = fg ? '#' + fg : ''
-      span.style.background = bg ? '#' + bg : ''
-      span.style.fontWeight = bold ? 'bold' : ''
+      const nextChar = char === ' ' ? '\u00A0' : char
+      const nextForeground = fg ? `#${fg}` : ''
+      const nextBackground = bg ? `#${bg}` : ''
+      const nextWeight = bold ? 'bold' : ''
+      span.textContent = nextChar
+      span.style.color = nextForeground
+      span.style.background = nextBackground
+      span.style.fontWeight = nextWeight
+
+      if (!phosphor) return
+
+      const restingEmission = fg ? `0 0 1.5px #${fg}66` : ''
+      span.style.textShadow = restingEmission
+
+      if (!excite || !fg || reducedMotion.matches) return
+
+      span.getAnimations().forEach((animation) => animation.cancel())
+      span.animate(
+        [
+          { textShadow: `0 0 2px #ffffff, 0 0 7px #${fg}, 0 0 13px #${fg}99` },
+          { textShadow: `0 0 1px #${fg}, 0 0 4px #${fg}aa`, offset: 0.32 },
+          { textShadow: restingEmission },
+        ],
+        { duration: 200, easing: 'cubic-bezier(0.16, 1, 0.3, 1)' },
+      )
     }
 
     const handleMessage = (data: StreamMessage) => {
@@ -90,8 +124,14 @@ export function BtopMonitor({
           updateCell(i, char, fg, bg, bold)
         }
       } else if (data.t === 'd') {
-        for (const [index, char, fg, bg, bold] of data.d) {
-          updateCell(index, char, fg, bg, bold)
+        const excitationStride = Math.max(
+          1,
+          Math.ceil(data.d.length / MAX_PHOSPHOR_EXCITATIONS_PER_DELTA),
+        )
+        for (let deltaIndex = 0; deltaIndex < data.d.length; deltaIndex++) {
+          const [index, char, fg, bg, bold] = data.d[deltaIndex]
+          const excite = char !== ' ' && deltaIndex % excitationStride === 0
+          updateCell(index, char, fg, bg, bold, excite)
         }
       }
     }
@@ -140,7 +180,7 @@ export function BtopMonitor({
       document.removeEventListener('visibilitychange', handleVisibilityChange)
       disconnect()
     }
-  }, [apiPrefix])
+  }, [apiPrefix, phosphor])
 
   useEffect(() => {
     const container = containerRef.current
