@@ -94,7 +94,8 @@ Pattern A vs B is the central architectural call here — see
 ## Where to look first
 
 - @README.md — public-facing project description
-- @docs/design.md — **the design north star** (BR2049 grammar × lavender phosphor, Pale Fire / cells-interlinked concept, the 12-token palette). Read before any visual work.
+- @docs/design.md — **the living design brief**: confirmed clarity/response constraints, working BR2049 × lavender-phosphor direction, references, and open questions. References and existing code are not authority.
+- @docs/plans/frontend-redesign.md — active phosphor-shell exploration scope, review gates, and migration sequence
 - @deploy/INFRA-NOTES.md — Caddy + Cloudflared bring-up reference for this repo's slice
 - @docs/architecture.md — request paths (prod via Caddy → in-container nginx → SPA / api / og-server; dev via Caddy → Vite proxy → api), network model, btop's network_mode:host exception
 - @docs/btop.md — btop integration deep dive (AMD APU patches, custom theme, SSE protocol, known iGPU Vulkan 0% issue)
