@@ -25,8 +25,10 @@ The confirmed requirements and current visual vocabulary live in the
 
 ## First exploration slice
 
-Build a dev-only lab under `src/experiments/phosphor-shell/`. It must make
-four moments directly testable:
+Build a dev-only lab under `src/experiments/phosphor-shell/`, served from
+the separate `phosphor-shell.html` Vite entry. The production build uses
+only `index.html`, so the lab must not appear in production output. It must
+make four moments directly testable:
 
 1. **System reveal.** Stem and project cells energize in short mechanical
    beats. The sequence never blocks interaction and settles quickly.
