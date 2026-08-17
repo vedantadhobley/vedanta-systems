@@ -1,17 +1,18 @@
 # Frontend redesign exploration
 
-Status: active exploration on `feature/phosphor-shell-exploration`.
+Status: direction reset on `feature/phosphor-shell-exploration`. Both shell
+studies are rejected. The current production interface is the baseline.
 
 ## Objective
 
-Find a clearer, more responsive, and more distinctive application shell
-for vedanta.systems. The strongest current direction is an old-computer
-system reveal, interlinked project cells, and a restrained phosphor-display
-material language. This is a hypothesis to test in working code, not a
-preselected outcome.
+Develop a reusable visual system for vedanta.systems without replacing its
+working information architecture. The governing direction is a two-plane
+instrument model: clean responsive containers at the screen surface and
+luminous phosphor data beneath them.
 
-The current production frontend remains intact until a replacement proves
-its navigation, mobile behavior, performance, and functional parity.
+Build progressively from the current production components. Navigation,
+typography, and larger composition remain open until the component language
+has proved itself on real project surfaces.
 
 ## Authority and references
 
@@ -20,10 +21,11 @@ Claude artifact, Blade Runner 2049 stills, the existing site, and earlier
 generated code are references. None is a specification.
 
 The confirmed requirements and current visual vocabulary live in the
-[design brief](../design.md). Decisions move to
+[design brief](../design.md). The working component and rendering contracts
+live in the [interface design system](../design-system.md). Decisions move to
 [the decision log](../decisions.md) only after a prototype is selected.
 
-## First exploration slice
+## Historical first exploration slice
 
 Build a dev-only lab under `src/experiments/phosphor-shell/`, served from
 the separate `phosphor-shell.html` Vite entry. The production build uses
@@ -65,7 +67,7 @@ Keep the quick load-in and short overshoot as motion references. Discard the
 stem map, invented operational readings, global screen filter, and decorative
 multi-role shell palette.
 
-## Second exploration slice
+## Historical second exploration slice
 
 Evolve the existing portal instead of replacing it with a concept screen:
 
@@ -81,20 +83,51 @@ Evolve the existing portal instead of replacing it with a concept screen:
 5. Keep additional colors local to real data that needs them, and keep the
    contribution history as real data rather than a decorative substitute.
 
+## Second review — rejected direction (2026-08-17)
+
+The second implementation restored real btop and project surfaces, but it
+still chose a new shell before defining a scalable component system. It
+failed the revised design test:
+
+- Its fixed project strip and enclosing instrument frame do not scale cleanly
+  as the number and complexity of projects grow.
+- It placed existing applications inside another authored composition instead
+  of improving their own reusable elements.
+- It continued to choose navigation, hierarchy, and taste globally rather
+  than deriving a system progressively with Vedanta.
+- Its three-stage aperture animation was not the intended
+  `pop → pop → pop` interaction.
+- Rendering real data and btop inside the demo did not make the surrounding
+  shell a suitable production direction.
+
+Treat the lab as rejected reference code only. Do not promote its shell,
+navigation, animation, or optional btop effect into production.
+
+## Current direction
+
+The site contains two visual element types:
+
+1. **Container plane.** Fixture frames, record boundaries, layout apertures,
+   hit areas, focus geometry, and expanded/collapsed shape. This plane is
+   crisp, tight, and immediately responsive at the screen surface.
+2. **Data plane.** Text, values, icons, scores, progress, search/debounce
+   signals, charts, and terminal cells. This plane sits visually beneath the
+   container and receives the localized CRT/phosphor treatment.
+
+Controls are composites rather than a third type. For example, an expand
+button's hit target and focus surface may belong to the container plane while
+its chevron and label belong to the data plane. The exact split remains a
+component-level design question.
+
+The first implementation target is one existing Found Footy fixture. Do not
+change the site shell or navigation for this slice.
+
 ## Rendering model
 
-Keep three layers independent:
-
-1. **Semantic DOM** — content, layout, focus, selection, hit targets, and
-   immediate state. This layer stays sharp and accessible.
-2. **Emission** — the real cell or value that changes owns its excitation and
-   decay. A localized duplicate or canvas layer is acceptable only when the
-   source node cannot express the effect efficiently. Emission never receives
-   input.
-3. **Ground and hardware** — layout, black level, borders, and inactive
-   surfaces. Do not rely on a full-screen post-processing layer.
-
-The interface responds first; emitted light decays afterward.
+Use the [two-plane contract](../design-system.md#the-two-plane-contracts).
+The semantic DOM remains accessible and selectable; the planes describe local
+visual material and stacking, not separate application trees. The interface
+responds first, and data emission may decay afterward.
 
 ## Constraints
 
@@ -107,7 +140,7 @@ The interface responds first; emitted light decays afterward.
 - Pause ambient work while the document is hidden.
 - Avoid 60-fps React state for decorative motion. Prefer CSS compositor
   properties and localized canvas only where accumulation is material.
-- Keep the lab out of production output and public routes.
+- Keep experiments out of public routes until the component passes review.
 
 ## Review gates
 
@@ -116,10 +149,10 @@ The interface responds first; emitted light decays afterward.
 The light must feel emitted rather than like ordinary boxes with a CSS glow.
 Static content stays calm. New or changing content excites the material.
 
-### 2. Navigation
+### 2. Component anatomy
 
-A first-time visitor and Vedanta as operator can identify projects, enter
-one, and return without learning a hidden interaction model.
+Container and data responsibilities remain clear, including inside composite
+controls. The result does not depend on project-specific effect code.
 
 ### 3. Responsive operation
 
@@ -133,22 +166,31 @@ The prototype meets type-check/build requirements, does not regress current
 page behavior, and establishes reusable primitives instead of one-off visual
 timelines.
 
-## Migration after selection
+## Progressive implementation
 
-1. Record the selected shell, typography, palette, and motion decisions.
-2. Promote only the proven primitives; discard experiment scaffolding.
-3. Migrate Found Footy as the first vertical slice.
-4. Fold route-scoped wake/resume, network recovery, and timezone-boundary
-   reconciliation into that slice.
-5. Address the match-day navigation issue tracked in
+1. Inventory one current Found Footy fixture by container-plane and
+   data-plane part.
+2. Implement the minimum local plane, frame, phosphor-data, and composite
+   control primitives needed by that fixture.
+3. Preserve its information architecture and interaction behavior while
+   testing the new material treatment.
+4. Verify touch, keyboard, desktop, reduced motion, paint cost, and a readable
+   no-effect state.
+5. Use btop as the dense-data performance case and the contribution graph as
+   the persistence case before generalizing the data primitive.
+6. Promote only proven primitives and tokens into the style guide.
+7. Fold route-scoped wake/resume, network recovery, and timezone-boundary
+   reconciliation into the Found Footy migration.
+8. Address the match-day navigation issue tracked in
    [the todo list](../todo.md#found-footy--timezone-navigation-fold-into-the-frontend-rewrite).
-6. Verify mobile and desktop parity before migrating the remaining projects.
-7. Replace production only after the new shell reaches functional parity.
+9. Migrate other existing components incrementally. Revisit the application
+   shell and navigation only after the shared component system is coherent.
 
-## Out of scope for the first slice
+## Out of scope for the first component slice
 
 - Rewriting every project browser.
 - Choosing permanent fonts before typography is tested in context.
 - Reworking backend data contracts.
-- Deploying the lab publicly.
-- Treating prototype code as production architecture by default.
+- Deploying experimental styling publicly.
+- Replacing the shell, folder navigation, or contribution masthead.
+- Reusing either rejected shell demo as production architecture.

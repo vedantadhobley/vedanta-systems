@@ -6,6 +6,12 @@ brief, not a style bible. Vedanta's current judgment and evidence from
 using the site take precedence over this document, earlier prototypes,
 and the existing implementation.
 
+The current implementation direction is the
+[two-plane interface design system](./design-system.md): crisp containers at
+the screen surface, with luminous data rendered beneath them. Develop it
+progressively from the current production UI. Do not infer a new shell or
+navigation design from the mood references in this brief.
+
 The Claude artifact linked below is a historical reference. It contains
 the first implemented `pop → pop → pop` system-reveal study and other
 useful visual ideas. It is not a specification, and neither the artifact
@@ -81,7 +87,7 @@ complex**: sparse because it's confident, complex only when you lean
 in. The tension between the soft atmosphere and the sharp instrument
 *is* the aesthetic. Never busy. Never loud. Precise.
 
-## Working concept: Pale Fire / cells interlinked
+## Reference concept: Pale Fire / cells interlinked
 
 Nabokov's *Pale Fire* is a poem buried inside obsessive commentary —
 the work and the apparatus that reads it are one object. **This whole
@@ -94,13 +100,12 @@ The spine is the baseline-test litany from the film:
 > *A system of **cells interlinked** within **cells interlinked**
 > within one stem.*
 
-Read it as the **site map, not a quote**: the projects are cells; they
+Read it as a system metaphor, not a navigation specification: the projects are cells; they
 interlink (shared data plane, [NATS event mesh](../AGENTS.md), the
 contribution grid); **luv is the one stem** they all root into.
-The current navigation hypothesis is interlinked cells around a stem,
-rather than the filesystem directory metaphor that exists today. The
-exploration must prove that this remains clearer than conventional
-navigation on both desktop and mobile.
+Both attempts to turn the metaphor into a replacement shell were rejected.
+No replacement navigation model is selected. Work from the current interface
+until reusable component language is established.
 
 ## Working color direction: restrained displays
 
@@ -161,6 +166,12 @@ consistent meaning, and restraint.
 Pulled directly from the film's instruments (the ESPER/VK scan
 monitors, the spinner HUD, the replicant-record lookups):
 
+- **Two planes** — containers render as crisp surface geometry. Text, icons,
+  values, and other data render as a luminous phosphor layer beneath them.
+  Controls may combine a container-plane hit surface with data-plane copy or
+  iconography. The [interface design system](./design-system.md) owns this
+  contract.
+
 - **Luminous implementation, not a CRT costume** — excitation and decay
   should be driven by the real value or terminal cell that changed. A
   global scanline, fog, vignette, or glow overlay cannot be the main source
@@ -183,10 +194,11 @@ monitors, the spinner HUD, the replicant-record lookups):
   active project** (found-footy: goal/clip discovery; monitor: system
   load; photos: uploads). A found event deposits a lasting bright cell.
 - **Motion = spiky calm.** Interactions snap in short mechanical beats.
-  Startup and surface expansion may use the fast three-beat
-  `pop → pop → pop` behavior from the early artifact, but the full reveal
-  must settle in a few hundred milliseconds and never block input. Ambient
-  motion must justify its runtime cost. Respect `prefers-reduced-motion`.
+  The intended `pop → pop → pop` behavior is still unresolved; both shell
+  demos implemented it incorrectly. A future component study should connect
+  its final beat to a container frame arriving and its data energizing. The
+  sequence must never block input. Ambient motion must justify its runtime
+  cost. Respect `prefers-reduced-motion`.
 
 ## Non-negotiable constraints (what the redesign must NOT break)
 
@@ -202,8 +214,12 @@ or fiddly is failure.
 
 ## Open exploration questions
 
-- Does the stem-and-cells model remain immediately understandable once
-  the filesystem navigation and breadcrumb are gone?
+- Where should the visual split fall inside composite controls such as
+  expand/collapse buttons?
+- How much perceived separation between the two planes is useful before it
+  becomes fake parallax or weakens clarity?
+- How should container arrival and data excitation synchronize in the eventual
+  `pop → pop → pop` sequence?
 - Should resume/about disappear entirely, or should any public identity
   information survive in a smaller non-portfolio form?
 - Which display face creates a useful poetic register without weakening
@@ -227,6 +243,8 @@ or fiddly is failure.
   accessibility, selection, or responsive layout.
 - Preserving an existing component or pattern only because it has already
   been implemented.
+- Replacing the application shell before the component system has been proven
+  progressively on the current interface.
 
 ## What the reference stills say, as a system
 

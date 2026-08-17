@@ -95,7 +95,8 @@ Pattern A vs B is the central architectural call here — see
 
 - @README.md — public-facing project description
 - @docs/design.md — **the living design brief**: confirmed clarity/response constraints, working BR2049 × lavender-phosphor direction, references, and open questions. References and existing code are not authority.
-- @docs/plans/frontend-redesign.md — active phosphor-shell exploration scope, review gates, and migration sequence
+- @docs/design-system.md — working two-plane interface contract: crisp container plane above luminous phosphor data, composite controls, reusable primitives, and progressive adoption from the current UI
+- @docs/plans/frontend-redesign.md — rejected shell studies and the current component-first migration sequence
 - @deploy/INFRA-NOTES.md — Caddy + Cloudflared bring-up reference for this repo's slice
 - @docs/architecture.md — request paths (prod via Caddy → in-container nginx → SPA / api / og-server; dev via Caddy → Vite proxy → api), network model, btop's network_mode:host exception
 - @docs/btop.md — btop integration deep dive (AMD APU patches, custom theme, SSE protocol, known iGPU Vulkan 0% issue)
