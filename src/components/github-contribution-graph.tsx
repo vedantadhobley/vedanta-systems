@@ -25,6 +25,10 @@ interface ContributionDay {
   level: 'NONE' | 'FIRST_QUARTILE' | 'SECOND_QUARTILE' | 'THIRD_QUARTILE' | 'FOURTH_QUARTILE'
 }
 
+interface ContributionResponse {
+  contributions: ContributionDay[]
+}
+
 /**
  * Color scheme configuration - customize to match your design system
  * 
@@ -194,92 +198,52 @@ export function GitHubContributionGraph({
     }
   }, [])
 
-  // Fetch contributions - called every time a wave starts
-  const fetchContributions = async () => {
+  // Fetch the sanitized contribution projection from the BFF. GitHub credentials
+  // never enter the browser; the API owns authentication and upstream caching.
+  const fetchContributions = useCallback(async () => {
     try {
-      const token = import.meta.env.VITE_GITHUB_TOKEN
-      
-      if (!token) {
-        throw new Error('GitHub token not configured')
-      }
-
-      const query = `
-        query($userName:String!) {
-          user(login: $userName) {
-            contributionsCollection {
-              contributionCalendar {
-                totalContributions
-                weeks {
-                  contributionDays {
-                    contributionCount
-                    date
-                    contributionLevel
-                  }
-                }
-              }
-            }
-          }
-        }
-      `
-
-      const response = await fetch('https://api.github.com/graphql', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          query,
-          variables: { userName: username },
-        }),
-      })
+      const response = await fetch('/api/github/contributions')
 
       if (!response.ok) {
         throw new Error('Failed to fetch GitHub data')
       }
 
-      const data = await response.json()
-
-      if (data.errors) {
-        throw new Error(data.errors[0].message)
+      const data = await response.json() as ContributionResponse
+      if (!Array.isArray(data.contributions)) {
+        throw new Error('Invalid GitHub contribution response')
       }
-
-      const weeks = data.data.user.contributionsCollection.contributionCalendar.weeks
-      const allContributions: ContributionDay[] = []
-
-      weeks.forEach((week: any) => {
-        week.contributionDays.forEach((day: any) => {
-          allContributions.push({
-            date: day.date,
-            count: day.contributionCount,
-            level: day.contributionLevel,
-          })
-        })
-      })
       
-      setContributions(allContributions)
-      if (!dataReady) {
-        setDataReady(true) // Mark data as ready on first successful fetch
-      }
-      // Clear any previous errors
+      setContributions(data.contributions)
+      setDataReady(true)
       setError(null)
     } catch (err) {
       console.error('Error fetching contributions:', err)
       
       // Only show error UI if we've never successfully loaded data
-      if (!hasBeenRevealed) {
+      if (!hasBeenRevealedRef.current) {
         setError(err instanceof Error ? err.message : 'Failed to load contributions')
       }
-      
-      // If data fetch fails, mark data as not ready (will trigger erasure on next wave)
-      // But keep hasBeenRevealed as true so old data stays visible until wave erases it
-      if (dataReady) {
-        setDataReady(false)
-      }
     }
-  }
+  }, [])
 
-  // Wave animation effect - fetches data and animates continuously
+  // Contribution data changes slowly. Refresh independently of the decorative
+  // wave so animation cycles do not become upstream API traffic.
+  useEffect(() => {
+    fetchContributions()
+    const refreshInterval = setInterval(fetchContributions, 15 * 60 * 1000)
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') fetchContributions()
+    }
+    document.addEventListener('visibilitychange', handleVisibility)
+
+    return () => {
+      clearInterval(refreshInterval)
+      document.removeEventListener('visibilitychange', handleVisibility)
+    }
+  }, [fetchContributions])
+
+  // Wave animation effect - animates continuously over the latest data.
   useEffect(() => {
     // Clear any existing intervals/timers
     if (waveIntervalRef.current) clearInterval(waveIntervalRef.current)
@@ -287,9 +251,6 @@ export function GitHubContributionGraph({
     
     // DO NOT clear reveal times - they persist across waves
     // This ensures squares continue their natural fade until repainted
-    
-    // Fetch data at start of each wave
-    fetchContributions()
     
     let frame = 0
     const frameRate = 60
@@ -373,7 +334,7 @@ export function GitHubContributionGraph({
   }
 
   // Generate wave pattern colors - bright leading edge (right) fading to dark trailing edge (left)
-  const getWaveColor = (weekIdx: number, _dayIdx: number) => {
+  const getWaveColor = (weekIdx: number) => {
     // Distance from wave position (positive = ahead of wave, negative = behind wave)
     const distanceFromWave = weekIdx - wavePosition
     
@@ -472,7 +433,7 @@ export function GitHubContributionGraph({
               {Array.from({ length: 7 }).map((_, dayIdx) => {
                 const hasData = displayWeeks[weekIdx]?.[dayIdx]
                 const distanceFromWave = weekIdx - wavePosition
-                const waveColor = getWaveColor(weekIdx, dayIdx)
+                const waveColor = getWaveColor(weekIdx)
                 const squareKey = `${weekIdx}-${dayIdx}`
                 
                 // Determine the color and opacity

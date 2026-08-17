@@ -6,7 +6,6 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        - VITE_GITHUB_TOKEN=${VITE_GITHUB_TOKEN}
         - VITE_FOOTY_API_URL=https://vedanta.systems/api/found-footy
         - VITE_SPIN_CYCLE_API_URL=https://vedanta.systems/api/spin-cycle
     container_name: vedanta-systems-prod
@@ -30,6 +29,8 @@ services:
     environment:
       - NODE_ENV=production
       - API_PORT=3001
+      # Server-only GitHub credential for the cached contribution calendar.
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
       # Found Footy — Pattern B: proxy the Go read API (reshaped to the legacy frontend shape
       # in src/server/routes/found-footy.ts). Replaces the old direct Mongo/MinIO reads.
       - FOUND_FOOTY_API_URL=http://found-footy-prod-api:8081

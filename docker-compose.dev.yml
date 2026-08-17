@@ -6,13 +6,10 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.dev
-      args:
-        VITE_GITHUB_TOKEN: ${VITE_GITHUB_TOKEN}
     # Reachable via Caddy at http://vedanta-systems-dev.<base-domain>/
     environment:
       - VITE_API_BASE_URL=http://localhost:8080
       - VITE_ENVIRONMENT=development
-      - VITE_GITHUB_TOKEN=${VITE_GITHUB_TOKEN}
       # Use localhost for browser access (frontend runs in browser, not in container)
       # Use relative URLs so dev works from any device (Tailscale, phone, etc.)
       # Vite proxy handles /api -> api:3001
@@ -45,6 +42,8 @@ services:
     environment:
       - API_PORT=3001
       - NODE_ENV=development
+      # Server-only GitHub credential for the cached contribution calendar.
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
       # Spin Cycle PostgreSQL
       - SPIN_CYCLE_POSTGRES_URI=postgresql://${SPIN_CYCLE_POSTGRES_USER}:${SPIN_CYCLE_POSTGRES_PASS}@spin-cycle-dev-postgres:5432/spincycle
       # Long Exposure PostgreSQL (TimescaleDB; narratives table)

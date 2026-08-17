@@ -231,3 +231,35 @@ token — `found-footy.<env>.<domain>.<event>`). Redeployed with
   bytes) is pending prod's first minted clip; the path is confirmed reachable.
 
 ---
+
+## 2026-08-16 — Keep the GitHub contribution credential behind the BFF
+
+**Context.** The contribution graph called GitHub GraphQL directly from the
+browser with `VITE_GITHUB_TOKEN`. Vite embedded the fine-grained PAT in the
+production JavaScript, where any visitor could retrieve it. The exposed token
+was revoked. The animation also fetched GraphQL at the start of every wave, so
+each visitor multiplied upstream traffic.
+
+**Decision.** Move contribution retrieval to
+`GET /api/github/contributions` in vs-api. The route is fixed to
+`vedantadhobley`, authenticates with a server-only `GITHUB_TOKEN`, projects
+the response to date/count/level, caches it for 15 minutes, coalesces concurrent
+refreshes, and serves stale data after an upstream failure. The token is a
+classic PAT with only `read:user` so the calendar includes publicized private
+counts without repository-content or write access. The browser refreshes the
+BFF independently of its decorative wave. Production source maps are no longer
+published.
+
+**Consequences.**
+
+- GitHub credentials belong only in the API service's gitignored `.env`; a
+  secret must never use the `VITE_` prefix or enter a frontend build argument.
+- The public endpoint exposes only the same aggregate calendar counts already
+  visible on the public GitHub profile. It cannot select another user or proxy
+  arbitrary GraphQL.
+- Token rotation requires replacing `GITHUB_TOKEN` and recreating the API
+  container. The frontend does not need rebuilding for token-only rotation.
+- A page view no longer consumes GitHub rate limit per animation cycle; all
+  visitors share the API cache.
+
+---

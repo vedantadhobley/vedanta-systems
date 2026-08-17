@@ -6,6 +6,7 @@ import http from 'http'
 import { createFoundFootyRouter } from './routes/found-footy'
 import { createSpinCycleRouter } from './routes/spin-cycle'
 import { createLongExposureRouter } from './routes/long-exposure'
+import { createGitHubRouter } from './routes/github'
 
 const app = express()
 app.use(cors())
@@ -36,6 +37,13 @@ const longExposureConfig = {
   postgresUri: process.env.LONG_EXPOSURE_POSTGRES_URI || '',
 }
 
+// GitHub contribution calendar. The token stays in this API process; the
+// browser receives only the public date/count/level projection.
+const githubConfig = {
+  token: process.env.GITHUB_TOKEN || '',
+  username: 'vedantadhobley',
+}
+
 // Validate Found Footy config
 if (!foundFootyConfig.apiUrl) {
   console.warn('⚠️  FOUND_FOOTY_API_URL not set — found-footy routes will return 502')
@@ -49,6 +57,10 @@ if (!spinCycleConfig.postgresUri) {
 // Validate Long Exposure config
 if (!longExposureConfig.postgresUri) {
   console.warn('⚠️  LONG_EXPOSURE_POSTGRES_URI not set — long-exposure routes will fail')
+}
+
+if (!githubConfig.token) {
+  console.warn('⚠️  GITHUB_TOKEN not set — contribution graph route will return 503')
 }
 
 // ============ MOUNT PROJECT ROUTES ============
@@ -72,6 +84,9 @@ if (longExposureConfig.postgresUri) {
   const longExposureRouter = createLongExposureRouter(longExposureConfig)
   app.use('/api/long-exposure', longExposureRouter)
 }
+
+// GitHub contribution calendar — fixed user, read-only, cached server-side.
+app.use('/api/github', createGitHubRouter(githubConfig))
 
 // ============ BTOP PROXY ============
 // Proxy btop frame/health/stream requests to btop containers
@@ -117,6 +132,7 @@ app.get('/api/health', (_req, res) => {
     projects: {
       'found-footy': '/api/found-footy/health',
       'spin-cycle': '/api/spin-cycle/health',
+      'github-contributions': '/api/github/contributions',
       'btop-luv': '/api/btop-luv/health',
       'btop-joi': '/api/btop-joi/health',
     }
@@ -132,6 +148,7 @@ app.listen(PORT, () => {
   console.log(`   /api/health - Global health check`)
   console.log(`   /api/found-footy/* - Found Footy endpoints`)
   console.log(`   /api/spin-cycle/* - Spin Cycle endpoints`)
+  console.log(`   /api/github/contributions - Cached GitHub contribution calendar`)
   console.log(`   /api/btop-luv/* - System monitor (luv)`)
   console.log(`   /api/btop-joi/* - System monitor (joi)`)
 })

@@ -70,6 +70,25 @@ own API:
 Pattern B is the target for all of them; migration is tracked per project
 in `docs/todo.md`.
 
+### Portal-owned external data — GitHub contributions
+
+The contribution masthead reads GitHub through the Express BFF:
+
+```
+browser
+  → GET /api/github/contributions
+  → vedanta-systems-{env}-api
+  → GitHub GraphQL API (server-only GITHUB_TOKEN)
+```
+
+The route is fixed to `vedantadhobley`; it is not a general GitHub proxy.
+It returns only contribution date, count, and level, caches the upstream
+response for 15 minutes, and serves the last successful response if a
+refresh fails. The classic PAT has only `read:user`, which includes
+publicized private contribution counts but grants no repository-content or
+write access. Never pass this credential through a `VITE_*` variable:
+Vite substitutes those values into the public browser bundle.
+
 ### btop — the host-network exception
 
 btop needs real host process + network visibility, so its containers
@@ -127,6 +146,7 @@ only frontend in the workspace.
 | Caddy dev tailnet hosts | `~/workspace/proxy/caddy/caddy.d/vedanta-systems.caddy` | `vedanta-systems-dev.<base-domain>` + `vedanta-systems-dev-api.<base-domain>` |
 | In-container nginx | `nginx.conf` | Crawler routing, internal webhook 404s, SSE/range quirks, btop legacy block (see todo) |
 | Express + project routers | `src/server/index.ts`, `src/server/routes/<project>.ts` | Per-project routers (found-footy Pattern B; spin-cycle/long-exposure Pattern A) + inline btop proxy |
+| GitHub contribution BFF | `src/server/routes/github.ts` | Fixed-user GraphQL projection; server-only token; 15-minute cache |
 | Vite dev proxy | `vite.config.ts` | `/api/*` → `vedanta-systems-dev-api:3001` |
 | OG meta server | `og-server.js` + `start.sh` | Runs in vs-prod alongside nginx; data-injection half is currently disabled |
 

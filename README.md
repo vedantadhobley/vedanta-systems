@@ -5,7 +5,8 @@ The unified portal at [vedanta.systems](https://vedanta.systems). React + shadcn
 ## Stack
 
 - **Frontend**: React 18, TypeScript, Vite, Tailwind, shadcn/ui. Filesystem-style URL navigation (paths like `~/workspace/<project>`).
-- **API**: Express, served by `tsx`. Per-project routers under `src/server/routes/`.
+- **API**: Express, served by `tsx`. Per-project routers under `src/server/routes/`,
+  plus a cached, server-authenticated GitHub contribution projection.
 - **Prod ingress**: Cloudflare Tunnel → Caddy → in-container nginx → SPA / API / OG meta server.
 - **Dev ingress**: workspace Caddy → Vite dev server (HMR) → API via Vite's built-in proxy.
 - **System monitoring**: custom-patched btop in a per-node container, broadcast over SSE.

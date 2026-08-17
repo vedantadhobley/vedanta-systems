@@ -46,6 +46,8 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
-    sourcemap: true,
+    // Production source maps are not public assets. Local Vite development
+    // still provides source-mapped stack traces through the dev server.
+    sourcemap: false,
   },
 })

@@ -49,6 +49,8 @@ The proxy stack itself lives in `~/workspace/proxy/`; its
   React Router DOM v7).
 - **Express API server** (`src/server/index.ts`): TypeScript via `tsx`.
   Per-project routers under `src/server/routes/{found-footy,spin-cycle,long-exposure}.ts`,
+  plus a fixed-user GitHub contribution router (`src/server/routes/github.ts`;
+  server-only `GITHUB_TOKEN`, 15-minute cache),
   plus a btop reverse-proxy mounted inline that targets the per-node
   btop containers via `host-gateway` (prod) / `host.docker.internal` (dev).
 - **In-container nginx** (`nginx.conf`, prod only): the *internal*
