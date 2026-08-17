@@ -1,0 +1,276 @@
+.instrument-scope {
+  --instrument-frame-neutral: #45434b;
+  --instrument-frame-accent: #715b8f;
+  --instrument-frame-live: #4d7368;
+  --instrument-data-neutral: rgba(243, 240, 246, 0.84);
+  --instrument-data-quiet: rgba(218, 213, 224, 0.47);
+  --instrument-data-accent: #c9a0f0;
+  --instrument-data-live: #8de0c1;
+  --instrument-data-warning: #e7c56c;
+  --instrument-data-danger: #ed7b83;
+  --instrument-focus: #d7b8f5;
+  --instrument-font-data: 'GT Pressura Mono', ui-monospace, monospace;
+}
+
+.instrument-workbench {
+  width: 100%;
+  height: 100vh;
+  height: 100dvh;
+  overflow: auto;
+  overscroll-behavior: contain;
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.011) 1px, transparent 1px) 0 0 / 100% 4px,
+    #030304;
+  color: rgba(243, 240, 246, 0.84);
+  font-family: var(--instrument-font-data);
+  font-weight: 300;
+}
+
+.instrument-workbench__page {
+  width: min(100%, 820px);
+  min-height: 100%;
+  margin: 0 auto;
+  padding: clamp(28px, 7vw, 72px) clamp(16px, 5vw, 42px) 64px;
+}
+
+.instrument-workbench__header {
+  max-width: 620px;
+  margin-bottom: clamp(38px, 7vw, 64px);
+}
+
+.instrument-workbench__eyebrow {
+  margin-bottom: 14px;
+  font-size: 11px;
+  letter-spacing: 0.17em;
+}
+
+.instrument-workbench__header h1 {
+  margin: 0 0 12px;
+  color: rgba(250, 248, 252, 0.92);
+  font-size: clamp(24px, 4.5vw, 38px);
+  font-weight: 300;
+  letter-spacing: -0.035em;
+  line-height: 1.05;
+}
+
+.instrument-workbench__header p {
+  max-width: 560px;
+  margin: 0;
+  color: rgba(218, 213, 224, 0.52);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.instrument-workbench__stage {
+  position: relative;
+}
+
+.instrument-workbench__stage-label {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 0 1px 9px;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+}
+
+.fixture-study .instrument-disclosure__toggle {
+  min-height: 61px;
+  gap: 10px;
+  padding: 9px 12px;
+  font-size: 15px;
+}
+
+.fixture-study__toggle-icon,
+.fixture-study__scan {
+  width: 17px;
+  height: 17px;
+  flex: 0 0 auto;
+}
+
+.fixture-study__identity {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.fixture-study__score-line {
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+  gap: clamp(6px, 2vw, 11px);
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.fixture-study__score-line > .instrument-data:not(.fixture-study__score) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.fixture-study__score {
+  flex: 0 0 auto;
+  font-variant-numeric: tabular-nums;
+}
+
+.fixture-study__round {
+  overflow: hidden;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fixture-study__minute {
+  flex: 0 0 auto;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+.fixture-study__rail {
+  position: relative;
+  margin-left: 20px;
+  padding: 2px 0 5px 13px;
+}
+
+.fixture-study__rail::before {
+  position: absolute;
+  z-index: 3;
+  inset: 0 auto 0 0;
+  width: 1px;
+  background: var(--instrument-frame-neutral);
+  content: '';
+}
+
+.fixture-study__event {
+  display: flex;
+  min-height: 51px;
+  align-items: center;
+  gap: 9px;
+  padding: 6px 12px 6px 0;
+}
+
+.fixture-study__event-glyph {
+  width: 12px;
+  flex: 0 0 auto;
+  color: var(--instrument-frame-neutral);
+  font-size: 13px;
+  text-align: center;
+}
+
+.fixture-study__event-copy {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.fixture-study__event-title,
+.fixture-study__event-detail {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fixture-study__event-title {
+  font-size: 13px;
+}
+
+.fixture-study__event-detail {
+  font-size: 12px;
+}
+
+.fixture-study__clip-count {
+  flex: 0 0 auto;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.fixture-study__work-state {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+  padding: 2px 12px 5px 21px;
+  font-size: 12px;
+}
+
+.fixture-study__work-state .instrument-icon {
+  width: 14px;
+  height: 14px;
+}
+
+.instrument-workbench__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+  font-size: 12px;
+}
+
+.instrument-workbench__notes {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+  margin-top: clamp(52px, 9vw, 84px);
+  padding-top: 16px;
+  border-top: 1px solid #2f2e33;
+}
+
+.instrument-workbench__notes div {
+  min-width: 0;
+}
+
+.instrument-workbench__notes span {
+  color: rgba(218, 213, 224, 0.42);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+}
+
+.instrument-workbench__notes p {
+  margin: 8px 0 0;
+  color: rgba(218, 213, 224, 0.5);
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+@media (max-width: 580px) {
+  .instrument-workbench__page {
+    padding-top: 28px;
+  }
+
+  .instrument-workbench__header {
+    margin-bottom: 38px;
+  }
+
+  .fixture-study .instrument-disclosure__toggle {
+    gap: 8px;
+    padding-inline: 10px;
+    font-size: 13px;
+  }
+
+  .fixture-study__scan {
+    display: none;
+  }
+
+  .fixture-study__event-title {
+    font-size: 12px;
+  }
+
+  .instrument-workbench__notes {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .instrument-workbench__notes p {
+    margin-top: 4px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .instrument-workbench {
+    scroll-behavior: auto;
+  }
+}

@@ -122,6 +122,130 @@ component-level design question.
 The first implementation target is one existing Found Footy fixture. Do not
 change the site shell or navigation for this slice.
 
+## Found Footy integration inventory
+
+Found Footy is already close to the intended layout. Preserve its information
+architecture and one-open-at-a-time disclosure behavior:
+
+```text
+competition
+└── fixture frame
+    ├── fixture disclosure row
+    └── event rail
+        ├── event disclosure row
+        └── clip controls
+            └── video modal
+```
+
+### Container-plane parts
+
+- System-advisory and date-navigation frames.
+- Fixture outer border, including staging, voided, live, and completed forms.
+- The expanded fixture's event rail and grouping geometry.
+- Clip-button square, hit area, focus outline, and pressed surface.
+- Video-modal backdrop, viewport, and control hit geometry.
+- Competition, fixture, and event expanded/collapsed geometry.
+
+These parts already appear and disappear without layout animation. Keep that
+behavior. The new primitives should make the geometry consistent and reusable,
+not replace the layout.
+
+### Data-plane parts
+
+- Competition label, live count, and fixture count.
+- Team names, score, round, kickoff, countdown, elapsed time, and terminal
+  status.
+- Expand/collapse, search, validation, extraction, warning, date, and
+  navigation glyphs.
+- Event title, event kind, scorer, assist, minute, search match, scan state,
+  and clip count.
+- Clip rank and best-clip signal.
+- Loading, empty, validation, extraction, and no-clips messages.
+
+These parts keep sharp readable cores. Mounts and real value changes may excite
+their phosphor emission; steady data settles. Continuous work states such as
+validation and extraction need a reusable active-signal behavior distinct from
+a one-time update excitation.
+
+### Composite controls
+
+Competition, fixture, and event disclosure buttons are the first useful
+composites. Their semantic `<button>`, hit geometry, focus outline, and pressed
+surface belong to the container plane. Their line/fill glyph, label, count,
+and current state belong to the data plane.
+
+Preserve the existing interaction work:
+
+- hover styles only on devices that support hover;
+- touch-safe `:active` behavior on iOS;
+- immediate accordion state changes;
+- scroll stabilization when expanded content shrinks;
+- native browser video controls after the existing bleed-through guard.
+
+### Current dependency seams
+
+This surface does not compose shadcn components today. It uses semantic HTML,
+Tailwind classes, `cn`, direct Remix Icon imports, and the global mono font
+token. The design-system primitives should therefore sit below project
+components and remain independent of shadcn.
+
+Introduce two adapters before a broad visual migration:
+
+1. **Semantic icon adapter.** Map roles such as expand, collapse, search,
+   validate, extract, previous, and next to the current icon provider. Project
+   code stops importing line/fill pairs directly, so the pack can change later.
+2. **Typography roles.** Replace component assumptions about a specific mono
+   face with instrument, data, label, and numeric roles backed by CSS tokens.
+   Font selection can then change without altering component anatomy.
+
+### Minimum first slice
+
+1. Keep the current fixture markup and behavior.
+2. Add a local two-plane stacking primitive around one fixture.
+3. Move its border, focus, hit, and open/closed geometry onto a shared
+   container-frame primitive.
+4. Move its disclosure glyph, teams, score, round, scan signal, and match time
+   onto data-plane primitives.
+5. Add one-time mount/update excitation and a separate continuous-work signal.
+6. Verify all live, finished, pending, voided, searching, validating,
+   extracting, no-goal, and search-highlight states before touching event or
+   competition layout.
+7. Promote the proven fixture primitives, then apply them to event rows and
+   other projects.
+
+The compact and expanded fixture are two semantic scales of the same cell.
+Their disclosure is the first stepped semantic zoom prototype: snap the real
+frame to its destination geometry, register the old/intermediate/new bounds
+with three short emission-plane beats, and energize the data revealed inside.
+This interaction is the first place to tune timing before the grammar is used
+for event cells or navigation.
+
+### First workbench implementation — ready for review (2026-08-17)
+
+The dev-only `/instrument-components.html` entry now renders a controlled
+Found Footy fixture study from reusable source in `src/components/instrument/`.
+It does not change `App.tsx`, the production Found Footy browser, or the normal
+Vite production entry.
+
+The study makes these behaviors directly testable:
+
+- compact and expanded fixture geometry changes immediately;
+- three measured emission rectangles register the previous, intermediate,
+  and destination bounds without participating in layout;
+- newly mounted and updated values keep a sharp core while an `aria-hidden`
+  emission copy overshoots and decays;
+- an extracting state uses a separate continuous signal;
+- semantic icon roles isolate the fixture from the current Remix Icon pack;
+- native buttons expose `aria-expanded`, keyboard focus, and touch-safe active
+  behavior;
+- reduced motion removes the step sequence and emission animation while
+  preserving the settled state.
+
+The workbench currently covers the live/expanding case and a simulated score
+update. Finished, pending, voided, searching, validating, no-goal, and
+search-highlight cases remain review work before the primitives replace the
+production fixture markup.
+
 ## Rendering model
 
 Use the [two-plane contract](../design-system.md#the-two-plane-contracts).

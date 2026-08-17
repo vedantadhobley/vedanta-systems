@@ -90,15 +90,40 @@ HTML; the data plane behaves like emitted light.
   current.
 - Container motion and data excitation are separate timelines that may be
   synchronized by a component.
-- The intended `pop → pop → pop` sequence remains undesigned. Both shell demos
-  implemented it incorrectly. A future study should end with the relevant
-  container frame snapping into place and its data energizing in relation to
-  that arrival.
 - Motion remains short, interruptible, and non-blocking. Reduced motion shows
   the settled container and readable data immediately.
 
 Do not set permanent durations or easing curves until the sequence is tested
 on a real existing component.
+
+## Stepped semantic zoom
+
+The working name for the former `pop → pop → pop` idea is **stepped semantic
+zoom**. `Step zoom` is the short name. It describes a discrete change between
+two semantic scales of a cell, not a continuous camera zoom. Moving between a
+compact fixture and its expanded fixture is the first concrete use. Moving
+between navigation levels can use the same grammar later.
+
+When a cell changes scale:
+
+1. The first phosphor beat registers the previous cell bounds.
+2. The actual container snaps immediately to its destination bounds. It does
+   not tween, stretch, or fade. A second emission beat registers an
+   intermediate scale without becoming real layout geometry.
+3. The third beat coincides with the destination frame already present in its
+   settled geometry.
+4. Data that belongs to the destination scale appears inside the frame,
+   energizes, and decays after application state is already current.
+
+The beats belong to the data/emission plane. The source and destination cells
+belong to the container plane and only ever exist in settled geometry. This is
+a discrete cut between semantic scales, bridged by emitted light rather than a
+morph between boxes. Expansion and contraction use the same contract in
+opposite directions.
+
+The rejected shell demos did not implement this behavior. The exact shape,
+timing, overshoot, zoom-in inverse, interruption behavior, and relationship to
+scroll position remain to be designed with Vedanta.
 
 ## Color and type
 
@@ -112,6 +137,11 @@ document does not choose their final values.
   identity colors by default.
 - Typography remains readable without bloom. Phosphor changes emission, not
   font metrics or layout.
+
+Font families and icon libraries are adapters, not component contracts. The
+design system exposes typography roles and semantic icon names so GT Pressura,
+IBM Plex Mono, Remix Icon, shadcn-related dependencies, or a future replacement
+can change without rewriting each project surface.
 
 ## Reusable primitive goal
 
@@ -129,6 +159,45 @@ proves the API:
 Every primitive must support desktop, touch, keyboard, reduced motion, and a
 no-effect readable state. It must avoid continuous React render loops for
 decoration and constrain paint work to the component that changed.
+
+### Library shape
+
+Treat this as a source-owned personal component system, similar to shadcn's
+copy-and-adapt model but governed by Vedanta Systems' own rendering contracts.
+Do not make it a separate package until a real consumer outside this frontend
+needs one.
+
+Build it in four layers:
+
+1. **Foundations:** plane, color, typography, spacing, focus, excitation, and
+   reduced-motion tokens.
+2. **Primitives:** frame, phosphor data, semantic icon, and composite action.
+3. **Patterns:** stepped disclosure, dense signal grid, status row, event
+   rail, and modal aperture.
+4. **Project compositions:** fixtures, claims, processes, narrated events,
+   and other domain-specific components assembled from shared patterns.
+
+Project compositions may differ. They must reuse the plane and interaction
+contracts rather than force every project into the same card anatomy.
+
+### First implementation slice
+
+The first source-owned primitives live in `src/components/instrument/`:
+
+- `InstrumentFrame` owns settled surface-plane geometry;
+- `PhosphorData` keeps an accessible sharp core and renders an `aria-hidden`
+  excitation copy behind it;
+- `InstrumentIcon` maps semantic roles to the current Remix Icon provider;
+- `InstrumentAction` combines crisp hit/focus geometry with a data-plane
+  label;
+- `InstrumentDisclosure` measures the compact and expanded forms, snaps the
+  real frame to the controlled state, and renders three non-layout emission
+  registrations at the previous, intermediate, and destination bounds.
+
+The dev-only workbench is served from `/instrument-components.html`. Its
+Found Footy study uses representative local data and is intentionally absent
+from the normal production build. The current timing, palette values, and
+component names are prototype inputs for review, not locked decisions.
 
 ## Progressive adoption
 
