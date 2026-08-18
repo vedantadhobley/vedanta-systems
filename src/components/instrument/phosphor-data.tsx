@@ -23,6 +23,8 @@ export function PhosphorData({
   active = false,
   tone = 'neutral',
 }: PhosphorDataProps) {
+  const emissionKey = `${tone}-${String(exciteKey)}`
+
   return (
     <span
       className={cn('instrument-data', active && 'instrument-data--active', className)}
@@ -30,9 +32,16 @@ export function PhosphorData({
     >
       <span className="instrument-data__core">{children}</span>
       <span
-        key={`${tone}-${String(exciteKey)}`}
+        key={`${emissionKey}-near`}
         aria-hidden="true"
-        className="instrument-data__emission"
+        className="instrument-data__emission instrument-data__emission--near"
+      >
+        {children}
+      </span>
+      <span
+        key={`${emissionKey}-far`}
+        aria-hidden="true"
+        className="instrument-data__emission instrument-data__emission--far"
       >
         {children}
       </span>

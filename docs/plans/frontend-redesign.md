@@ -253,11 +253,9 @@ fixture frame still snaps to its destination immediately; only the lower
 emission plane carries the sequence.
 
 The next review found the settled text too digitally exact and the workbench
-background incorrectly textured. The background is now pure black. Data keeps
-a readable core, but the core has slight beam softness and the excitation now
-decays to a low continuous emission instead of a perfectly sharp zero-emission
-vector edge. This treatment remains local to data nodes; the container plane
-stays exact.
+background incorrectly textured. The background is now pure black. An initial
+attempt softened every data core; this was rejected because it made the whole
+page look blurred rather than luminous.
 
 The following review clarified that steady localized bloom, rather than core
 blur alone, is the main CRT material cue. Every data primitive now settles to
@@ -265,6 +263,13 @@ visible low emission. Foreground frames and rails use a one-pixel black
 occlusion lip beneath their crisp stroke, so bloom is covered at a container
 boundary. That hard occlusion of soft light establishes the data plane behind
 the container plane without simulated parallax or drop shadow.
+
+The corrected bloom implementation preserves an untouched source core and
+adds two `aria-hidden` emission copies behind it: a small-radius near pass and
+a lower-opacity far pass, composited with `screen`. Only those copies blur.
+Reduced motion retains settled bloom while disabling excitation. Dense btop
+and contribution surfaces will need a grouped bloom renderer rather than the
+per-node DOM path.
 
 ## Rendering model
 

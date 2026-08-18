@@ -65,11 +65,7 @@
   position: relative;
   z-index: 2;
   color: var(--instrument-data-color);
-  opacity: 0.96;
-  filter: blur(var(--instrument-data-core-softness, 0.24px));
-  text-shadow:
-    0 0 0.7px currentColor,
-    0 0 2px color-mix(in srgb, currentColor 18%, transparent);
+  opacity: 1;
 }
 
 .instrument-data__emission {
@@ -78,15 +74,29 @@
   color: var(--instrument-data-color);
   opacity: 0;
   pointer-events: none;
-  filter: blur(var(--instrument-data-emission-softness, 0.72px));
-  text-shadow:
-    0 0 2px currentColor,
-    0 0 7px currentColor;
-  animation: instrument-data-excitation 260ms linear forwards;
+  mix-blend-mode: screen;
 }
 
-.instrument-data--active .instrument-data__emission {
-  animation: instrument-active-signal 920ms steps(7, end) infinite;
+.instrument-data__emission--near {
+  z-index: 1;
+  filter: blur(var(--instrument-data-bloom-near-radius, 0.8px));
+  text-shadow: 0 0 2px currentColor;
+  animation: instrument-data-excitation-near 280ms linear forwards;
+}
+
+.instrument-data__emission--far {
+  z-index: 0;
+  filter: blur(var(--instrument-data-bloom-far-radius, 2.6px));
+  text-shadow: 0 0 6px currentColor;
+  animation: instrument-data-excitation-far 440ms linear forwards;
+}
+
+.instrument-data--active .instrument-data__emission--near {
+  animation: instrument-active-signal-near 920ms steps(7, end) infinite;
+}
+
+.instrument-data--active .instrument-data__emission--far {
+  animation: instrument-active-signal-far 920ms steps(7, end) infinite;
 }
 
 .instrument-icon {
@@ -221,35 +231,62 @@
   background: color-mix(in srgb, var(--instrument-data-accent, #c9a0f0) 8%, transparent);
 }
 
-@keyframes instrument-data-excitation {
+@keyframes instrument-data-excitation-near {
   0% {
-    opacity: 0.92;
+    opacity: 0.7;
     transform: translateX(0.55px) scaleX(1.012);
   }
   15% {
-    opacity: 0.58;
+    opacity: 0.46;
     transform: translateX(-0.32px) scaleX(1.004);
   }
   34% {
-    opacity: 0.36;
+    opacity: 0.32;
     transform: translateX(0.18px);
   }
   62% {
-    opacity: 0.16;
+    opacity: 0.34;
     transform: translateX(0);
   }
   100% {
-    opacity: var(--instrument-data-rest-emission, 0.14);
-    transform: translateX(0.08px);
+    opacity: var(--instrument-data-bloom-near-opacity, 0.32);
+    transform: translateX(0);
   }
 }
 
-@keyframes instrument-active-signal {
-  0%, 100% { opacity: 0.12; }
-  9% { opacity: 0.52; }
-  18% { opacity: 0.2; }
-  54% { opacity: 0.34; }
-  72% { opacity: 0.16; }
+@keyframes instrument-data-excitation-far {
+  0% {
+    opacity: 0.34;
+    transform: translateX(0.35px) scaleX(1.006);
+  }
+  22% {
+    opacity: 0.2;
+    transform: translateX(-0.18px);
+  }
+  58% {
+    opacity: 0.11;
+    transform: translateX(0);
+  }
+  100% {
+    opacity: var(--instrument-data-bloom-far-opacity, 0.11);
+    transform: translateX(0);
+  }
+}
+
+@keyframes instrument-active-signal-near {
+  0%, 100% { opacity: var(--instrument-data-bloom-near-opacity, 0.32); }
+  9% { opacity: 0.65; }
+  18% { opacity: 0.38; }
+  54% { opacity: 0.52; }
+  72% { opacity: 0.34; }
+}
+
+@keyframes instrument-active-signal-far {
+  0%, 100% { opacity: var(--instrument-data-bloom-far-opacity, 0.11); }
+  9% { opacity: 0.32; }
+  18% { opacity: 0.14; }
+  54% { opacity: 0.23; }
+  72% { opacity: 0.12; }
 }
 
 @keyframes instrument-step-beat {
@@ -272,10 +309,20 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .instrument-data__emission,
-  .instrument-data--active .instrument-data__emission,
   .instrument-step-zoom__beat {
     animation: none;
     opacity: 0;
+  }
+
+  .instrument-data__emission--near,
+  .instrument-data--active .instrument-data__emission--near {
+    animation: none;
+    opacity: var(--instrument-data-bloom-near-opacity, 0.32);
+  }
+
+  .instrument-data__emission--far,
+  .instrument-data--active .instrument-data__emission--far {
+    animation: none;
+    opacity: var(--instrument-data-bloom-far-opacity, 0.11);
   }
 }

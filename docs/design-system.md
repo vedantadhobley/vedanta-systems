@@ -68,10 +68,10 @@ while leaving room to tune the split after interaction testing.
 ## Rendering contract
 
 1. Render semantic state once in accessible HTML.
-2. Keep the data core readable at all times. Slight beam softness is allowed;
-   legibility must not depend on bloom.
-3. Build phosphor emission from the actual data node or an `aria-hidden`
-   visual duplicate tied to that node.
+2. Keep the source data core intact and readable at all times. Never blur the
+   source to create bloom.
+3. Build phosphor emission from `aria-hidden` visual duplicates tied to the
+   source node. Use separate near and far falloff passes behind the core.
 4. Place container geometry above the emission layer within the component's
    local stacking context.
 5. Give foreground container strokes a narrow ground-colored occlusion lip.
@@ -86,6 +86,32 @@ while leaving room to tune the split after interaction testing.
 
 This is a material model, not a CRT filter. The browser still renders clean
 HTML; the data plane behaves like emitted light.
+
+### Bloom pipeline
+
+Bloom is compositing, not generalized softness:
+
+1. draw the intact source;
+2. render one small-radius, moderate-opacity emission copy;
+3. render one larger-radius, low-opacity emission copy;
+4. add the copies behind the source with `screen` blending;
+5. clip or occlude those copies beneath foreground container geometry.
+
+This follows the same source-plus-blurred-buffer structure described by the
+[W3C filter compositing model](https://www.w3.org/TR/filter-effects-1/) and the
+selective treatment demonstrated by
+[three.js bloom](https://threejs.org/examples/webgl_postprocessing_unreal_bloom_selective.html).
+CSS [`mix-blend-mode: screen`](https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/mix-blend-mode)
+provides the additive local composition for ordinary DOM components.
+
+Use two renderer tiers:
+
+- Ordinary text, icons, values, and controls use local DOM emission copies.
+- Dense surfaces such as btop and contribution grids bloom one grouped data
+  surface or localized canvas, not every cell independently. Blur cost rises
+  sharply with radius and affected pixel area, so per-cell filters do not
+  scale to those surfaces. See the
+  [browser filter performance guidance](https://web.dev/articles/understanding-css#performance_considerations).
 
 ## Motion contract
 
