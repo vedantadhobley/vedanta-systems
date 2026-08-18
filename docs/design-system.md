@@ -333,6 +333,15 @@ the pass and tune its maximum radial displacement and width without changing
 bloom. Handoff transitions remove the occlusion pass with the white frame; a
 hidden surface cannot continue casting a visible knockout.
 
+A separate rear-field pass can raise the local projection substrate just above
+black without changing the page ground or any source bloom. It is a broad,
+steady lavender radial field beneath all data and beneath the occlusion mask.
+The mask therefore has continuous low-luminance material to remove instead of
+appearing only where a glyph trail happens to cross it. The workbench exposes
+this as `scatter`; zero restores the pure black-on-black comparison. A separate
+`ground / black | raised` toggle tests a global lavender-black lift, but pure
+black remains the default and the raised ground is not a design-system choice.
+
 The current DOM ray stack is the reference renderer, not the assumed final
 implementation. The [projected-data rendering research](./projected-data-rendering.md)
 evaluates grouped PixiJS, Three.js post-processing, and minimal WebGL paths for

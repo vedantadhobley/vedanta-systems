@@ -26,7 +26,7 @@
   height: 100dvh;
   overflow: auto;
   overscroll-behavior: contain;
-  background: #000000;
+  background: var(--instrument-ground, #000000);
   color: rgba(255, 255, 255, 0.84);
   font-family: var(--instrument-font-data);
   font-weight: 300;

@@ -339,6 +339,15 @@ the maximum radial displacement and `umbra` controls the hard mask width; no
 extra scattering or ground color was added. In handoff mode the mask disappears
 with the white frame and returns only at the settled destination.
 
+Review on a pure black ground showed the expected limit: the black mask was
+legible only at the few lavender pixels it happened to remove. The next
+comparison adds a steady local rear-field pass beneath the fixture data. Its
+`scatter` control raises a broad lavender substrate from zero to eight percent
+without changing glyph bloom; this gives the mask continuous light to cut while
+the page remains black. `ground / black | raised` separately compares a subtle
+global lavender-black lift. It does not change the default ground or introduce
+a new semantic color.
+
 `PhosphorData` now retains the actual previous visual when its response key or
 primitive text changes. A score update therefore paints the old score only in
 decaying near and far passes behind the immediately current semantic value.

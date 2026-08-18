@@ -18,6 +18,8 @@ interface EventRow {
   tone?: PhosphorTone
 }
 
+type WorkbenchGround = 'black' | 'raised'
+
 const initialEvents: EventRow[] = [
   { score: 'Arsenal (2) - 1 Liverpool', time: "68'", detail: 'Goal', player: 'Martin Ødegaard', tone: 'accent' },
   { score: 'Arsenal 1 - (1) Liverpool', time: "42'", detail: 'Goal', player: 'Mohamed Salah' },
@@ -49,6 +51,8 @@ export function FoundFootyFixtureWorkbench() {
   const [occlusionEnabled, setOcclusionEnabled] = useState(true)
   const [occlusionDepth, setOcclusionDepth] = useState(4)
   const [occlusionWidth, setOcclusionWidth] = useState(2)
+  const [scatterPercent, setScatterPercent] = useState(3)
+  const [ground, setGround] = useState<WorkbenchGround>('black')
   const [projectionEnabled, setProjectionEnabled] = useState(true)
   const [projectionTrail, setProjectionTrail] = useState(8)
   const [projectionFalloff, setProjectionFalloff] = useState(1.8)
@@ -86,11 +90,13 @@ export function FoundFootyFixtureWorkbench() {
   }
 
   const scopeStyle = {
+    '--instrument-ground': ground === 'black' ? '#000000' : '#050407',
     '--instrument-data-bloom-near-opacity': Math.min(1, 0.85 * bloomPercent / 100),
     '--instrument-data-bloom-far-opacity': Math.min(1, 0.3 * bloomPercent / 100),
     '--instrument-frame-occlusion': '0px',
     '--instrument-projected-occlusion-opacity': occlusionEnabled ? 1 : 0,
     '--instrument-projected-occlusion-width': `${occlusionWidth}px`,
+    '--instrument-rear-field-opacity': scatterPercent / 100,
   } as CSSProperties
 
   return (
@@ -145,7 +151,27 @@ export function FoundFootyFixtureWorkbench() {
               >
                 occlusion / {occlusionEnabled ? 'projected' : 'off'}
               </InstrumentAction>
+              <InstrumentAction
+                aria-pressed={ground === 'raised'}
+                onClick={() => setGround((current) => current === 'black' ? 'raised' : 'black')}
+                tone="accent"
+              >
+                ground / {ground}
+              </InstrumentAction>
             </div>
+
+            <label className="instrument-workbench__scale">
+              <PhosphorData tone="quiet">scatter</PhosphorData>
+              <input
+                type="range"
+                min="0"
+                max="8"
+                step="0.5"
+                value={scatterPercent}
+                onChange={(event) => setScatterPercent(Number(event.target.value))}
+              />
+              <PhosphorData tone="quiet">{scatterPercent.toFixed(1)}%</PhosphorData>
+            </label>
 
             <label className="instrument-workbench__scale">
               <PhosphorData tone="quiet">depth</PhosphorData>
