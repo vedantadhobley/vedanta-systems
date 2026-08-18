@@ -34,11 +34,14 @@ Useful references:
 
 Vedanta Systems is not simulating any one of these devices. It uses their
 shared structural idea: a crisp operating plane in front of a luminous
-information plane. The rear plane is interpreted as a responsive phosphor
-display rather than an LCD or LED backlight.
+information plane. The spatial model is now closer to a laser-scanned virtual
+image or HUD projection than to a photographed CRT: the emitted core stays
+sharp and apparently focus-free behind the foreground mask. Phosphor describes
+the rear plane's temporal response—excitation, overshoot, bloom, and
+persistence—not a screen texture.
 
 The working optical model is a transparent, LCD-like container layer in front
-of a continuous CRT-like data layer. White frames, rails, hit geometry, and
+of a continuous projected data layer. White frames, rails, hit geometry, and
 focus geometry occupy the front plane. All text, icons, values, signals, and
 lavender transition outlines occupy the same rear plane. The classification is
 global: a data element does not move forward merely because it is outside a
@@ -78,25 +81,36 @@ while leaving room to tune the split after interaction testing.
 2. Keep the source data core intact and readable at all times. Never blur the
    source to create bloom.
 3. Build phosphor emission from `aria-hidden` visual duplicates tied to the
-   source node. Use separate near and far falloff passes behind the core.
+   source node. Use separate local near/far bloom passes and a lower-luminance
+   directional ray pass behind the core.
 4. Place container geometry above the emission layer within the component's
    local stacking context.
-5. Give foreground container strokes a narrow ground-colored optical lip and
-   inset the CRT viewport behind it. Bloom that reaches the viewport boundary
-   stops abruptly beneath this lip before the crisp stroke is drawn, creating
-   foreground/background separation without parallax or a drop shadow. The lip
-   is dead space, not a second visible border.
+5. Render rear emission into an oversized buffer, then clip it with a separate,
+   symmetrical foreground aperture. The moving luminous element must never be
+   its own clipping boundary. The crisp foreground stroke draws above that mask
+   and occludes rear light at every edge.
 6. Keep emission layers free of pointer events and layout influence.
 7. Give every data node low resting emission. A value that appears or changes
    may overshoot that luminance, cross briefly below it, then settle back. A
-   moving geometric core keeps constant luminance and expresses overshoot only
-   through the registration of its emission passes; it must not pulse.
+   geometric registration keeps both its core and active emission at constant
+   luminance. Its `pop` is a geometry event, never a light pulse.
 8. When content or geometry changes, retain the previous near and far visual
    passes long enough to decay behind the new state. Persistence contains the
    actual previous value, icon, or measured bounds; fading the new state is not
    an afterimage.
 9. Do not apply blur, scanlines, noise, chromatic separation, or bloom to the
    complete application tree.
+
+The settled rear core has no permanent positional offset. A static offset reads
+as faulty registration, not depth. Readable cores also stay fixed during
+interaction. A projection field may add low-luminance ray samples behind the
+local bloom. Each sample scales the emitted source slightly toward one shared
+viewport-center origin. Scaling around that origin, rather than translating the
+whole source, makes every emitted point trace its own center-directed line.
+Ray length grows with distance from the origin. Its intensity decays with a
+tunable nonlinear falloff, while the source core stays much brighter. This can
+describe where the light came from; it does not by itself prove that the
+emitting surface sits behind the foreground plane.
 
 This is a material model, not a CRT filter. The browser still renders clean
 HTML; the data plane behaves like emitted light.
@@ -134,6 +148,8 @@ Use two renderer tiers:
   surface plane.
 - Data energizes on the lower plane and may decay after the state is already
   current.
+- Projection affects only non-semantic ray copies. Text, icons, values, local
+  bloom, and the lavender registration core never move with the trail.
 - Container motion and data excitation are separate timelines that may be
   synchronized by a component.
 - Motion remains short, interruptible, and non-blocking. Reduced motion shows
@@ -152,50 +168,60 @@ between navigation levels can use the same grammar later.
 
 When a cell changes scale:
 
-1. Application state and destination layout update immediately. The white
-   foreground frame stays fully present and encloses the complete source-to-
-   destination envelope. Data shared by both semantic scales remains visible;
-   destination-only data stays hidden.
-2. One lavender phosphor registration appears inside the optical lip at the
-   previous cell bounds. It does not replace or touch the white frame.
-3. That same visible frame snaps to the intermediate bounds and then the
-   destination bounds. Its sharp core remains at constant intensity. Each new
-   registration gives the near and far emission a small horizontal overshoot
-   and undershoot, then settles to resting bloom. The previous measured bounds
-   remain only as fading emission.
+1. Application state and destination layout update immediately. Data shared by
+   both semantic scales remains visible; destination-only data stays hidden.
+2. One lavender phosphor registration appears inside the foreground aperture
+   at the previous cell bounds. It remains rear-plane geometry even when the
+   handoff mode temporarily removes the white frame.
+3. That same registration snaps to the intermediate bounds and then the
+   destination bounds. Its sharp core and active emission remain at constant
+   intensity. The unchanged top edge and overlapping portions of both side
+   edges do not re-energize.
 4. The lavender destination frame holds for one beat.
 5. The lavender core disappears when destination-only data appears around the
-   persistent shared data. On contraction, the enclosing white frame snaps to
-   the smaller destination at this instant. A destination-shaped afterglow
-   remains beneath the white frame and decays after arrival.
+   persistent shared data. A destination-shaped afterglow remains beneath the
+   white frame and decays after arrival.
+
+The workbench keeps two foreground timing modes for comparison:
+
+- **Persistent:** on expansion, the white frame snaps immediately to the large
+  destination envelope. On contraction, it stays large until the lavender
+  registration finishes shrinking, then snaps small at arrival.
+- **Handoff:** the white frame disappears immediately when registration begins.
+  The lavender registration alone carries the three scale steps. The white
+  destination frame returns at the same instant the lavender core disappears
+  and destination-only data becomes visible. Because the foreground mask is
+  absent during the handoff, the registration bloom is not aperture-clipped.
 
 The lavender transition belongs to the data/emission plane. The white frame
-belongs to the container plane and remains the foreground depth reference
-throughout the interaction. This is a discrete cut between semantic scales,
-bridged by one continuous emitted outline rather than a morph between digital
-boxes. Expansion and contraction use the same registration sequence in
-opposite directions. Retaining the larger white envelope during contraction
-is a provisional depth calibration and must be reviewed against the immediate
-container-response contract.
+belongs to the container plane. In persistent mode it remains the foreground
+depth reference throughout the interaction; handoff deliberately tests a
+temporary transfer of that role to the rear registration. This is a discrete
+cut between semantic scales, bridged by one continuous emitted outline rather
+than a morph between digital boxes. Expansion and contraction use the same
+registration sequence in opposite directions. Neither timing mode is selected
+as the design-system default yet.
 
 Render the three registrations with one emission envelope that jumps between
 measured integer bounds. A small phase state machine selects the source,
 intermediate, or destination bound directly. The envelope stays fully present
 between those selections; CSS must not interpolate its geometry or fade it
-between beats. Never mount several live cores. Separate persistence passes may
-retain old bounds, but they must be diffuse, non-interactive, and independently
-decaying rather than competing lavender frames.
+between beats. Never mount several live cores. Between registrations,
+persistence contains only geometry that ceased to exist: the previous bottom
+edge on expansion, and the previous bottom plus removed side tails on
+contraction. Shared top and side segments are not duplicated. When the final
+registration turns off, its complete outline may decay.
 When contracting in normal document flow, a dedicated layout wrapper reserves
 the old footprint until the destination frame arrives so adjacent margins
 cannot jump into the stepped sequence. The wrapper may release while the
 destination-shaped afterglow continues beneath the settled frame.
 
-The current calibration uses 120 ms registrations: 360 ms for the three-step
-mechanical sequence, followed by a 200 ms destination afterglow. These values
-are prototype inputs, not design-system constants. The rejected shell demos
-did not implement this behavior. The exact shape, timing, overshoot, zoom-in
-inverse, interruption behavior, and relationship to scroll position remain to
-be designed with Vedanta.
+The default calibration uses 120 ms registrations: 360 ms for the three-step
+mechanical sequence, followed by a 200 ms destination afterglow. The workbench
+can vary the beat from 60–180 ms. These values are prototype inputs, not
+design-system constants. The rejected shell demos did not implement this
+behavior. The exact shape, final timing, zoom-in inverse, interruption behavior,
+and relationship to scroll position remain to be designed with Vedanta.
 
 ## Color and type
 
@@ -278,6 +304,9 @@ The first source-owned primitives live in `src/components/instrument/`:
 - `InstrumentIcon` maps semantic roles to the current Remix Icon provider;
 - `InstrumentAction` combines crisp hit/focus geometry with a data-plane
   label;
+- `InstrumentProjectionField` batches registered data sources through one
+  animation-frame scheduler and assigns a viewport-center transform origin plus
+  sampled ray scales without moving semantic content;
 - `InstrumentDisclosure` measures the compact and expanded forms, snaps the
   real frame to the controlled state, and renders three non-layout emission
   registrations at the previous, intermediate, and destination bounds. Each
@@ -285,15 +314,21 @@ The first source-owned primitives live in `src/components/instrument/`:
   as decaying emission; arrival leaves the destination persistence beneath the
   restored surface frame.
 
-The current optical-depth calibration assigns a shared fractional registration
-to the complete phosphor material, so readable cores, every `PhosphorData`
-instance, and the lavender outline occupy one displaced rear plane. Within the
-fixture, data lives in an inset CRT viewport whose emission is clipped beneath
-a four-pixel black optical lip and the white stroke. Near and far passes receive
-additional progressively deeper subpixel offsets. The lavender registration is
-inset by the same lip while the foreground frame remains visible around it.
-This creates separation through stacking, dead space, occlusion, and light
-registration rather than blurring or shadowing the readable data itself.
+The current optical calibration keeps every readable core and both local bloom
+passes fixed. A shared projection field measures each ordinary data primitive
+and renders 24 low-opacity samples scaled toward the exact viewport center.
+This forms converging rays instead of a second offset image. Sample opacity uses
+a nonlinear power falloff along the trail. The origin is recalculated after
+scroll, resize, or layout change. Dense surfaces will need one grouped target
+rather than one DOM ray stack per cell. The workbench can disable the field and
+tune trail length, ray intensity, falloff exponent, bloom intensity, and step
+timing independently.
+
+The lavender registration renders inside a 14-pixel overscan buffer; a separate
+aperture clips the composite symmetrically beneath the white stroke in
+persistent-frame mode. Its active core and emission stay constant across all
+three steps. Differential edge segments render the fast persistence described
+above, so shared geometry cannot accumulate into a pulse.
 
 The dev-only workbench is served from `/instrument-components.html`. Its
 Found Footy study uses representative local data and is intentionally absent
@@ -321,7 +356,8 @@ navigation while developing this system.
 
 - Does the frame read as a clean surface above the luminous data?
 - Does the component remain as fast and clear as the current implementation?
-- Is the plane split obvious without fake parallax or a global screen filter?
+- Does center-directed emission give the data luminous volume without being
+  mistaken for evidence that the data plane is physically recessed?
 - Does data remain readable after all emission is disabled?
 - Does the same component anatomy work at phone and desktop widths?
 - Can another project reuse the primitives without copying effect code?

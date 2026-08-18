@@ -7,6 +7,8 @@ import {
 } from 'react'
 
 import { cn } from '@/lib/utils'
+import { useInstrumentProjectionTarget } from './instrument-projection-context'
+import { InstrumentProjectionRays } from './instrument-projection-rays'
 
 export type PhosphorTone = 'neutral' | 'quiet' | 'accent'
 
@@ -36,6 +38,9 @@ export function PhosphorData({
   active = false,
   tone = 'neutral',
 }: PhosphorDataProps) {
+  const rootRef = useRef<HTMLSpanElement>(null)
+  useInstrumentProjectionTarget(rootRef)
+
   const contentKey = typeof children === 'string' || typeof children === 'number'
     ? children
     : 'complex'
@@ -71,10 +76,17 @@ export function PhosphorData({
 
   return (
     <span
+      ref={rootRef}
       className={cn('instrument-data', active && 'instrument-data--active', className)}
       data-tone={tone}
     >
       <span className="instrument-data__core">{children}</span>
+      <InstrumentProjectionRays
+        className="instrument-data__rays"
+        rayClassName="instrument-data__ray"
+      >
+        {children}
+      </InstrumentProjectionRays>
       <span
         key={`${responseKey}-near`}
         aria-hidden="true"
@@ -91,6 +103,13 @@ export function PhosphorData({
       </span>
       {afterimage && (
         <>
+          <InstrumentProjectionRays
+            key={`${afterimage.id}-afterimage-rays`}
+            className="instrument-data__afterimage-rays"
+            rayClassName="instrument-data__afterimage-ray"
+          >
+            {afterimage.children}
+          </InstrumentProjectionRays>
           <span
             key={`${afterimage.id}-afterimage-near`}
             aria-hidden="true"

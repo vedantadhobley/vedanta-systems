@@ -39,9 +39,10 @@ These are the standards against which an exploration succeeds or fails:
    fast, accurate, and easy to inspect. The two live btop surfaces are a
    primary part of the product, not secondary decoration or a status-card
    summary that a redesign may abstract away.
-6. **Atmosphere.** The interface should feel like precise light emitted
-   through a physical phosphor display: sharp cores, controlled bloom,
-   fast excitation, and a quieter afterglow.
+6. **Atmosphere.** The interface should feel like precise projected light
+   behind a physical foreground mask: sharp focus-free cores, controlled
+   bloom, fast phosphor-like excitation, and a quieter afterglow. Phosphor is
+   a temporal response model, not a mandate to simulate CRT texture.
 7. **Color restraint.** Start shared components with pure black, white
    container strokes, and white/lavender data. Do not invent semantic hues as
    part of a prototype. Add a color only when a real instrument needs the
@@ -201,8 +202,8 @@ or fiddly is failure.
 
 - Where should the visual split fall inside composite controls such as
   expand/collapse buttons?
-- How much perceived separation between the two planes is useful before it
-  becomes fake parallax or weakens clarity?
+- Can a shared viewport-center projection origin give rear-plane data luminous
+  volume without pretending that light direction alone proves physical depth?
 - How should container arrival and data excitation synchronize in the eventual
   `pop → pop → pop` sequence?
 - Should resume/about disappear entirely, or should any public identity

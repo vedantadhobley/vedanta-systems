@@ -9,6 +9,8 @@ import {
 
 import { cn } from '@/lib/utils'
 import { InstrumentFrame } from './instrument-frame'
+import { useInstrumentProjectionTarget } from './instrument-projection-context'
+import { InstrumentProjectionRays } from './instrument-projection-rays'
 
 interface StepSequence {
   id: number
@@ -18,10 +20,10 @@ interface StepSequence {
   to: number
 }
 
-const STEP_ZOOM_BEAT_MS = 120
+const DEFAULT_STEP_ZOOM_BEAT_MS = 120
 const STEP_ZOOM_AFTERGLOW_MS = 200
-const STEP_ZOOM_ARRIVAL_MS = STEP_ZOOM_BEAT_MS * 3
-const STEP_ZOOM_CLEANUP_MS = STEP_ZOOM_ARRIVAL_MS + STEP_ZOOM_AFTERGLOW_MS
+
+export type InstrumentFrameBehavior = 'handoff' | 'persistent'
 
 interface InstrumentDisclosureProps {
   children: ReactNode
@@ -29,8 +31,102 @@ interface InstrumentDisclosureProps {
   contentId: string
   disabled?: boolean
   expanded: boolean
+  frameBehavior?: InstrumentFrameBehavior
   onExpandedChange: (expanded: boolean) => void
+  stepBeatMs?: number
   summary: ReactNode
+}
+
+interface StepAfterimageProps {
+  from: number
+  id: string
+  to?: number
+}
+
+function StepRegistration({ height }: { height: number }) {
+  const registrationRef = useRef<HTMLSpanElement>(null)
+  useInstrumentProjectionTarget(registrationRef)
+
+  return (
+    <span
+      ref={registrationRef}
+      className="instrument-step-zoom__registration"
+      style={{ height }}
+    >
+      <span className="instrument-step-zoom__core" />
+      <InstrumentProjectionRays
+        className="instrument-step-zoom__rays"
+        rayClassName="instrument-step-zoom__ray"
+      />
+      <span
+        className="instrument-step-zoom__emission instrument-step-zoom__emission--near"
+      />
+      <span
+        className="instrument-step-zoom__emission instrument-step-zoom__emission--far"
+      />
+    </span>
+  )
+}
+
+function StepAfterimage({ from, id, to }: StepAfterimageProps) {
+  const afterimageRef = useRef<HTMLSpanElement>(null)
+  useInstrumentProjectionTarget(afterimageRef)
+
+  const fullFrame = to === undefined
+  const contraction = to !== undefined && from > to
+  const height = fullFrame ? from : Math.max(from, to)
+  const style = {
+    height,
+    '--instrument-step-previous-height': `${from}px`,
+    '--instrument-step-next-height': `${to ?? from}px`,
+  } as CSSProperties
+
+  return (
+    <span
+      ref={afterimageRef}
+      className="instrument-step-zoom__afterimage"
+      data-contraction={contraction ? 'true' : undefined}
+      data-kind={fullFrame ? 'full' : 'difference'}
+      style={style}
+    >
+      <InstrumentProjectionRays
+        className="instrument-step-zoom__afterimage-rays"
+        rayClassName="instrument-step-zoom__afterimage-ray"
+      >
+        {fullFrame ? (
+          <span className="instrument-step-zoom__afterimage-ray-frame" />
+        ) : (
+          <>
+            <span className="instrument-step-zoom__afterimage-edge instrument-step-zoom__afterimage-edge--bottom" />
+            {contraction && (
+              <>
+                <span className="instrument-step-zoom__afterimage-edge instrument-step-zoom__afterimage-edge--left" />
+                <span className="instrument-step-zoom__afterimage-edge instrument-step-zoom__afterimage-edge--right" />
+              </>
+            )}
+          </>
+        )}
+      </InstrumentProjectionRays>
+      {(['near', 'far'] as const).map((pass) => (
+        <span
+          key={`${id}-${pass}`}
+          className={`instrument-step-zoom__afterimage-pass instrument-step-zoom__afterimage-pass--${pass}`}
+        >
+          {!fullFrame && (
+            <>
+              <span className="instrument-step-zoom__afterimage-edge instrument-step-zoom__afterimage-edge--bottom" />
+              {contraction && (
+                <>
+                  <span className="instrument-step-zoom__afterimage-edge instrument-step-zoom__afterimage-edge--left" />
+                  <span className="instrument-step-zoom__afterimage-edge instrument-step-zoom__afterimage-edge--right" />
+                </>
+              )}
+            </>
+          )}
+        </span>
+      ))}
+    </span>
+  )
 }
 
 /**
@@ -43,10 +139,13 @@ export function InstrumentDisclosure({
   contentId,
   disabled = false,
   expanded,
+  frameBehavior = 'persistent',
   onExpandedChange,
+  stepBeatMs = DEFAULT_STEP_ZOOM_BEAT_MS,
   summary,
 }: InstrumentDisclosureProps) {
   const rootRef = useRef<HTMLDivElement>(null)
+
   const pendingFromHeightRef = useRef<number | null>(null)
   const previousHeightRef = useRef<number | null>(null)
   const previousExpandedRef = useRef(expanded)
@@ -111,24 +210,26 @@ export function InstrumentDisclosure({
   useEffect(() => {
     if (activeSequenceId === undefined) return
 
+    const arrivalMs = stepBeatMs * 3
+
     const middleBeat = window.setTimeout(() => {
       setSequence((current) => current?.id === activeSequenceId
         ? { ...current, phase: 1 }
         : current)
-    }, STEP_ZOOM_BEAT_MS)
+    }, stepBeatMs)
     const destinationBeat = window.setTimeout(() => {
       setSequence((current) => current?.id === activeSequenceId
         ? { ...current, phase: 2 }
         : current)
-    }, STEP_ZOOM_BEAT_MS * 2)
+    }, stepBeatMs * 2)
     const arrival = window.setTimeout(() => {
       setSequence((current) => current?.id === activeSequenceId
         ? { ...current, phase: 3 }
         : current)
-    }, STEP_ZOOM_ARRIVAL_MS)
+    }, arrivalMs)
     const cleanup = window.setTimeout(() => {
       setSequence((current) => current?.id === activeSequenceId ? null : current)
-    }, STEP_ZOOM_CLEANUP_MS)
+    }, arrivalMs + STEP_ZOOM_AFTERGLOW_MS)
 
     return () => {
       window.clearTimeout(middleBeat)
@@ -136,7 +237,7 @@ export function InstrumentDisclosure({
       window.clearTimeout(arrival)
       window.clearTimeout(cleanup)
     }
-  }, [activeSequenceId])
+  }, [activeSequenceId, stepBeatMs])
 
   const stepHeight = sequence
     ? [sequence.from, sequence.middle, sequence.to, sequence.to][sequence.phase]
@@ -144,11 +245,17 @@ export function InstrumentDisclosure({
   const transitionFrameHeight = sequence
     ? sequence.phase < 3 ? Math.max(sequence.from, sequence.to) : sequence.to
     : 0
-  const afterimageHeights = sequence
+  const afterimages: StepAfterimageProps[] = sequence
     ? [
-        ...(sequence.phase >= 1 ? [{ id: 'source', height: sequence.from }] : []),
-        ...(sequence.phase >= 2 ? [{ id: 'middle', height: sequence.middle }] : []),
-        ...(sequence.phase >= 3 ? [{ id: 'destination', height: sequence.to }] : []),
+        ...(sequence.phase >= 1
+          ? [{ id: 'source', from: sequence.from, to: sequence.middle }]
+          : []),
+        ...(sequence.phase >= 2
+          ? [{ id: 'middle', from: sequence.middle, to: sequence.to }]
+          : []),
+        ...(sequence.phase >= 3
+          ? [{ id: 'destination', from: sequence.to }]
+          : []),
       ]
     : []
 
@@ -161,6 +268,7 @@ export function InstrumentDisclosure({
         ref={rootRef}
         className="instrument-disclosure"
         data-expanded={expanded}
+        data-frame-behavior={frameBehavior}
         data-transitioning={transitioning ? 'true' : undefined}
         style={sequence ? {
           '--instrument-disclosure-transition-height': `${Math.max(sequence.from, sequence.to)}px`,
@@ -174,35 +282,27 @@ export function InstrumentDisclosure({
             aria-hidden="true"
             style={{ height: transitionFrameHeight }}
           >
-            {sequence.phase < 3 ? (
-              <span className="instrument-step-zoom__registration" style={{ height: stepHeight }}>
-                <span className="instrument-step-zoom__core" />
-                <span
-                  key={`${sequence.id}-${sequence.phase}-near`}
-                  className="instrument-step-zoom__emission instrument-step-zoom__emission--near"
-                />
-                <span
-                  key={`${sequence.id}-${sequence.phase}-far`}
-                  className="instrument-step-zoom__emission instrument-step-zoom__emission--far"
-                />
-              </span>
-            ) : null}
+            <span className="instrument-step-zoom__aperture">
+              <span className="instrument-step-zoom__overscan">
+                {sequence.phase < 3 ? (
+                  <StepRegistration height={stepHeight} />
+                ) : null}
 
-            {afterimageHeights.map(({ id, height }) => (
-              <span
-                key={`${sequence.id}-${id}`}
-                className="instrument-step-zoom__afterimage"
-                style={{ height }}
-              >
-                <span className="instrument-step-zoom__afterimage-pass instrument-step-zoom__afterimage-pass--near" />
-                <span className="instrument-step-zoom__afterimage-pass instrument-step-zoom__afterimage-pass--far" />
+                {afterimages.map(({ id, from, to }) => (
+                  <StepAfterimage
+                    key={`${sequence.id}-${id}`}
+                    from={from}
+                    id={`${sequence.id}-${id}`}
+                    to={to}
+                  />
+                ))}
               </span>
-            ))}
+            </span>
           </span>
         )}
 
         <div className="instrument-disclosure__aperture">
-          <div className="instrument-disclosure__crt-plane">
+          <div className="instrument-disclosure__data-plane">
             <button
               type="button"
               aria-controls={contentId}

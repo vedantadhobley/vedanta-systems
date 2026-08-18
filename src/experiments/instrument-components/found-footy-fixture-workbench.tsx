@@ -1,10 +1,12 @@
-import { useState } from 'react'
+import { useState, type CSSProperties } from 'react'
 
 import {
   InstrumentAction,
   InstrumentDisclosure,
   InstrumentIcon,
+  InstrumentProjectionField,
   PhosphorData,
+  type InstrumentFrameBehavior,
   type PhosphorTone,
 } from '@/components/instrument'
 
@@ -43,6 +45,13 @@ function FixtureEvent({ event, exciteKey }: { event: EventRow; exciteKey: number
 
 export function FoundFootyFixtureWorkbench() {
   const [expanded, setExpanded] = useState(false)
+  const [frameBehavior, setFrameBehavior] = useState<InstrumentFrameBehavior>('persistent')
+  const [projectionEnabled, setProjectionEnabled] = useState(true)
+  const [projectionTrail, setProjectionTrail] = useState(8)
+  const [projectionFalloff, setProjectionFalloff] = useState(1.8)
+  const [projectionIntensity, setProjectionIntensity] = useState(40)
+  const [bloomPercent, setBloomPercent] = useState(100)
+  const [stepBeatMs, setStepBeatMs] = useState(120)
   const [dataVersion, setDataVersion] = useState(0)
   const [homeScore, setHomeScore] = useState(2)
   const [minute, setMinute] = useState(73)
@@ -73,9 +82,20 @@ export function FoundFootyFixtureWorkbench() {
     setDataVersion((current) => current + 1)
   }
 
+  const scopeStyle = {
+    '--instrument-data-bloom-near-opacity': Math.min(1, 0.85 * bloomPercent / 100),
+    '--instrument-data-bloom-far-opacity': Math.min(1, 0.3 * bloomPercent / 100),
+  } as CSSProperties
+
   return (
-    <main className="instrument-workbench instrument-scope">
-      <div className="instrument-workbench__page">
+    <InstrumentProjectionField
+      enabled={projectionEnabled}
+      trailFalloff={projectionFalloff}
+      trailIntensity={projectionIntensity / 100}
+      trailLength={projectionTrail}
+    >
+      <main className="instrument-workbench instrument-scope" style={scopeStyle}>
+        <div className="instrument-workbench__page">
         <header className="instrument-workbench__header">
           <PhosphorData className="instrument-workbench__eyebrow" tone="accent">
             COMPONENT STUDY / 01
@@ -95,11 +115,97 @@ export function FoundFootyFixtureWorkbench() {
             <PhosphorData active tone="accent">LIVE / 1</PhosphorData>
           </div>
 
+          <div className="instrument-workbench__calibration" aria-label="Projection calibration">
+            <div className="instrument-workbench__calibration-actions">
+              <InstrumentAction
+                aria-pressed={frameBehavior === 'handoff'}
+                onClick={() => setFrameBehavior((current) => current === 'persistent' ? 'handoff' : 'persistent')}
+                tone="accent"
+              >
+                frame / {frameBehavior}
+              </InstrumentAction>
+              <InstrumentAction
+                aria-pressed={projectionEnabled}
+                onClick={() => setProjectionEnabled((current) => !current)}
+                tone="accent"
+              >
+                projector / {projectionEnabled ? 'center' : 'off'}
+              </InstrumentAction>
+            </div>
+
+            <label className="instrument-workbench__scale">
+              <PhosphorData tone="quiet">trail</PhosphorData>
+              <input
+                type="range"
+                min="0"
+                max="32"
+                step="0.5"
+                value={projectionTrail}
+                onChange={(event) => setProjectionTrail(Number(event.target.value))}
+              />
+              <PhosphorData tone="quiet">{projectionTrail.toFixed(1)} px</PhosphorData>
+            </label>
+
+            <label className="instrument-workbench__scale">
+              <PhosphorData tone="quiet">rays</PhosphorData>
+              <input
+                type="range"
+                min="0"
+                max="100"
+                step="5"
+                value={projectionIntensity}
+                onChange={(event) => setProjectionIntensity(Number(event.target.value))}
+              />
+              <PhosphorData tone="quiet">{projectionIntensity}%</PhosphorData>
+            </label>
+
+            <label className="instrument-workbench__scale">
+              <PhosphorData tone="quiet">fade</PhosphorData>
+              <input
+                type="range"
+                min="0.4"
+                max="4"
+                step="0.1"
+                value={projectionFalloff}
+                onChange={(event) => setProjectionFalloff(Number(event.target.value))}
+              />
+              <PhosphorData tone="quiet">{projectionFalloff.toFixed(1)}×</PhosphorData>
+            </label>
+
+            <label className="instrument-workbench__scale">
+              <PhosphorData tone="quiet">bloom</PhosphorData>
+              <input
+                type="range"
+                min="50"
+                max="200"
+                step="5"
+                value={bloomPercent}
+                onChange={(event) => setBloomPercent(Number(event.target.value))}
+              />
+              <PhosphorData tone="quiet">{bloomPercent}%</PhosphorData>
+            </label>
+
+            <label className="instrument-workbench__scale">
+              <PhosphorData tone="quiet">step</PhosphorData>
+              <input
+                type="range"
+                min="60"
+                max="180"
+                step="10"
+                value={stepBeatMs}
+                onChange={(event) => setStepBeatMs(Number(event.target.value))}
+              />
+              <PhosphorData tone="quiet">{stepBeatMs} ms</PhosphorData>
+            </label>
+          </div>
+
           <InstrumentDisclosure
             className="fixture-study"
             contentId="fixture-study-events"
             expanded={expanded}
+            frameBehavior={frameBehavior}
             onExpandedChange={setExpanded}
+            stepBeatMs={stepBeatMs}
             summary={(
               <>
                 <PhosphorData className="fixture-study__toggle-icon" exciteKey={expanded ? 'open' : 'closed'} tone="quiet">
@@ -155,18 +261,19 @@ export function FoundFootyFixtureWorkbench() {
         <aside className="instrument-workbench__notes" aria-label="Prototype contract">
           <div>
             <PhosphorData tone="quiet">FRAME</PhosphorData>
-            <p><PhosphorData tone="quiet">The white foreground stays present. Its black optical lip masks the CRT aperture.</PhosphorData></p>
+            <p><PhosphorData tone="quiet">Persistent keeps the white foreground present. Handoff replaces it during registration and restores it on arrival.</PhosphorData></p>
           </div>
           <div>
             <PhosphorData tone="quiet">STEP ZOOM</PhosphorData>
-            <p><PhosphorData tone="quiet">A stable lavender registration snaps inside the aperture. Previous bounds decay behind it.</PhosphorData></p>
+            <p><PhosphorData tone="quiet">The active registration keeps constant light. Only the previous bottom and removed side tails decay.</PhosphorData></p>
           </div>
           <div>
             <PhosphorData tone="quiet">DATA</PhosphorData>
-            <p><PhosphorData tone="quiet">Text, icons, values, and outlines share one recessed phosphor response.</PhosphorData></p>
+            <p><PhosphorData tone="quiet">Readable cores stay fixed. Sampled rays converge on one viewport-center projector origin with independent length, strength, and nonlinear falloff.</PhosphorData></p>
           </div>
         </aside>
-      </div>
-    </main>
+        </div>
+      </main>
+    </InstrumentProjectionField>
   )
 }

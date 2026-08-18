@@ -9,16 +9,13 @@
   --instrument-data-bloom-far-radius: 3.5px;
   --instrument-data-bloom-far-opacity: 0.3;
   --instrument-aperture-lip: 4px;
-  --instrument-phosphor-plane-x: 0.4px;
-  --instrument-phosphor-plane-y: 0.6px;
-  --instrument-phosphor-depth-near-x: 0.3px;
-  --instrument-phosphor-depth-near-y: 0.45px;
-  --instrument-phosphor-depth-far-x: 0.6px;
-  --instrument-phosphor-depth-far-y: 0.85px;
+  --instrument-bloom-overscan: 14px;
+  --instrument-phosphor-plane-x: 0px;
+  --instrument-phosphor-plane-y: 0px;
   --instrument-phosphor-response-near-duration: 90ms;
   --instrument-phosphor-response-far-duration: 110ms;
   --instrument-phosphor-persistence-duration: 200ms;
-  --instrument-frame-occlusion: 4px;
+  --instrument-frame-occlusion: 1px;
   --instrument-focus: #ffffff;
   --instrument-font-data: 'GT Pressura Mono', ui-monospace, monospace;
 }
@@ -87,6 +84,80 @@
   margin: 0 1px 9px;
   font-size: 11px;
   letter-spacing: 0.08em;
+}
+
+.instrument-workbench__calibration {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 9px 16px;
+  margin-bottom: 14px;
+  padding: 10px 0 11px;
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.instrument-workbench__calibration-actions {
+  display: flex;
+  grid-column: 1 / -1;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.instrument-workbench__scale {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: 43px minmax(52px, 1fr) 50px;
+  align-items: center;
+  gap: 7px;
+  font-size: 10px;
+}
+
+.instrument-workbench__scale > .instrument-data:last-child {
+  justify-self: end;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.instrument-workbench__scale input[type='range'] {
+  width: 100%;
+  height: 14px;
+  margin: 0;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+.instrument-workbench__scale input[type='range']::-webkit-slider-runnable-track {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.76);
+}
+
+.instrument-workbench__scale input[type='range']::-webkit-slider-thumb {
+  width: 7px;
+  height: 13px;
+  margin-top: -6px;
+  appearance: none;
+  border: 1px solid #ffffff;
+  border-radius: 0;
+  background: #000000;
+}
+
+.instrument-workbench__scale input[type='range']::-moz-range-track {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.76);
+}
+
+.instrument-workbench__scale input[type='range']::-moz-range-thumb {
+  width: 7px;
+  height: 13px;
+  border: 1px solid #ffffff;
+  border-radius: 0;
+  background: #000000;
+}
+
+.instrument-workbench__scale input[type='range']:focus-visible {
+  outline: 1px solid #ffffff;
+  outline-offset: 3px;
 }
 
 .fixture-study .instrument-disclosure__toggle {
@@ -271,6 +342,14 @@
 
   .fixture-study__scan {
     display: none;
+  }
+
+  .instrument-workbench__calibration {
+    grid-template-columns: 1fr;
+  }
+
+  .instrument-workbench__scale {
+    grid-template-columns: 43px minmax(80px, 1fr) 50px;
   }
 
   .fixture-study__event-title {

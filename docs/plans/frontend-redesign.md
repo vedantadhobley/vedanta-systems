@@ -283,16 +283,17 @@ initially used one CSS-animated envelope, but animating measured height while
 painting blurred shadows still produced unstable intermediate rendering.
 
 The current renderer is phase-driven. React selects one rounded measured
-height at each of three equal 120 ms registrations. The white foreground frame
+height at each of three registrations, configurable in the workbench and
+defaulting to 120 ms each. In persistent mode, the white foreground frame
 remains fully opaque and encloses the largest source or destination bounds for
-the 360 ms mechanical sequence; fixture data shared by both scales stays
-visible while destination-only data waits. One uninterrupted lavender core,
+the default 360 ms mechanical sequence; fixture data shared by both scales
+stays visible while destination-only data waits. One uninterrupted lavender core,
 inset inside the foreground optical lip, snaps through the source,
 intermediate, and destination bounds without changing intensity. Its near and
-far passes use the same brief horizontal overshoot, undershoot, and resting
-bloom response as text and icons. When the core leaves a registration, near and
-far copies of those actual measured bounds persist and decay behind the next
-registration. At arrival the lavender core swaps out exactly when new data
+far passes also keep constant luminance. When the bottom edge snaps, only the
+previous bottom persists; contraction also retains the side tails removed by
+the smaller destination. Shared top and side geometry is never repainted as an
+afterimage. At arrival the lavender core swaps out exactly when new data
 appears. On contraction, the foreground frame also snaps from the retained
 source envelope to the compact destination at arrival. The retained destination
 passes then decay beneath it for another 200 ms. CSS never interpolates or
@@ -303,15 +304,32 @@ lavender data; the unrequested green, yellow, and red prototype roles were
 removed rather than promoted into the library. The timing, inset, and retained
 contraction envelope remain provisional.
 
-The depth calibration now belongs to the shared phosphor material rather than
-the fixture aperture alone. Text, icons, values, and the lavender outline move
-together on a `0.4 × 0.6 px` rear-plane registration. Near and far emission add
-progressively deeper offsets. Every crisp frame and action surface stacks above
-that material. The fixture adds an actual inner CRT viewport, clipped behind a
-four-pixel pure-black optical lip; the lavender registration uses that same
-inset while the white frame stays visible. This tests depth through global
-plane assignment, dead space, local occlusion, and emitted-light registration
-rather than additional core blur, drop shadow, or page-wide post-processing.
+The first static depth calibration was rejected. A permanent `0.4 × 0.6 px`
+rear-plane offset read as misregistration, while the moving frame's own clipped
+bloom was visibly amputated on its right and bottom edges. A follow-up moved
+the entire rear plane during each registration; that made the fixture title
+jump with the lavender border and was also rejected.
+
+The first projection experiment moved two complete near/far emission copies
+toward the viewport center. It was rejected because it read as a second image,
+not light extending from individual emitting points. The current experiment
+keeps every readable core and both local bloom passes fixed. It renders 24 faint
+copies, each scaled slightly toward the exact viewport center; scaling about the
+shared origin makes every point follow its own converging ray. Ray opacity
+follows a tunable nonlinear power falloff, so source data stays much brighter
+than its trail. One animation-frame scheduler updates registered origins after
+scroll, resize, and observed layout changes. The workbench can turn the field
+off and independently tune trail length, ray intensity, falloff, bloom, and step
+timing. This tests a coherent light source, not yet physical recession. The
+lavender composite still uses a 14-pixel overscan buffer and separate symmetric
+foreground aperture.
+
+The workbench also exposes two foreground timing modes. `persistent` preserves
+the reviewed behavior: expansion snaps the white frame large immediately, and
+contraction holds it large until the lavender registration reaches the compact
+destination. `handoff` removes the white frame for the three lavender beats and
+restores the destination frame when the lavender core disappears. Both remain
+prototype inputs; review must choose one or define where each is appropriate.
 
 `PhosphorData` now retains the actual previous visual when its response key or
 primitive text changes. A score update therefore paints the old score only in
