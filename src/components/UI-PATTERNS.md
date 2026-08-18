@@ -118,62 +118,59 @@ If you only have a single icon (no line/fill pair), don't use `.nav-btn`. Use a 
 ## 🎬 Video Player Controls
 
 ### The Problem
-We wanted videos to autoplay without controls visible, then let users access controls on interaction. Implementing custom show/hide logic caused:
+Videos must open with muted autoplay and without the browser's native control
+bar. A deliberate tap or click reveals native controls. The previous design
+assumed its one-shot autoplay call succeeded, which caused:
 - Race conditions between our logic and browser's native control behavior
 - Controls flickering on mobile
 - Chromecast button appearing/disappearing inconsistently
 - Touch events behaving differently than expected
 
-### The Solution: Native Controls After First Interaction
+### The Solution: Muted Autoplay, On-Demand Controls, Explicit Recovery
 
 **Location:** `VideoModal` component in `/src/components/found-footy-browser.tsx`
 
-**Key insight:** Don't fight the browser's native video controls. Just delay when they become available.
+**Key insight:** Native controls start disabled and appear only after a direct
+tap on the video. Muted autoplay is the default, but autoplay is never assumed
+to succeed. A custom play action appears only when the browser rejects playback
+or the timeline stops advancing.
 
 ### Implementation
 
 ```tsx
+const [playbackStatus, setPlaybackStatus] = useState('starting')
 const [controlsEnabled, setControlsEnabled] = useState(false)
-const mountedAtRef = useRef(Date.now())
-
-// Enable controls on first interaction, with grace period
-const enableControls = useCallback(() => {
-  // 300ms grace period prevents tap "bleed-through" from the element that opened the modal
-  if (!controlsEnabled && Date.now() - mountedAtRef.current > 300) {
-    setControlsEnabled(true)
-  }
-}, [controlsEnabled])
 
 // In the JSX:
 <video
-  controls={controlsEnabled}
-  onMouseEnter={enableControls}  // Desktop: hover to enable
-  onClick={enableControls}        // Mobile: tap to enable
-  disableRemotePlayback           // Hide Chromecast button
+  autoPlay
+  muted
   playsInline
+  controls={controlsEnabled}
+  onClick={() => setControlsEnabled(true)}
+  onPlaying={() => setPlaybackStatus('playing')}
   // ...
 />
+
+{playbackStatus === 'needs-action' && (
+  <button onClick={playVideo}>play video</button>
+)}
 ```
 
 ### How It Works
 
-1. **Video opens:** `controls={false}`, video autoplays without UI
-2. **User hovers (desktop) or taps (mobile):** `enableControls()` is called
-3. **300ms check:** If within 300ms of mount, ignore (prevents bleed-through)
-4. **Controls enabled:** `controls={true}`, browser takes over completely
-5. **Native behavior:** Browser handles all show/hide logic from here
-
-### Why 300ms Grace Period?
-
-When you tap a fixture card to open the video modal, if the video element happens to render under your finger, the same tap can immediately trigger `onClick` on the video. The 300ms delay prevents this "tap bleed-through".
-
-### Chromecast Button
-
-Chrome shows a Chromecast button on videos. It appears when `controls={false}` and hides when `controls={true}` (merged into control bar). This inconsistency is confusing, so we disable it entirely:
-
-```tsx
-disableRemotePlayback // Hide Chromecast button
-```
+1. **Video opens:** `autoplay`, `muted`, and `playsinline` exist from element
+   initialization; native controls start disabled.
+2. **Playback is observed:** `playing` and `timeupdate` prove the timeline is
+   advancing. A resolved `play()` promise alone is insufficient.
+3. **Frozen playback gets one automatic reset:** the modal performs one muted
+   pause/play cycle when the browser claims to play without advancing.
+4. **Failure remains recoverable:** a custom play button calls `play()`
+   directly inside the user's tap. It is not a native video control bar.
+5. **Controls are on demand:** the first deliberate tap reveals the browser's
+   native controls without intentionally pausing the autoplaying clip.
+6. **Failures stay visible:** rejected promises and media errors include the
+   trigger plus media state in the console.
 
 ---
 
@@ -182,5 +179,5 @@ disableRemotePlayback // Hide Chromecast button
 1. **Prefer CSS over JavaScript for interaction states** - More reliable, less code, better performance
 2. **Use `@media (hover: hover)`** - Don't apply hover styles on touch devices
 3. **Always add `onTouchStart={() => {}}`** - Required for iOS `:active` support
-4. **Don't fight native browser behavior** - Especially for complex components like video players
+4. **Treat autoplay as optional** - Prove playback started and provide a direct user-action fallback
 5. **Grace periods prevent event bleed-through** - Especially important for modals/overlays

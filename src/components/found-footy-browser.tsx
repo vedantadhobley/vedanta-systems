@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef, memo, useMemo } from 'react'
-import { RiCloseLine, RiCloseFill, RiShareBoxLine, RiShareBoxFill, RiDownload2Line, RiDownload2Fill, RiCheckFill, RiVidiconFill, RiScan2Line, RiHourglass2Line, RiHourglass2Fill, RiExpandUpDownLine, RiExpandUpDownFill, RiContractUpDownLine, RiContractUpDownFill, RiVolumeMuteLine, RiErrorWarningLine, RiArrowLeftSLine, RiArrowLeftSFill, RiArrowRightSLine, RiArrowRightSFill, RiArrowGoBackLine, RiArrowGoBackFill, RiArrowGoForwardLine, RiArrowGoForwardFill, RiSearchLine, RiSearchFill } from '@remixicon/react'
+import { RiCloseLine, RiCloseFill, RiShareBoxLine, RiShareBoxFill, RiDownload2Line, RiDownload2Fill, RiCheckFill, RiVidiconFill, RiScan2Line, RiHourglass2Line, RiHourglass2Fill, RiExpandUpDownLine, RiExpandUpDownFill, RiContractUpDownLine, RiContractUpDownFill, RiVolumeMuteLine, RiPlayFill, RiErrorWarningLine, RiArrowLeftSLine, RiArrowLeftSFill, RiArrowRightSLine, RiArrowRightSFill, RiArrowGoBackLine, RiArrowGoBackFill, RiArrowGoForwardLine, RiArrowGoForwardFill, RiSearchLine, RiSearchFill } from '@remixicon/react'
 import type { Fixture, GoalEvent, RankedVideo, SearchDateGroup } from '@/types/found-footy'
 import { cn } from '@/lib/utils'
 import { useTimezone } from '@/contexts/timezone-context'
@@ -1394,57 +1394,73 @@ interface VideoModalProps {
   onClose: () => void
 }
 
+type PlaybackStatus = 'starting' | 'playing' | 'needs-action' | 'error'
+
 const MemoizedVideoModal = memo(function VideoModal({ url, title, subtitle, eventId, onClose }: VideoModalProps) {
   const [copied, setCopied] = useState(false)
   const [isMuted, setIsMuted] = useState(true) // Always start muted — never takes audio focus, never appears on lockscreen
-  const [controlsEnabled, setControlsEnabled] = useState(false) // Start with controls hidden
-  const videoRef = useRef<HTMLVideoElement>(null)
-  const mountedAtRef = useRef(Date.now())
-  const lastUnmuteRef = useRef(0) // Timestamp of last unmute click
-  
-  // Enable controls on first user interaction with the video
-  // Ignores events in first 300ms to prevent tap "bleed-through" from the fixture card
-  // Also ignores events within 300ms of unmute button click
-  const enableControls = useCallback(() => {
-    const now = Date.now()
-    if (!controlsEnabled && 
-        now - mountedAtRef.current > 300 && 
-        now - lastUnmuteRef.current > 300) {
-      setControlsEnabled(true)
+  const [playbackStatus, setPlaybackStatus] = useState<PlaybackStatus>('starting')
+  const [controlsEnabled, setControlsEnabled] = useState(false)
+  const videoRef = useRef<HTMLVideoElement | null>(null)
+  const mountedAtRef = useRef(performance.now())
+  const lastCurrentTimeRef = useRef(0)
+  const lastProgressAtRef = useRef(performance.now())
+  const automaticRecoveryAttemptedRef = useRef(false)
+  const playAttemptIDRef = useRef(0)
+
+  // Set both the current and default mute state as soon as React binds the
+  // element. WebKit makes its autoplay decision during media initialization,
+  // before passive effects run, so muting only in useEffect is too late on
+  // some iPhones. The JSX `muted` prop keeps later renders consistent.
+  const bindVideoRef = useCallback((video: HTMLVideoElement | null) => {
+    videoRef.current = video
+    if (video) {
+      video.defaultMuted = true
+      video.muted = true
     }
-  }, [controlsEnabled])
-  
-  // Cleanup video resources on unmount AND when URL changes
-  useEffect(() => {
-    const video = videoRef.current
-    
-    return () => {
-      if (video) {
-        video.muted = true
-        video.pause()
-      }
+  }, [])
+
+  const attemptPlayback = useCallback(async (video: HTMLVideoElement, trigger: string) => {
+    const attemptID = ++playAttemptIDRef.current
+    setPlaybackStatus('starting')
+    try {
+      await video.play()
+    } catch (error) {
+      // A recovery pause intentionally rejects an older pending play promise.
+      // Only the newest attempt may change the visible playback state.
+      if (attemptID !== playAttemptIDRef.current) return
+      const reason = error instanceof DOMException
+        ? `${error.name}: ${error.message}`
+        : String(error)
+      console.warn('[FoundFooty] video playback attempt failed', {
+        trigger,
+        reason,
+        readyState: video.readyState,
+        networkState: video.networkState,
+        muted: video.muted,
+      })
+      setPlaybackStatus('needs-action')
     }
-  }, [url]) // Re-run cleanup when URL changes
-  
-  // Autoplay muted — muted videos never take audio focus, never appear
-  // on lockscreen, and never interrupt background music. User can unmute.
+  }, [])
+
+  // Start every clip muted. `autoPlay` handles the normal path; the explicit
+  // play call gives us a promise so a blocked attempt becomes visible instead
+  // of silently leaving a frozen player.
   useEffect(() => {
     const video = videoRef.current
     if (!video) return
-    
+
+    video.defaultMuted = true
     video.muted = true
-    
-    // Wait for enough data to play, then start
-    const tryPlay = () => video.play().catch(() => {})
-    
-    if (video.readyState >= 3) {
-      // Already have enough data
-      tryPlay()
-    } else {
-      // Wait for browser to buffer enough to play
-      video.addEventListener('canplay', tryPlay, { once: true })
-    }
-    
+    setIsMuted(true)
+    setPlaybackStatus('starting')
+    setControlsEnabled(false)
+    mountedAtRef.current = performance.now()
+    lastCurrentTimeRef.current = 0
+    lastProgressAtRef.current = performance.now()
+    automaticRecoveryAttemptedRef.current = false
+    void attemptPlayback(video, 'mount')
+
     // Save volume when user changes it (for when they unmute)
     const handleVolumeChange = () => {
       if (!video.muted) {
@@ -1454,10 +1470,46 @@ const MemoizedVideoModal = memo(function VideoModal({ url, title, subtitle, even
     
     video.addEventListener('volumechange', handleVolumeChange)
     return () => {
-      video.removeEventListener('canplay', tryPlay)
+      playAttemptIDRef.current++
       video.removeEventListener('volumechange', handleVolumeChange)
+      video.muted = true
+      video.pause()
     }
-  }, [])
+  }, [url, attemptPlayback])
+
+  // Some browsers resolve play() and report `paused=false` without advancing
+  // the timeline. Detect that frozen state, perform the same pause/play reset
+  // users previously had to do manually once, then show a custom play action
+  // if the retry also makes no progress. Slow initial loads are excluded until
+  // the element has current media data.
+  useEffect(() => {
+    const watchdog = window.setInterval(() => {
+      const video = videoRef.current
+      if (!video || document.hidden || video.ended || video.readyState < 2) return
+
+      const now = performance.now()
+      if (video.currentTime > lastCurrentTimeRef.current + 0.05) {
+        lastCurrentTimeRef.current = video.currentTime
+        lastProgressAtRef.current = now
+        setPlaybackStatus('playing')
+        return
+      }
+
+      if (now - lastProgressAtRef.current < 4000) return
+
+      if (video.muted && !automaticRecoveryAttemptedRef.current) {
+        automaticRecoveryAttemptedRef.current = true
+        lastProgressAtRef.current = now
+        video.pause()
+        void attemptPlayback(video, 'frozen-autoplay-recovery')
+        return
+      }
+
+      setPlaybackStatus(status => status === 'error' ? status : 'needs-action')
+    }, 500)
+
+    return () => window.clearInterval(watchdog)
+  }, [url, attemptPlayback])
   
   // Handle ESC key to close modal
   useEffect(() => {
@@ -1508,17 +1560,44 @@ const MemoizedVideoModal = memo(function VideoModal({ url, title, subtitle, even
 
   const handleUnmute = (e: React.MouseEvent) => {
     e.stopPropagation() // Prevent click from bubbling
-    lastUnmuteRef.current = Date.now() // Prevent enableControls for 300ms
-    
+
     const video = videoRef.current
     if (!video) return
-    
+
     const savedVolume = localStorage.getItem('footy-video-volume')
     const targetVolume = savedVolume !== null ? parseFloat(savedVolume) : 1
-    
+
     video.muted = false
     video.volume = targetVolume
     setIsMuted(false)
+    if (video.paused) void attemptPlayback(video, 'unmute')
+  }
+
+  const handlePlayRecovery = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    const video = videoRef.current
+    if (!video) return
+
+    automaticRecoveryAttemptedRef.current = true
+    lastCurrentTimeRef.current = video.currentTime
+    lastProgressAtRef.current = performance.now()
+    if (video.error) video.load()
+    // Reset WebKit/Chromium media sessions that claim to be playing while the
+    // timeline is frozen. This call runs directly inside the user gesture.
+    video.pause()
+    void attemptPlayback(video, 'user-recovery')
+  }
+
+  // Keep the player visually clean until the user deliberately asks for the
+  // browser controls. Prevent the first revealing click from also becoming a
+  // native pause/play action. The short mount guard retains the existing iOS
+  // protection against a delayed tap on the clip button bleeding into the
+  // newly-mounted video element.
+  const handleShowControls = (e: React.MouseEvent<HTMLVideoElement>) => {
+    if (controlsEnabled) return
+    e.preventDefault()
+    if (performance.now() - mountedAtRef.current < 300) return
+    setControlsEnabled(true)
   }
 
   return (
@@ -1594,7 +1673,9 @@ const MemoizedVideoModal = memo(function VideoModal({ url, title, subtitle, even
         <div className="relative bg-black overflow-hidden">
           <video
             key={url} // Stable key prevents re-mounting on state changes
-            ref={videoRef}
+            ref={bindVideoRef}
+            autoPlay
+            muted={isMuted}
             src={url}
             controls={controlsEnabled}
             playsInline
@@ -1603,15 +1684,49 @@ const MemoizedVideoModal = memo(function VideoModal({ url, title, subtitle, even
             disableRemotePlayback // Hide Chromecast button
             className="w-full border border-corpo-border block"
             style={{ maxHeight: '80vh', backgroundColor: '#000' }}
-            onMouseEnter={enableControls}
-            onClick={enableControls}
+            onClick={handleShowControls}
+            onPlaying={() => {
+              lastCurrentTimeRef.current = videoRef.current?.currentTime ?? 0
+              lastProgressAtRef.current = performance.now()
+              setPlaybackStatus('playing')
+            }}
+            onTimeUpdate={e => {
+              lastCurrentTimeRef.current = e.currentTarget.currentTime
+              lastProgressAtRef.current = performance.now()
+              setPlaybackStatus('playing')
+            }}
+            onWaiting={() => setPlaybackStatus(status =>
+              status === 'needs-action' || status === 'error' ? status : 'starting'
+            )}
+            onError={e => {
+              const mediaError = e.currentTarget.error
+              console.error('[FoundFooty] video media error', {
+                code: mediaError?.code,
+                message: mediaError?.message,
+                networkState: e.currentTarget.networkState,
+              })
+              setPlaybackStatus('error')
+            }}
           />
+          {(playbackStatus === 'needs-action' || playbackStatus === 'error') && (
+            <button
+              onClick={handlePlayRecovery}
+              onTouchStart={() => {}}
+              className="absolute inset-0 z-10 flex items-center justify-center bg-black/20 text-corpo-text"
+              aria-label={playbackStatus === 'error' ? 'Retry video' : 'Play video'}
+            >
+              <span className="flex items-center gap-2 border border-corpo-border bg-black/80 px-3 py-2 font-mono text-sm text-corpo-text hover:border-lavender hover:text-lavender active:border-lavender active:text-lavender">
+                <RiPlayFill className="w-5 h-5" />
+                {playbackStatus === 'error' ? 'retry video' : 'play video'}
+              </span>
+            </button>
+          )}
           {/* Unmute button overlay - square to bottom-left corner */}
           {isMuted === true && (
             <button
               onClick={handleUnmute}
               onTouchStart={() => {}} // Required for iOS :active to work
-              className="absolute bottom-2 left-2 p-1.5 rounded bg-black/70 text-corpo-text/70 hover:text-corpo-text active:text-lavender transition-colors"
+              className="absolute bottom-2 left-2 z-20 p-1.5 rounded bg-black/70 text-corpo-text/70 hover:text-corpo-text active:text-lavender transition-colors"
               aria-label="Unmute video"
             >
               <RiVolumeMuteLine className="w-4 h-4" />

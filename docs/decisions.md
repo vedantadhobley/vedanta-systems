@@ -263,3 +263,29 @@ published.
   visitors share the API cache.
 
 ---
+
+## 2026-08-18 — Keep video controls custom and recover failed autoplay
+
+**Context.** The found-footy modal made one post-mount `video.play()` attempt
+after setting `muted` in an effect, then discarded any rejection. Chrome on
+Ubuntu and Windows intermittently entered a frozen playing state. Chrome and
+Safari on iPhone reproduced it more consistently, including from shared links.
+Users had to press pause and then play to reset the media session. The byte-range
+proxy and the reported MP4 were healthy; both ordinary and shared-link playback
+used the same inherited modal.
+
+**Decision.** The video element declares `autoplay`, `muted`, and `playsinline`
+at initialization. Native controls start hidden and appear after a deliberate
+tap or click on the video; the existing custom unmute button remains available
+before that interaction. The modal proves progress through `playing` and
+`timeupdate`, performs one automatic muted pause/play reset when the timeline
+remains frozen, and then exposes a custom play/retry overlay if playback still
+needs a user gesture.
+
+**Consequences.** Successful autoplay remains visually clean until the user
+asks for controls. Browsers that reject or falsely report playback no longer
+leave an inert player or require an undiscoverable pause/play sequence.
+Playback rejection and media error details remain visible in the console.
+Shared links and ordinary clip clicks follow one recovery contract.
+
+---
