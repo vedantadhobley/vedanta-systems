@@ -25,7 +25,7 @@ const initialEvents: EventRow[] = [
 function FixtureEvent({ event, exciteKey }: { event: EventRow; exciteKey: number }) {
   return (
     <div className="fixture-study__event">
-      <span className="fixture-study__event-glyph" aria-hidden="true">+</span>
+      <PhosphorData className="fixture-study__event-glyph" tone="quiet">+</PhosphorData>
       <span className="fixture-study__event-copy">
         <PhosphorData className="fixture-study__event-title" exciteKey={exciteKey} tone={event.tone}>
           {event.score}
@@ -80,10 +80,12 @@ export function FoundFootyFixtureWorkbench() {
           <PhosphorData className="instrument-workbench__eyebrow" tone="accent">
             COMPONENT STUDY / 01
           </PhosphorData>
-          <h1>Found Footy fixture cell</h1>
+          <h1><PhosphorData>Found Footy fixture cell</PhosphorData></h1>
           <p>
-            Compact and expanded are two settled frames. The cut is immediate;
-            emitted light registers the change of scale.
+            <PhosphorData tone="quiet">
+              Compact and expanded are two settled frames. The cut is immediate;
+              emitted light registers the change of scale.
+            </PhosphorData>
           </p>
         </header>
 
@@ -152,9 +154,18 @@ export function FoundFootyFixtureWorkbench() {
         </section>
 
         <aside className="instrument-workbench__notes" aria-label="Prototype contract">
-          <div><span>FRAME</span><p>Snaps to the destination geometry. No opacity or height transition.</p></div>
-          <div><span>STEP ZOOM</span><p>Three fast emission registrations: previous, intermediate, destination.</p></div>
-          <div><span>DATA</span><p>A sharp core is current immediately. Overshoot and decay happen behind it.</p></div>
+          <div>
+            <PhosphorData tone="quiet">FRAME</PhosphorData>
+            <p><PhosphorData tone="quiet">Snaps to the destination geometry. No opacity or height transition.</PhosphorData></p>
+          </div>
+          <div>
+            <PhosphorData tone="quiet">STEP ZOOM</PhosphorData>
+            <p><PhosphorData tone="quiet">Three fast emission registrations: previous, intermediate, destination.</PhosphorData></p>
+          </div>
+          <div>
+            <PhosphorData tone="quiet">DATA</PhosphorData>
+            <p><PhosphorData tone="quiet">A readable core remains current while its beam spread settles behind it.</PhosphorData></p>
+          </div>
         </aside>
       </div>
     </main>

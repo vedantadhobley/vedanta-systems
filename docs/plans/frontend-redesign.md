@@ -252,6 +252,13 @@ starts at 140 ms intervals, producing a roughly 450 ms sequence. The actual
 fixture frame still snaps to its destination immediately; only the lower
 emission plane carries the sequence.
 
+The next review found the settled text too digitally exact and the workbench
+background incorrectly textured. The background is now pure black. Data keeps
+a readable core, but the core has slight beam softness and the excitation now
+decays to a low continuous emission instead of a perfectly sharp zero-emission
+vector edge. This treatment remains local to data nodes; the container plane
+stays exact.
+
 ## Rendering model
 
 Use the [two-plane contract](../design-system.md#the-two-plane-contracts).
