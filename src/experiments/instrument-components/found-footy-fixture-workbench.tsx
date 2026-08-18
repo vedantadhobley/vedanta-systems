@@ -254,7 +254,7 @@ export function FoundFootyFixtureWorkbench() {
             </label>
 
             <label className="instrument-workbench__scale">
-              <PhosphorData tone="quiet">step</PhosphorData>
+              <PhosphorData tone="quiet">beat</PhosphorData>
               <input
                 type="range"
                 min="60"
@@ -333,7 +333,7 @@ export function FoundFootyFixtureWorkbench() {
           </div>
           <div>
             <PhosphorData tone="quiet">STEP ZOOM</PhosphorData>
-            <p><PhosphorData tone="quiet">Each registration and persistence beat is 100 ms. Existing expanded data remains visible until contraction arrives.</PhosphorData></p>
+            <p><PhosphorData tone="quiet">Each geometry change is one 100 ms beat apart. Existing expanded data remains visible until contraction arrives.</PhosphorData></p>
           </div>
           <div>
             <PhosphorData tone="quiet">DATA</PhosphorData>

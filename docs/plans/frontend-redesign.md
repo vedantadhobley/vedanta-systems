@@ -284,7 +284,7 @@ painting blurred shadows still produced unstable intermediate rendering.
 
 The current renderer is phase-driven. React selects one rounded measured
 height at each of three registrations, configurable in the workbench and
-defaulting to 100 ms each. In persistent mode, the white foreground frame
+defaulting to one state change every 100 ms. In persistent mode, the white foreground frame
 remains fully opaque and encloses the largest source or destination bounds for
 the default 300 ms mechanical sequence; fixture data shared by both scales
 stays visible while destination-only data waits. One uninterrupted lavender core,
@@ -297,14 +297,17 @@ afterimage. At arrival the lavender core swaps out exactly when new data
 appears. On contraction, the existing expanded data remains visible through all
 three registrations, then disappears when the foreground frame snaps from the
 retained source envelope to the compact destination at arrival. The retained
-destination passes decay beneath it for another 100 ms. All one-shot excitation
-and persistence responses use the same 100 ms duration. CSS never interpolates
-or fades the live lavender geometry. A dedicated layout wrapper reserves the
-old height during contraction until arrival, which prevents adjacent margins
-and controls from jumping into the afterimage. The workbench exposes only white
-and lavender data; the unrequested green, yellow, and red prototype roles were
-removed rather than promoted into the library. The timing, inset, and retained
-contraction envelope remain provisional.
+destination passes decay beneath it for another 200 ms. The timing sequence is
+explicit: purple source at `t0`, intermediate at `t100`, destination at `t200`,
+and purple-to-white handoff at `t300`. The beat controls spacing between those
+state changes; near/far excitation and persistence retain independent optical
+decay durations. CSS never interpolates or fades the live lavender geometry. A
+dedicated layout wrapper reserves the old height during contraction until
+arrival, which prevents adjacent margins and controls from jumping into the
+afterimage. The workbench exposes only white and lavender data; the unrequested
+green, yellow, and red prototype roles were removed rather than promoted into
+the library. The timing, inset, and retained contraction envelope remain
+provisional.
 
 The first static depth calibration was rejected. A permanent `0.4 × 0.6 px`
 rear-plane offset read as misregistration, while the moving frame's own clipped

@@ -22,7 +22,7 @@ interface StepSequence {
 }
 
 const DEFAULT_STEP_ZOOM_BEAT_MS = 100
-const STEP_ZOOM_AFTERGLOW_MS = 100
+const STEP_ZOOM_AFTERGLOW_MS = 200
 
 export type InstrumentFrameBehavior = 'handoff' | 'persistent'
 
@@ -325,7 +325,7 @@ export function InstrumentDisclosure({
               {summary}
             </button>
 
-            {contentVisible && (
+            {(expanded || contentVisible) && (
               <div id={contentId} className="instrument-disclosure__content">
                 {children}
               </div>

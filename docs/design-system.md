@@ -216,13 +216,16 @@ the old footprint until the destination frame arrives so adjacent margins
 cannot jump into the stepped sequence. The wrapper may release while the
 destination-shaped afterglow continues beneath the settled frame.
 
-The default calibration uses 100 ms registrations: 300 ms for the three-step
-mechanical sequence, followed by a 100 ms destination afterglow. One-shot data
-excitation and previous-state persistence also use 100 ms. The workbench
-can vary the beat from 60–180 ms. These values are prototype inputs, not
-design-system constants. The rejected shell demos did not implement this
-behavior. The exact shape, final timing, zoom-in inverse, interruption behavior,
-and relationship to scroll position remain to be designed with Vedanta.
+The default calibration uses one uniform 100 ms beat between geometry states:
+the purple source appears at `t0`, snaps to the intermediate bound at `t100`,
+snaps to the destination at `t200`, then yields to the destination white frame
+at `t300`. The workbench can vary this interval from 60–180 ms. Phosphor
+excitation and the 200 ms destination afterglow retain their own optical decay
+durations; the beat controls state-change spacing, not every CSS animation.
+These values are prototype inputs, not design-system constants. The rejected
+shell demos did not implement this behavior. The exact shape, final timing,
+zoom-in inverse, interruption behavior, and relationship to scroll position
+remain to be designed with Vedanta.
 
 ## Color and type
 

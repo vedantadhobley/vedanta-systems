@@ -12,9 +12,9 @@
   --instrument-bloom-overscan: 14px;
   --instrument-phosphor-plane-x: 0px;
   --instrument-phosphor-plane-y: 0px;
-  --instrument-phosphor-response-near-duration: 100ms;
-  --instrument-phosphor-response-far-duration: 100ms;
-  --instrument-phosphor-persistence-duration: 100ms;
+  --instrument-phosphor-response-near-duration: 90ms;
+  --instrument-phosphor-response-far-duration: 110ms;
+  --instrument-phosphor-persistence-duration: 200ms;
   --instrument-frame-occlusion: 1px;
   --instrument-focus: #ffffff;
   --instrument-font-data: 'GT Pressura Mono', ui-monospace, monospace;
