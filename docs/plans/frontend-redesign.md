@@ -293,21 +293,20 @@ intermediate, and destination bounds without changing intensity. Its near and
 far passes also keep constant luminance. When the bottom edge snaps, only the
 previous bottom persists; contraction also retains the side tails removed by
 the smaller destination. Shared top and side geometry is never repainted as an
-afterimage. At arrival the lavender core swaps out exactly when new data
-appears. On contraction, the existing expanded data remains visible through all
-three registrations, then disappears when the foreground frame snaps from the
-retained source envelope to the compact destination at arrival. The retained
-destination passes decay beneath it for another 200 ms. The timing sequence is
-explicit: purple source at `t0`, intermediate at `t100`, destination at `t200`,
-and purple-to-white handoff at `t300`. The beat controls spacing between those
-state changes; near/far excitation and persistence retain independent optical
-decay durations. CSS never interpolates or fades the live lavender geometry. A
-dedicated layout wrapper reserves the old height during contraction until
-arrival, which prevents adjacent margins and controls from jumping into the
-afterimage. The workbench exposes only white and lavender data; the unrequested
-green, yellow, and red prototype roles were removed rather than promoted into
-the library. The timing, inset, and retained contraction envelope remain
-provisional.
+afterimage. At arrival the lavender core swaps out exactly when new expansion
+data appears. On contraction, expanded-only data disappears immediately at
+activation; the compact summary remains while the foreground geometry proceeds
+to its destination. The retained destination passes decay beneath it for
+another 200 ms. The timing sequence is explicit: purple source at `t0`,
+intermediate at `t100`, destination at `t200`, and purple-to-white handoff at
+`t300`. The beat controls spacing between those state changes; near/far
+excitation and persistence retain independent optical decay durations. CSS
+never interpolates or fades the live lavender geometry. A dedicated layout
+wrapper reserves the old height during contraction until arrival, which
+prevents adjacent margins and controls from jumping into the afterimage. The
+workbench exposes only white and lavender data; the unrequested green, yellow,
+and red prototype roles were removed rather than promoted into the library.
+The timing, inset, and retained contraction envelope remain provisional.
 
 The first static depth calibration was rejected. A permanent `0.4 × 0.6 px`
 rear-plane offset read as misregistration, while the moving frame's own clipped
@@ -337,7 +336,8 @@ the reviewed behavior: expansion snaps the white frame large immediately, and
 contraction holds it large until the lavender registration reaches the compact
 destination. `handoff` removes the white frame for the three lavender beats and
 restores the destination frame when the lavender core disappears. Both remain
-prototype inputs; review must choose one or define where each is appropriate.
+prototype inputs; the workbench now opens in `handoff` for continued review,
+without selecting it as the design-system default.
 
 The current depth experiment replaces the uniform inset lip with an opt-in
 black occlusion frame between the data and surface planes. That hidden frame

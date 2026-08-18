@@ -47,7 +47,7 @@ function FixtureEvent({ event, exciteKey }: { event: EventRow; exciteKey: number
 
 export function FoundFootyFixtureWorkbench() {
   const [expanded, setExpanded] = useState(false)
-  const [frameBehavior, setFrameBehavior] = useState<InstrumentFrameBehavior>('persistent')
+  const [frameBehavior, setFrameBehavior] = useState<InstrumentFrameBehavior>('handoff')
   const [occlusionEnabled, setOcclusionEnabled] = useState(false)
   const [occlusionDepth, setOcclusionDepth] = useState(4)
   const [occlusionWidth, setOcclusionWidth] = useState(2)
@@ -333,7 +333,7 @@ export function FoundFootyFixtureWorkbench() {
           </div>
           <div>
             <PhosphorData tone="quiet">STEP ZOOM</PhosphorData>
-            <p><PhosphorData tone="quiet">Each geometry change is one 100 ms beat apart. Existing expanded data remains visible until contraction arrives.</PhosphorData></p>
+            <p><PhosphorData tone="quiet">Each geometry change is one 100 ms beat apart. Expanded-only data disappears immediately on contraction.</PhosphorData></p>
           </div>
           <div>
             <PhosphorData tone="quiet">DATA</PhosphorData>

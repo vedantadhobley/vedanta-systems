@@ -276,19 +276,8 @@
   position: relative;
 }
 
-.instrument-disclosure[data-expanded='false'] .instrument-disclosure__content {
-  position: absolute;
-  top: 100%;
-  right: 0;
-  left: 0;
-}
-
 .instrument-disclosure[data-transition-direction='expand'] .instrument-disclosure__content {
   opacity: 0;
-}
-
-.instrument-disclosure[data-transition-direction='contract'] .instrument-disclosure__aperture {
-  overflow: visible;
 }
 
 .instrument-disclosure[data-transitioning='true'] > .instrument-frame__surface {

@@ -151,7 +151,6 @@ export function InstrumentDisclosure({
   const previousHeightRef = useRef<number | null>(null)
   const previousExpandedRef = useRef(expanded)
   const sequenceIdRef = useRef(0)
-  const [contentVisible, setContentVisible] = useState(expanded)
   const [sequence, setSequence] = useState<StepSequence | null>(null)
   const transitioning = Boolean(sequence && sequence.phase < 3)
   const reservedCollapseHeight = transitioning && sequence && sequence.from > sequence.to
@@ -175,9 +174,7 @@ export function InstrumentDisclosure({
 
       if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
         setSequence(null)
-        setContentVisible(expanded)
       } else {
-        if (expanded) setContentVisible(true)
         sequenceIdRef.current += 1
         setSequence({
           destinationExpanded: expanded,
@@ -211,7 +208,6 @@ export function InstrumentDisclosure({
   }, [expanded])
 
   const activeSequenceId = sequence?.id
-  const destinationExpanded = sequence?.destinationExpanded
 
   useEffect(() => {
     if (activeSequenceId === undefined) return
@@ -232,7 +228,6 @@ export function InstrumentDisclosure({
       setSequence((current) => current?.id === activeSequenceId
         ? { ...current, phase: 3 }
         : current)
-      setContentVisible(Boolean(destinationExpanded))
     }, arrivalMs)
     const cleanup = window.setTimeout(() => {
       setSequence((current) => current?.id === activeSequenceId ? null : current)
@@ -244,7 +239,7 @@ export function InstrumentDisclosure({
       window.clearTimeout(arrival)
       window.clearTimeout(cleanup)
     }
-  }, [activeSequenceId, destinationExpanded, stepBeatMs])
+  }, [activeSequenceId, stepBeatMs])
 
   const stepHeight = sequence
     ? [sequence.from, sequence.middle, sequence.to, sequence.to][sequence.phase]
@@ -325,7 +320,7 @@ export function InstrumentDisclosure({
               {summary}
             </button>
 
-            {(expanded || contentVisible) && (
+            {expanded && (
               <div id={contentId} className="instrument-disclosure__content">
                 {children}
               </div>

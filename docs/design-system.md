@@ -193,6 +193,12 @@ The workbench keeps two foreground timing modes for comparison:
   and destination-only data becomes visible. Because the foreground mask is
   absent during the handoff, the registration bloom is not aperture-clipped.
 
+Data timing is directional. Expansion mounts destination-only data for layout
+measurement but keeps it visually hidden until arrival. Contraction removes
+expanded-only data immediately at activation; the compact summary remains
+throughout the shrinking registration. The workbench opens in handoff mode for
+continued comparison, but both modes remain available.
+
 The lavender transition belongs to the data/emission plane. The white frame
 belongs to the container plane. In persistent mode it remains the foreground
 depth reference throughout the interaction; handoff deliberately tests a
