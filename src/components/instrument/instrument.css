@@ -4,6 +4,14 @@
   isolation: isolate;
 }
 
+.instrument-projection-field {
+  display: contents;
+}
+
+.instrument-projection-field[data-projection-scrolling] .instrument-projection-rays {
+  visibility: hidden;
+}
+
 .instrument-frame__surface {
   position: absolute;
   z-index: 3;
@@ -122,7 +130,7 @@
   filter: blur(var(--instrument-data-bloom-near-radius, 0.8px));
   text-shadow: 0 0 2px currentColor;
   animation: instrument-phosphor-response-near
-    var(--instrument-phosphor-response-near-duration, 90ms) linear forwards;
+    var(--instrument-phosphor-response-near-duration, 100ms) linear forwards;
 }
 
 .instrument-data__emission--far {
@@ -130,7 +138,7 @@
   filter: blur(var(--instrument-data-bloom-far-radius, 3.5px));
   text-shadow: 0 0 6px currentColor;
   animation: instrument-phosphor-response-far
-    var(--instrument-phosphor-response-far-duration, 110ms) linear forwards;
+    var(--instrument-phosphor-response-far-duration, 100ms) linear forwards;
 }
 
 .instrument-data__afterimage {
@@ -152,7 +160,7 @@
   color: var(--instrument-data-color);
   mix-blend-mode: screen;
   animation: instrument-phosphor-persistence-rays
-    var(--instrument-phosphor-persistence-duration, 200ms) linear both;
+    var(--instrument-phosphor-persistence-duration, 100ms) linear both;
 }
 
 .instrument-data__afterimage-ray {
@@ -165,14 +173,14 @@
   filter: blur(var(--instrument-data-bloom-near-radius, 0.8px));
   text-shadow: 0 0 3px currentColor;
   animation: instrument-phosphor-persistence-near
-    var(--instrument-phosphor-persistence-duration, 200ms) linear both;
+    var(--instrument-phosphor-persistence-duration, 100ms) linear both;
 }
 
 .instrument-data__afterimage--far {
   filter: blur(var(--instrument-data-bloom-far-radius, 3.5px));
   text-shadow: 0 0 7px currentColor;
   animation: instrument-phosphor-persistence-far
-    var(--instrument-phosphor-persistence-duration, 200ms) linear both;
+    var(--instrument-phosphor-persistence-duration, 100ms) linear both;
 }
 
 .instrument-data--active .instrument-data__emission--near {
@@ -268,7 +276,7 @@
   position: relative;
 }
 
-.instrument-disclosure[data-transitioning='true'] .instrument-disclosure__content {
+.instrument-disclosure[data-transition-direction='expand'] .instrument-disclosure__content {
   opacity: 0;
 }
 
@@ -401,7 +409,7 @@
   color: var(--instrument-data-accent, #c9a0f0);
   mix-blend-mode: screen;
   animation: instrument-step-persistence-rays
-    var(--instrument-phosphor-persistence-duration, 200ms) linear both;
+    var(--instrument-phosphor-persistence-duration, 100ms) linear both;
 }
 
 .instrument-step-zoom__afterimage-ray {
@@ -452,12 +460,12 @@
 
 .instrument-step-zoom__afterimage-pass--near {
   animation: instrument-step-persistence-near
-    var(--instrument-phosphor-persistence-duration, 200ms) linear both;
+    var(--instrument-phosphor-persistence-duration, 100ms) linear both;
 }
 
 .instrument-step-zoom__afterimage-pass--far {
   animation: instrument-step-persistence-far
-    var(--instrument-phosphor-persistence-duration, 200ms) linear both;
+    var(--instrument-phosphor-persistence-duration, 100ms) linear both;
 }
 
 .instrument-step-zoom__afterimage-pass--near .instrument-step-zoom__afterimage-edge {

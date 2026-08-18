@@ -216,8 +216,9 @@ the old footprint until the destination frame arrives so adjacent margins
 cannot jump into the stepped sequence. The wrapper may release while the
 destination-shaped afterglow continues beneath the settled frame.
 
-The default calibration uses 120 ms registrations: 360 ms for the three-step
-mechanical sequence, followed by a 200 ms destination afterglow. The workbench
+The default calibration uses 100 ms registrations: 300 ms for the three-step
+mechanical sequence, followed by a 100 ms destination afterglow. One-shot data
+excitation and previous-state persistence also use 100 ms. The workbench
 can vary the beat from 60–180 ms. These values are prototype inputs, not
 design-system constants. The rejected shell demos did not implement this
 behavior. The exact shape, final timing, zoom-in inverse, interruption behavior,
@@ -318,19 +319,23 @@ The current optical calibration keeps every readable core and both local bloom
 passes fixed. A shared projection field measures each ordinary data primitive
 and renders 24 low-opacity samples scaled toward the exact viewport center.
 This forms converging rays instead of a second offset image. Sample opacity uses
-a nonlinear power falloff along the trail. The origin is recalculated after
-scroll, resize, or layout change. Dense surfaces will need one grouped target
-rather than one DOM ray stack per cell. The workbench can disable the field and
-tune trail length, ray intensity, falloff exponent, bloom intensity, and step
-timing independently.
+a nonlinear power falloff along the trail. Shared sample scales and opacities
+are written once on the field; each source receives only its own origin. During
+scroll, the decorative rays hide immediately and no target geometry is read.
+After 80 ms of scroll idle, origins recalculate once and the rays return. Resize
+and observed layout changes still coalesce through one animation frame. Dense
+surfaces will need one grouped target rather than one DOM ray stack per cell.
+The workbench can disable the field and tune trail length, ray intensity,
+falloff exponent, bloom intensity, and step timing independently.
 
 `InstrumentFrame` also exposes an opt-in projected-occlusion pass between its
 complete data composite and its crisp white surface stroke. The pass paints no
 new visible surface: it uses pure ground black to remove lower-plane emission.
 Its frame copy scales away from the same viewport-center origin, so the narrow
-umbra is directional rather than a uniform inset lip. The workbench can disable
-the pass and tune its maximum radial displacement and width without changing
-bloom. Handoff transitions remove the occlusion pass with the white frame; a
+shadow is directional rather than a uniform inset lip. The workbench defaults
+this pass off. Enabling it exposes plain `offset` and `width` controls for its
+maximum radial displacement and thickness; both remain disabled while the pass
+is off. Handoff transitions remove the occlusion pass with the white frame; a
 hidden surface cannot continue casting a visible knockout.
 
 A separate rear-field pass can raise the local projection substrate just above

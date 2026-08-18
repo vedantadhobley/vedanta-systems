@@ -33,6 +33,7 @@ export function InstrumentProjectionField({
   trailLength = 8,
 }: InstrumentProjectionFieldProps) {
   const animationFrameRef = useRef<number | null>(null)
+  const fieldRef = useRef<HTMLDivElement>(null)
   const resizeObserverRef = useRef<ResizeObserver | null>(null)
   const settingsRef = useRef({ enabled, occlusionDepth, trailFalloff, trailIntensity, trailLength })
   const targetsRef = useRef(new Set<HTMLElement>())
@@ -46,15 +47,38 @@ export function InstrumentProjectionField({
     const originY = window.innerHeight / 2
     const maximumDistance = Math.hypot(originX, originY) || 1
     const settings = settingsRef.current
+    const field = fieldRef.current
+    const scaleRange = settings.enabled
+      ? Math.max(settings.trailLength, 0) / maximumDistance
+      : 0
+    const falloff = Math.max(settings.trailFalloff, 0.1)
+    const intensity = Math.max(settings.trailIntensity, 0)
+    const occlusionScale = 1 + Math.max(settings.occlusionDepth, 0) / maximumDistance
+
+    field?.style.setProperty(
+      '--instrument-projector-occlusion-scale',
+      occlusionScale.toFixed(6),
+    )
+
+    for (let sample = 1; sample <= INSTRUMENT_PROJECTION_RAY_COUNT; sample += 1) {
+      const progress = sample / (INSTRUMENT_PROJECTION_RAY_COUNT + 1)
+      const scale = 1 - scaleRange * progress
+      const opacity = settings.enabled
+        ? 0.075 * intensity * ((1 - progress) ** falloff)
+        : 0
+
+      field?.style.setProperty(
+        `--instrument-projector-ray-scale-${sample}`,
+        scale.toFixed(6),
+      )
+      field?.style.setProperty(
+        `--instrument-projector-ray-opacity-${sample}`,
+        opacity.toFixed(5),
+      )
+    }
 
     targetsRef.current.forEach((target) => {
       const bounds = target.getBoundingClientRect()
-      const scaleRange = settings.enabled
-        ? Math.max(settings.trailLength, 0) / maximumDistance
-        : 0
-      const falloff = Math.max(settings.trailFalloff, 0.1)
-      const intensity = Math.max(settings.trailIntensity, 0)
-      const occlusionScale = 1 + Math.max(settings.occlusionDepth, 0) / maximumDistance
 
       target.style.setProperty(
         '--instrument-projector-origin-x',
@@ -64,27 +88,6 @@ export function InstrumentProjectionField({
         '--instrument-projector-origin-y',
         `${(originY - bounds.top).toFixed(3)}px`,
       )
-      target.style.setProperty(
-        '--instrument-projector-occlusion-scale',
-        occlusionScale.toFixed(6),
-      )
-
-      for (let sample = 1; sample <= INSTRUMENT_PROJECTION_RAY_COUNT; sample += 1) {
-        const progress = sample / (INSTRUMENT_PROJECTION_RAY_COUNT + 1)
-        const scale = 1 - scaleRange * progress
-        const opacity = settings.enabled
-          ? 0.075 * intensity * ((1 - progress) ** falloff)
-          : 0
-
-        target.style.setProperty(
-          `--instrument-projector-ray-scale-${sample}`,
-          scale.toFixed(6),
-        )
-        target.style.setProperty(
-          `--instrument-projector-ray-opacity-${sample}`,
-          opacity.toFixed(5),
-        )
-      }
     })
   }, [])
 
@@ -94,6 +97,16 @@ export function InstrumentProjectionField({
   }, [updateTargets])
 
   const register = useCallback((node: HTMLElement) => {
+    if (node.style.getPropertyValue('--instrument-projector-occlusion-scale')) {
+      node.style.removeProperty('--instrument-projector-occlusion-scale')
+    }
+    if (node.style.getPropertyValue('--instrument-projector-ray-scale-1')) {
+      for (let sample = 1; sample <= INSTRUMENT_PROJECTION_RAY_COUNT; sample += 1) {
+        node.style.removeProperty(`--instrument-projector-ray-scale-${sample}`)
+        node.style.removeProperty(`--instrument-projector-ray-opacity-${sample}`)
+      }
+    }
+
     targetsRef.current.add(node)
     resizeObserverRef.current?.observe(node)
     scheduleUpdate()
@@ -115,14 +128,35 @@ export function InstrumentProjectionField({
     resizeObserverRef.current = resizeObserver
     targetsRef.current.forEach((target) => resizeObserver?.observe(target))
 
+    let scrollIdleTimer: number | null = null
+    let resumeFrame: number | null = null
+    const handleScroll = () => {
+      const field = fieldRef.current
+      if (field && !field.hasAttribute('data-projection-scrolling')) {
+        field.setAttribute('data-projection-scrolling', 'true')
+      }
+
+      if (scrollIdleTimer !== null) window.clearTimeout(scrollIdleTimer)
+      scrollIdleTimer = window.setTimeout(() => {
+        scrollIdleTimer = null
+        scheduleUpdate()
+        resumeFrame = window.requestAnimationFrame(() => {
+          resumeFrame = null
+          fieldRef.current?.removeAttribute('data-projection-scrolling')
+        })
+      }, 80)
+    }
+
     window.addEventListener('resize', scheduleUpdate)
-    window.addEventListener('scroll', scheduleUpdate, true)
+    window.addEventListener('scroll', handleScroll, { capture: true, passive: true })
 
     return () => {
       window.removeEventListener('resize', scheduleUpdate)
-      window.removeEventListener('scroll', scheduleUpdate, true)
+      window.removeEventListener('scroll', handleScroll, true)
       resizeObserver?.disconnect()
       resizeObserverRef.current = null
+      if (scrollIdleTimer !== null) window.clearTimeout(scrollIdleTimer)
+      if (resumeFrame !== null) window.cancelAnimationFrame(resumeFrame)
       if (animationFrameRef.current !== null) {
         window.cancelAnimationFrame(animationFrameRef.current)
       }
@@ -133,7 +167,9 @@ export function InstrumentProjectionField({
 
   return (
     <ProjectionFieldContext.Provider value={contextValue}>
-      {children}
+      <div ref={fieldRef} className="instrument-projection-field">
+        {children}
+      </div>
     </ProjectionFieldContext.Provider>
   )
 }

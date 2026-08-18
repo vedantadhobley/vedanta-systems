@@ -48,7 +48,7 @@ function FixtureEvent({ event, exciteKey }: { event: EventRow; exciteKey: number
 export function FoundFootyFixtureWorkbench() {
   const [expanded, setExpanded] = useState(false)
   const [frameBehavior, setFrameBehavior] = useState<InstrumentFrameBehavior>('persistent')
-  const [occlusionEnabled, setOcclusionEnabled] = useState(true)
+  const [occlusionEnabled, setOcclusionEnabled] = useState(false)
   const [occlusionDepth, setOcclusionDepth] = useState(4)
   const [occlusionWidth, setOcclusionWidth] = useState(2)
   const [scatterPercent, setScatterPercent] = useState(3)
@@ -58,7 +58,7 @@ export function FoundFootyFixtureWorkbench() {
   const [projectionFalloff, setProjectionFalloff] = useState(1.8)
   const [projectionIntensity, setProjectionIntensity] = useState(40)
   const [bloomPercent, setBloomPercent] = useState(100)
-  const [stepBeatMs, setStepBeatMs] = useState(120)
+  const [stepBeatMs, setStepBeatMs] = useState(100)
   const [dataVersion, setDataVersion] = useState(0)
   const [homeScore, setHomeScore] = useState(2)
   const [minute, setMinute] = useState(73)
@@ -173,10 +173,11 @@ export function FoundFootyFixtureWorkbench() {
               <PhosphorData tone="quiet">{scatterPercent.toFixed(1)}%</PhosphorData>
             </label>
 
-            <label className="instrument-workbench__scale">
-              <PhosphorData tone="quiet">depth</PhosphorData>
+            <label className="instrument-workbench__scale" data-disabled={!occlusionEnabled || undefined}>
+              <PhosphorData tone="quiet">offset</PhosphorData>
               <input
                 type="range"
+                disabled={!occlusionEnabled}
                 min="0"
                 max="12"
                 step="0.5"
@@ -186,10 +187,11 @@ export function FoundFootyFixtureWorkbench() {
               <PhosphorData tone="quiet">{occlusionDepth.toFixed(1)} px</PhosphorData>
             </label>
 
-            <label className="instrument-workbench__scale">
-              <PhosphorData tone="quiet">umbra</PhosphorData>
+            <label className="instrument-workbench__scale" data-disabled={!occlusionEnabled || undefined}>
+              <PhosphorData tone="quiet">width</PhosphorData>
               <input
                 type="range"
+                disabled={!occlusionEnabled}
                 min="0.5"
                 max="6"
                 step="0.5"
@@ -327,15 +329,15 @@ export function FoundFootyFixtureWorkbench() {
         <aside className="instrument-workbench__notes" aria-label="Prototype contract">
           <div>
             <PhosphorData tone="quiet">FRAME</PhosphorData>
-            <p><PhosphorData tone="quiet">Persistent keeps the white foreground and its directional knockout present. Handoff removes both until the destination frame returns.</PhosphorData></p>
+            <p><PhosphorData tone="quiet">Occlusion is off by default. Offset moves its black shadow away from the center source; width changes the shadow thickness.</PhosphorData></p>
           </div>
           <div>
             <PhosphorData tone="quiet">STEP ZOOM</PhosphorData>
-            <p><PhosphorData tone="quiet">The active registration keeps constant light. Only the previous bottom and removed side tails decay.</PhosphorData></p>
+            <p><PhosphorData tone="quiet">Each registration and persistence beat is 100 ms. Existing expanded data remains visible until contraction arrives.</PhosphorData></p>
           </div>
           <div>
             <PhosphorData tone="quiet">DATA</PhosphorData>
-            <p><PhosphorData tone="quiet">Readable cores stay fixed. Sampled rays converge on one viewport-center projector origin with independent length, strength, and nonlinear falloff.</PhosphorData></p>
+            <p><PhosphorData tone="quiet">Readable cores stay fixed. Decorative rays pause during scroll, then recalculate once against the viewport-center origin.</PhosphorData></p>
           </div>
         </aside>
         </div>

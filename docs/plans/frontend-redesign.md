@@ -284,9 +284,9 @@ painting blurred shadows still produced unstable intermediate rendering.
 
 The current renderer is phase-driven. React selects one rounded measured
 height at each of three registrations, configurable in the workbench and
-defaulting to 120 ms each. In persistent mode, the white foreground frame
+defaulting to 100 ms each. In persistent mode, the white foreground frame
 remains fully opaque and encloses the largest source or destination bounds for
-the default 360 ms mechanical sequence; fixture data shared by both scales
+the default 300 ms mechanical sequence; fixture data shared by both scales
 stays visible while destination-only data waits. One uninterrupted lavender core,
 inset inside the foreground optical lip, snaps through the source,
 intermediate, and destination bounds without changing intensity. Its near and
@@ -294,13 +294,15 @@ far passes also keep constant luminance. When the bottom edge snaps, only the
 previous bottom persists; contraction also retains the side tails removed by
 the smaller destination. Shared top and side geometry is never repainted as an
 afterimage. At arrival the lavender core swaps out exactly when new data
-appears. On contraction, the foreground frame also snaps from the retained
-source envelope to the compact destination at arrival. The retained destination
-passes then decay beneath it for another 200 ms. CSS never interpolates or
-fades the live lavender geometry. A dedicated layout wrapper reserves the old
-height during contraction until arrival, which prevents adjacent margins and
-controls from jumping into the afterimage. The workbench exposes only white and
-lavender data; the unrequested green, yellow, and red prototype roles were
+appears. On contraction, the existing expanded data remains visible through all
+three registrations, then disappears when the foreground frame snaps from the
+retained source envelope to the compact destination at arrival. The retained
+destination passes decay beneath it for another 100 ms. All one-shot excitation
+and persistence responses use the same 100 ms duration. CSS never interpolates
+or fades the live lavender geometry. A dedicated layout wrapper reserves the
+old height during contraction until arrival, which prevents adjacent margins
+and controls from jumping into the afterimage. The workbench exposes only white
+and lavender data; the unrequested green, yellow, and red prototype roles were
 removed rather than promoted into the library. The timing, inset, and retained
 contraction envelope remain provisional.
 
@@ -317,12 +319,15 @@ keeps every readable core and both local bloom passes fixed. It renders 24 faint
 copies, each scaled slightly toward the exact viewport center; scaling about the
 shared origin makes every point follow its own converging ray. Ray opacity
 follows a tunable nonlinear power falloff, so source data stays much brighter
-than its trail. One animation-frame scheduler updates registered origins after
-scroll, resize, and observed layout changes. The workbench can turn the field
-off and independently tune trail length, ray intensity, falloff, bloom, and step
-timing. This tests a coherent light source, not yet physical recession. The
-lavender composite still uses a 14-pixel overscan buffer and separate symmetric
-foreground aperture.
+than its trail. The field now writes the 24 shared sample scales and opacities
+once rather than once per registered source. During active scrolling it hides
+the decorative rays and performs no target measurement or per-sample writes;
+after 80 ms idle it recalculates each source origin once and restores the rays.
+Resize and observed layout changes remain animation-frame coalesced. The
+workbench can turn the field off and independently tune trail length, ray
+intensity, falloff, bloom, and step timing. This tests a coherent light source,
+not yet physical recession. The lavender composite still uses a 14-pixel
+overscan buffer and separate symmetric foreground aperture.
 
 The workbench also exposes two foreground timing modes. `persistent` preserves
 the reviewed behavior: expansion snaps the white frame large immediately, and
@@ -334,10 +339,12 @@ prototype inputs; review must choose one or define where each is appropriate.
 The current depth experiment replaces the uniform inset lip with an opt-in
 black occlusion frame between the data and surface planes. That hidden frame
 scales away from the shared viewport-center projector origin, producing a
-directional knockout only where lower-plane light reaches it. `depth` controls
-the maximum radial displacement and `umbra` controls the hard mask width; no
-extra scattering or ground color was added. In handoff mode the mask disappears
-with the white frame and returns only at the settled destination.
+directional knockout only where lower-plane light reaches it. `offset` controls
+the maximum radial displacement and `width` controls the hard mask thickness;
+no extra scattering or ground color was added. In handoff mode the mask
+disappears with the white frame and returns only at the settled destination.
+Review found the effect too weak to justify unexplained defaults, so occlusion
+now starts off and both controls disable with the pass.
 
 Review on a pure black ground showed the expected limit: the black mask was
 legible only at the few lavender pixels it happened to remove. The next
