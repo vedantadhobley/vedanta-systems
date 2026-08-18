@@ -246,6 +246,12 @@ update. Finished, pending, voided, searching, validating, no-goal, and
 search-highlight cases remain review work before the primitives replace the
 production fixture markup.
 
+Initial review found the three step registrations too compressed to read as
+separate beats. The first timing revision keeps each beat short but spaces the
+starts at 140 ms intervals, producing a roughly 450 ms sequence. The actual
+fixture frame still snaps to its destination immediately; only the lower
+emission plane carries the sequence.
+
 ## Rendering model
 
 Use the [two-plane contract](../design-system.md#the-two-plane-contracts).

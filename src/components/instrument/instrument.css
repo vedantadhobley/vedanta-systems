@@ -169,15 +169,15 @@
     0 0 2px color-mix(in srgb, var(--instrument-data-accent, #c9a0f0) 80%, transparent),
     inset 0 0 4px color-mix(in srgb, var(--instrument-data-accent, #c9a0f0) 28%, transparent);
   will-change: opacity, transform;
-  animation: instrument-step-beat 150ms linear forwards;
+  animation: instrument-step-beat 170ms linear forwards;
 }
 
 .instrument-step-zoom__beat--two {
-  animation-delay: 34ms;
+  animation-delay: 140ms;
 }
 
 .instrument-step-zoom__beat--three {
-  animation-delay: 68ms;
+  animation-delay: 280ms;
 }
 
 .instrument-action {

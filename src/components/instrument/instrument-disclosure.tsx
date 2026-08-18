@@ -16,6 +16,8 @@ interface StepSequence {
   to: number
 }
 
+const STEP_ZOOM_CLEANUP_MS = 520
+
 interface InstrumentDisclosureProps {
   children: ReactNode
   className?: string
@@ -96,7 +98,7 @@ export function InstrumentDisclosure({
     const sequenceId = sequence.id
     const cleanup = window.setTimeout(() => {
       setSequence((current) => current?.id === sequenceId ? null : current)
-    }, 300)
+    }, STEP_ZOOM_CLEANUP_MS)
 
     return () => window.clearTimeout(cleanup)
   }, [sequence])
