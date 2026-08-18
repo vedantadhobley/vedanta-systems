@@ -154,9 +154,13 @@ morph between boxes. Expansion and contraction use the same contract in
 opposite directions.
 
 Render the three registrations with one emission envelope that jumps between
-measured bounds. Do not mount three overlapping outlines. When contracting in
-normal document flow, reserve the old footprint until the emission envelope
-clears so adjacent content cannot move inside the afterimage.
+measured integer bounds. A small phase state machine selects the source,
+intermediate, or destination bound directly. CSS may animate each
+registration's light intensity, but it must not animate or interpolate the
+envelope's height or transform. Do not mount three overlapping outlines.
+When contracting in normal document flow, a dedicated layout wrapper reserves
+the old footprint until the emission envelope clears so adjacent margins
+cannot collapse into the afterimage.
 
 The rejected shell demos did not implement this behavior. The exact shape,
 timing, overshoot, zoom-in inverse, interruption behavior, and relationship to
@@ -164,16 +168,22 @@ scroll position remain to be designed with Vedanta.
 
 ## Color and type
 
-The container plane and data plane may use different token families, but this
-document does not choose their final values.
+The container plane and data plane use different token families. The first
+component calibration is deliberately narrow:
 
-- Container tokens describe ground, fill, border, focus, and structural state.
-- Data tokens describe core luminance, phosphor color, semantic state,
-  excitation, and persistence.
+- The ground is pure black.
+- Container boundaries are crisp white and do not change color for live,
+  accent, or warning state.
+- Data uses white luminance and lavender phosphor. Opacity may express quiet
+  hierarchy.
 - Extra colors must encode real data. Projects do not receive decorative
-  identity colors by default.
+  identity colors by default, and a prototype must not invent semantic hues
+  before they are reviewed.
 - Typography remains readable without bloom. Phosphor changes emission, not
   font metrics or layout.
+
+This calibration does not remove the existing functional palette from btop or
+limit the colors available to a future data-rich instrument.
 
 Font families and icon libraries are adapters, not component contracts. The
 design system exposes typography roles and semantic icon names so GT Pressura,

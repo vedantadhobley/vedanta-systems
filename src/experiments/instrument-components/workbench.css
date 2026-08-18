@@ -1,20 +1,15 @@
 .instrument-scope {
   --instrument-ground: #000000;
-  --instrument-frame-neutral: #45434b;
-  --instrument-frame-accent: #715b8f;
-  --instrument-frame-live: #4d7368;
-  --instrument-data-neutral: rgba(243, 240, 246, 0.84);
-  --instrument-data-quiet: rgba(218, 213, 224, 0.47);
+  --instrument-frame: #ffffff;
+  --instrument-data-neutral: rgba(255, 255, 255, 0.84);
+  --instrument-data-quiet: rgba(255, 255, 255, 0.47);
   --instrument-data-accent: #c9a0f0;
-  --instrument-data-live: #8de0c1;
-  --instrument-data-warning: #e7c56c;
-  --instrument-data-danger: #ed7b83;
   --instrument-data-bloom-near-radius: 0.8px;
   --instrument-data-bloom-near-opacity: 0.85;
   --instrument-data-bloom-far-radius: 3.5px;
   --instrument-data-bloom-far-opacity: 0.3;
   --instrument-frame-occlusion: 1px;
-  --instrument-focus: #d7b8f5;
+  --instrument-focus: #ffffff;
   --instrument-font-data: 'GT Pressura Mono', ui-monospace, monospace;
 }
 
@@ -25,7 +20,7 @@
   overflow: auto;
   overscroll-behavior: contain;
   background: #000000;
-  color: rgba(243, 240, 246, 0.84);
+  color: rgba(255, 255, 255, 0.84);
   font-family: var(--instrument-font-data);
   font-weight: 300;
 }
@@ -50,7 +45,7 @@
 
 .instrument-workbench__header h1 {
   margin: 0 0 12px;
-  color: rgba(250, 248, 252, 0.92);
+  color: rgba(255, 255, 255, 0.92);
   font-size: clamp(24px, 4.5vw, 38px);
   font-weight: 300;
   letter-spacing: -0.035em;
@@ -60,7 +55,7 @@
 .instrument-workbench__header p {
   max-width: 560px;
   margin: 0;
-  color: rgba(218, 213, 224, 0.52);
+  color: rgba(255, 255, 255, 0.52);
   font-size: 14px;
   line-height: 1.55;
 }
@@ -149,7 +144,7 @@
   z-index: 3;
   inset: 0 auto 0 0;
   width: 1px;
-  background: var(--instrument-frame-neutral);
+  background: var(--instrument-frame);
   box-shadow:
     -1px 0 var(--instrument-ground),
     1px 0 var(--instrument-ground);
@@ -167,7 +162,7 @@
 .fixture-study__event-glyph {
   width: 12px;
   flex: 0 0 auto;
-  color: var(--instrument-frame-neutral);
+  color: var(--instrument-frame);
   font-size: 13px;
   text-align: center;
 }
@@ -229,7 +224,7 @@
   gap: 18px;
   margin-top: clamp(52px, 9vw, 84px);
   padding-top: 16px;
-  border-top: 1px solid #2f2e33;
+  border-top: 1px solid rgba(255, 255, 255, 0.32);
 }
 
 .instrument-workbench__notes div {
@@ -237,14 +232,14 @@
 }
 
 .instrument-workbench__notes > div > .instrument-data {
-  color: rgba(218, 213, 224, 0.42);
+  color: rgba(255, 255, 255, 0.42);
   font-size: 10px;
   letter-spacing: 0.12em;
 }
 
 .instrument-workbench__notes p {
   margin: 8px 0 0;
-  color: rgba(218, 213, 224, 0.5);
+  color: rgba(255, 255, 255, 0.5);
   font-size: 11px;
   line-height: 1.55;
 }

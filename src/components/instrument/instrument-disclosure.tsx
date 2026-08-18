@@ -3,21 +3,22 @@ import {
   useLayoutEffect,
   useRef,
   useState,
-  type CSSProperties,
   type ReactNode,
 } from 'react'
 
 import { cn } from '@/lib/utils'
-import { InstrumentFrame, type InstrumentFrameTone } from './instrument-frame'
+import { InstrumentFrame } from './instrument-frame'
 
 interface StepSequence {
   id: number
   from: number
   middle: number
+  phase: 0 | 1 | 2
   to: number
 }
 
-const STEP_ZOOM_CLEANUP_MS = 620
+const STEP_ZOOM_BEAT_MS = 220
+const STEP_ZOOM_CLEANUP_MS = 700
 
 interface InstrumentDisclosureProps {
   children: ReactNode
@@ -27,7 +28,6 @@ interface InstrumentDisclosureProps {
   expanded: boolean
   onExpandedChange: (expanded: boolean) => void
   summary: ReactNode
-  tone?: InstrumentFrameTone
 }
 
 /**
@@ -42,7 +42,6 @@ export function InstrumentDisclosure({
   expanded,
   onExpandedChange,
   summary,
-  tone = 'neutral',
 }: InstrumentDisclosureProps) {
   const rootRef = useRef<HTMLDivElement>(null)
   const pendingFromHeightRef = useRef<number | null>(null)
@@ -50,7 +49,9 @@ export function InstrumentDisclosure({
   const previousExpandedRef = useRef(expanded)
   const sequenceIdRef = useRef(0)
   const [sequence, setSequence] = useState<StepSequence | null>(null)
-  const reservedCollapseSpace = sequence ? Math.max(0, sequence.from - sequence.to) : 0
+  const reservedCollapseHeight = sequence?.from && sequence.from > sequence.to
+    ? sequence.from
+    : undefined
 
   const toggle = () => {
     if (disabled) return
@@ -62,18 +63,23 @@ export function InstrumentDisclosure({
     const node = rootRef.current
     if (!node) return
 
-    const nextHeight = node.getBoundingClientRect().height
+    const nextHeight = Math.round(node.getBoundingClientRect().height)
     if (previousExpandedRef.current !== expanded) {
       const from = pendingFromHeightRef.current ?? previousHeightRef.current ?? nextHeight
-      const middle = from + (nextHeight - from) * 0.56
+      const middle = Math.round(from + (nextHeight - from) * 0.56)
 
-      sequenceIdRef.current += 1
-      setSequence({
-        id: sequenceIdRef.current,
-        from,
-        middle,
-        to: nextHeight,
-      })
+      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        setSequence(null)
+      } else {
+        sequenceIdRef.current += 1
+        setSequence({
+          id: sequenceIdRef.current,
+          from: Math.round(from),
+          middle,
+          phase: 0,
+          to: nextHeight,
+        })
+      }
       previousExpandedRef.current = expanded
       pendingFromHeightRef.current = null
     }
@@ -87,64 +93,85 @@ export function InstrumentDisclosure({
 
     const observer = new ResizeObserver(([entry]) => {
       if (previousExpandedRef.current === expanded) {
-        previousHeightRef.current = entry.borderBoxSize?.[0]?.blockSize ?? entry.contentRect.height
+        previousHeightRef.current = Math.round(
+          entry.borderBoxSize?.[0]?.blockSize ?? entry.contentRect.height,
+        )
       }
     })
     observer.observe(node)
     return () => observer.disconnect()
   }, [expanded])
 
-  useEffect(() => {
-    if (!sequence) return
+  const activeSequenceId = sequence?.id
 
-    const sequenceId = sequence.id
+  useEffect(() => {
+    if (activeSequenceId === undefined) return
+
+    const middleBeat = window.setTimeout(() => {
+      setSequence((current) => current?.id === activeSequenceId
+        ? { ...current, phase: 1 }
+        : current)
+    }, STEP_ZOOM_BEAT_MS)
+    const destinationBeat = window.setTimeout(() => {
+      setSequence((current) => current?.id === activeSequenceId
+        ? { ...current, phase: 2 }
+        : current)
+    }, STEP_ZOOM_BEAT_MS * 2)
     const cleanup = window.setTimeout(() => {
-      setSequence((current) => current?.id === sequenceId ? null : current)
+      setSequence((current) => current?.id === activeSequenceId ? null : current)
     }, STEP_ZOOM_CLEANUP_MS)
 
-    return () => window.clearTimeout(cleanup)
-  }, [sequence])
+    return () => {
+      window.clearTimeout(middleBeat)
+      window.clearTimeout(destinationBeat)
+      window.clearTimeout(cleanup)
+    }
+  }, [activeSequenceId])
+
+  const stepHeight = sequence
+    ? [sequence.from, sequence.middle, sequence.to][sequence.phase]
+    : 0
 
   return (
-    <InstrumentFrame
-      ref={rootRef}
-      className={cn('instrument-disclosure', className)}
-      data-expanded={expanded}
-      style={reservedCollapseSpace > 0 ? { marginBottom: reservedCollapseSpace } : undefined}
-      tone={tone}
+    <div
+      className={cn('instrument-disclosure-layout', className)}
+      style={reservedCollapseHeight ? { minHeight: reservedCollapseHeight } : undefined}
     >
-      {sequence && (
-        <span
-          key={sequence.id}
-          className="instrument-step-zoom"
-          aria-hidden="true"
-          style={{
-            '--instrument-step-from-height': `${sequence.from}px`,
-            '--instrument-step-middle-height': `${sequence.middle}px`,
-            '--instrument-step-to-height': `${sequence.to}px`,
-          } as CSSProperties}
-        >
-          <span className="instrument-step-zoom__envelope" />
-        </span>
-      )}
-
-      <button
-        type="button"
-        aria-controls={contentId}
-        aria-expanded={expanded}
-        className="instrument-disclosure__toggle"
-        disabled={disabled}
-        onClick={toggle}
-        onTouchStart={() => {}}
+      <InstrumentFrame
+        ref={rootRef}
+        className="instrument-disclosure"
+        data-expanded={expanded}
       >
-        {summary}
-      </button>
+        {sequence && (
+          <span
+            key={`${sequence.id}-${sequence.phase}`}
+            className="instrument-step-zoom"
+            data-step={sequence.phase + 1}
+            aria-hidden="true"
+            style={{ height: stepHeight }}
+          >
+            <span className="instrument-step-zoom__envelope" />
+          </span>
+        )}
 
-      {expanded && (
-        <div id={contentId} className="instrument-disclosure__content">
-          {children}
-        </div>
-      )}
-    </InstrumentFrame>
+        <button
+          type="button"
+          aria-controls={contentId}
+          aria-expanded={expanded}
+          className="instrument-disclosure__toggle"
+          disabled={disabled}
+          onClick={toggle}
+          onTouchStart={() => {}}
+        >
+          {summary}
+        </button>
+
+        {expanded && (
+          <div id={contentId} className="instrument-disclosure__content">
+            {children}
+          </div>
+        )}
+      </InstrumentFrame>
+    </div>
   )
 }

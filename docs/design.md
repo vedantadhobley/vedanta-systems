@@ -42,10 +42,11 @@ These are the standards against which an exploration succeeds or fails:
 6. **Atmosphere.** The interface should feel like precise light emitted
    through a physical phosphor display: sharp cores, controlled bloom,
    fast excitation, and a quieter afterglow.
-7. **Color restraint.** Keep the shell close to Blade Runner's almost
-   monochrome, two- or three-color display grammar. Lavender, neutral text,
-   and one status color are enough for the shell. Additional colors belong
-   only inside real instruments when they encode a concrete data distinction.
+7. **Color restraint.** Start shared components with pure black, white
+   container strokes, and white/lavender data. Do not invent semantic hues as
+   part of a prototype. Add a color only when a real instrument needs the
+   distinction and Vedanta has reviewed it. Existing data-rich instruments
+   such as btop keep the colors that make their data useful.
 
 ## How to read the rest of this document
 
@@ -109,44 +110,28 @@ until reusable component language is established.
 
 ## Working color direction: restrained displays
 
-2049's screen glow is Wallace-cyan, and its displays are often almost
-monochrome. That restraint is part of the direction. The current site's
-**lavender** remains its identity color; btop's existing lavender theme is
-the clearest working reference. Neutral text and a quiet live/nominal color
-complete most surfaces.
+2049's displays are often almost monochrome. That restraint is part of the
+direction, but it is not a rule that flattens real data. The current site's
+**lavender** remains its identity color; btop's existing theme is the clearest
+working reference for useful color.
 
-Real project data may add a small semantic palette where distinctions would
-otherwise be lost, but the shell does not assign a decorative color to each
-project. Phosphor describes how the displayed colors emit and decay. The fog,
-desaturation, blood-red live accent, warm hardware details, record cards,
-reticles, and monumental space remain references to test rather than elements
-that must all ship.
+The shared-component study currently uses only a pure-black ground, white
+container geometry, white data, and lavender phosphor data. Live, warning,
+danger, nominal, hardware, and project-identity hues are not inferred from a
+mood reference. They remain open until a real component requires them.
 
-## Working palette
+## Current component palette
 
-The current implementation has overlapping semantic tokens and hardcoded
-colors. This compact palette is a starting hypothesis. Values and roles may
-change, but additions must encode real information and remain local to the
-instrument that needs them.
+| Role | Current value | Notes |
+|---|---|---|
+| Ground | `#000000` | Pure black; no fog texture or global screen layer. |
+| Container geometry | `#ffffff` | Crisp frame, rail, control, and focus strokes. No bloom. |
+| Neutral data | translucent white | Core plus white emission; opacity carries hierarchy. |
+| Phosphor accent | `#c9a0f0` | Lavender core and emission, including the step-zoom envelope. |
 
-| Role | Token | Value | Notes |
-|---|---|---|---|
-| Ground | `--void` | `#05070a` | Blood-black. Never flat — always fogged. |
-| Fog | `--fog-1 / -2 / -lit` | `#0a1016 / #131e28 / #26343f` | Atmospheric depth, light-scatter below. |
-| Panel | `--panel / -2` | `#0b0f16 / #111826` | Instrument surfaces. |
-| Hairline | `--line / -2` | `#1b2634 / #2b3a4d` | Razor edges. 1px, cool. |
-| **Phosphor (him)** | `--lav-dim / lav / lav-hi` | `#7a5aaf → #a57fd8 → #c9a0f0` | The screen glow. The btop ramp. His signature. |
-| Phosphor floor | `--ghost` | `#3d2d5c` | Barely-lit cells. |
-| Text | `--fg` | `#dcd6ea` | Lavender-white body. |
-| Neutral | `--fg-2 / -3` | `#8a97a3 / #5c6672` | **Sage-blue fog** — the 2049 neutral, not grey. |
-| **Accent** | `--live` | `#e5484d` | **Blood-red. The one hot color.** Live / critical ONLY. The "cells interlinked" red. |
-| Nominal | `--good` | `#6fae8f` | Muted sage-green. Quiet "OK" state. |
-| Hardware | `--bezel` | `#c8a56a` | Warm amber. Bezel chrome / caution only. |
-
-Semantic colors (`--live`, `--good`, `--bezel`) are separate from the shell
-identity color, but they are not all required on every display. Most screens
-should settle at two or three visible color families. The test is clarity,
-consistent meaning, and restraint.
+This is a calibration for shared primitives, not a global limit on btop or
+another data-rich instrument. Future palette additions require an observed
+data distinction; the design brief does not choose them in advance.
 
 ## Working typography
 
@@ -177,11 +162,11 @@ monitors, the spinner HUD, the replicant-record lookups):
   global scanline, fog, vignette, or glow overlay cannot be the main source
   of the effect. The UI should feel as though it is the display, not a web
   page placed behind an imitation-display filter.
-- **Fog + depth** as the ground: content floats *above* a hazy well
-  with city-lights scattering in the cloud far below. The current moon
-  samples `moon.mp4` into a low-resolution pixel canvas and contains
-  substantial mobile-resume recovery logic. Whether the redesign keeps,
-  replaces, or removes it is an exploration question.
+- **Fog + depth** remain scene references, not a global screen treatment. The
+  component ground is pure black. The current moon samples `moon.mp4` into a
+  low-resolution pixel canvas and contains substantial mobile-resume recovery
+  logic. Whether a later composition keeps, replaces, or removes it is an
+  exploration question.
 - **Hardware bezels + labeled controls** — verbs as instrument keys
   (`V2 · EV · REC · ◄◄ ►►`), not web buttons.
 - **Record cards** — drill-downs read like the film's replicant-record

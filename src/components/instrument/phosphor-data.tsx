@@ -2,7 +2,7 @@ import type { ReactNode } from 'react'
 
 import { cn } from '@/lib/utils'
 
-export type PhosphorTone = 'neutral' | 'quiet' | 'accent' | 'live' | 'warning' | 'danger'
+export type PhosphorTone = 'neutral' | 'quiet' | 'accent'
 
 interface PhosphorDataProps {
   children: ReactNode

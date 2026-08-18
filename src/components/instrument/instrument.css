@@ -1,15 +1,7 @@
 .instrument-frame {
-  --instrument-frame-color: var(--instrument-frame-neutral, #4a4850);
+  --instrument-frame-color: var(--instrument-frame, #ffffff);
   position: relative;
   isolation: isolate;
-}
-
-.instrument-frame[data-frame-tone='accent'] {
-  --instrument-frame-color: var(--instrument-frame-accent, #705c8f);
-}
-
-.instrument-frame[data-frame-tone='live'] {
-  --instrument-frame-color: var(--instrument-frame-live, #4f746a);
 }
 
 .instrument-frame__surface {
@@ -27,7 +19,7 @@
 }
 
 .instrument-data {
-  --instrument-data-color: var(--instrument-data-neutral, rgba(246, 244, 249, 0.82));
+  --instrument-data-color: var(--instrument-data-neutral, rgba(255, 255, 255, 0.82));
   position: relative;
   display: inline-grid;
   min-width: 0;
@@ -36,23 +28,11 @@
 }
 
 .instrument-data[data-tone='quiet'] {
-  --instrument-data-color: var(--instrument-data-quiet, rgba(224, 220, 229, 0.48));
+  --instrument-data-color: var(--instrument-data-quiet, rgba(255, 255, 255, 0.48));
 }
 
 .instrument-data[data-tone='accent'] {
   --instrument-data-color: var(--instrument-data-accent, #c9a0f0);
-}
-
-.instrument-data[data-tone='live'] {
-  --instrument-data-color: var(--instrument-data-live, #8de0c1);
-}
-
-.instrument-data[data-tone='warning'] {
-  --instrument-data-color: var(--instrument-data-warning, #e7c56c);
-}
-
-.instrument-data[data-tone='danger'] {
-  --instrument-data-color: var(--instrument-data-danger, #ed7b83);
 }
 
 .instrument-data__core,
@@ -118,6 +98,7 @@
   display: none;
 }
 
+.instrument-disclosure-layout,
 .instrument-disclosure {
   overflow: visible;
 }
@@ -171,22 +152,23 @@
   position: absolute;
   z-index: 2;
   inset: 0 0 auto;
+  box-sizing: border-box;
   overflow: visible;
   pointer-events: none;
 }
 
 .instrument-step-zoom__envelope {
   position: absolute;
-  inset: 0 0 auto;
-  height: var(--instrument-step-from-height);
+  inset: var(--instrument-step-inset, 2px);
+  box-sizing: border-box;
   border: 1px solid var(--instrument-data-accent, #c9a0f0);
   opacity: 0;
   box-shadow:
     0 0 4px color-mix(in srgb, var(--instrument-data-accent, #c9a0f0) 100%, transparent),
     0 0 12px color-mix(in srgb, var(--instrument-data-accent, #c9a0f0) 45%, transparent),
     inset 0 0 5px color-mix(in srgb, var(--instrument-data-accent, #c9a0f0) 38%, transparent);
-  mix-blend-mode: screen;
-  animation: instrument-step-envelope 560ms linear forwards;
+  will-change: opacity;
+  animation: instrument-step-registration 205ms linear both;
 }
 
 .instrument-action {
@@ -206,7 +188,7 @@
   position: absolute;
   z-index: 0;
   inset: 0;
-  border: 1px solid var(--instrument-frame-neutral, #4a4850);
+  border: 1px solid var(--instrument-frame, #ffffff);
   box-shadow: inset 0 0 0 var(--instrument-frame-occlusion, 1px) var(--instrument-ground, #000000);
   pointer-events: none;
 }
@@ -220,9 +202,8 @@
   outline-offset: 2px;
 }
 
-.instrument-action:active .instrument-action__surface {
-  border-color: var(--instrument-frame-accent, #705c8f);
-  background: color-mix(in srgb, var(--instrument-data-accent, #c9a0f0) 8%, transparent);
+.instrument-action:active > .instrument-data {
+  --instrument-data-color: var(--instrument-data-accent, #c9a0f0);
 }
 
 @keyframes instrument-data-excitation-near {
@@ -283,53 +264,14 @@
   72% { opacity: 0.32; }
 }
 
-@keyframes instrument-step-envelope {
+@keyframes instrument-step-registration {
   0% {
-    height: var(--instrument-step-from-height);
-    opacity: 0;
-  }
-  4% {
-    height: var(--instrument-step-from-height);
     opacity: 1;
   }
-  21% {
-    height: var(--instrument-step-from-height);
-    opacity: 0;
-  }
-  31.99% {
-    height: var(--instrument-step-from-height);
-    opacity: 0;
-  }
-  32% {
-    height: var(--instrument-step-middle-height);
-    opacity: 0;
-  }
-  36% {
-    height: var(--instrument-step-middle-height);
-    opacity: 1;
-  }
-  53% {
-    height: var(--instrument-step-middle-height);
-    opacity: 0;
-  }
-  63.99% {
-    height: var(--instrument-step-middle-height);
-    opacity: 0;
-  }
-  64% {
-    height: var(--instrument-step-to-height);
-    opacity: 0;
-  }
-  68% {
-    height: var(--instrument-step-to-height);
-    opacity: 1;
-  }
-  88% {
-    height: var(--instrument-step-to-height);
-    opacity: 0.26;
+  55% {
+    opacity: 0.92;
   }
   100% {
-    height: var(--instrument-step-to-height);
     opacity: 0;
   }
 }

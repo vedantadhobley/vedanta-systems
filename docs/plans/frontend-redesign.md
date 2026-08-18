@@ -279,10 +279,17 @@ of switching a separate glow effect on and off.
 The original step implementation used three independent rectangles. It was
 rejected as visibly buggy: the rectangles overlapped, and contraction painted
 the old large bounds across controls that had already moved. The replacement
-uses one emission envelope that jumps discretely through the measured source,
-intermediate, and destination heights. During contraction, the old footprint
-remains reserved but visually empty until the envelope clears; the real frame
-and disclosure state still change immediately.
+initially used one CSS-animated envelope, but animating measured height while
+painting blurred shadows still produced unstable intermediate rendering.
+
+The current renderer is phase-driven. React selects one rounded measured
+height at each of three 220 ms beats; CSS animates only the lavender envelope's
+emission and never its geometry. A dedicated layout wrapper reserves the old
+height during contraction, which prevents adjacent margins and controls from
+jumping into the afterimage. The settled frame is always crisp white. The
+workbench now exposes only white and lavender data; the unrequested green,
+yellow, and red prototype roles were removed rather than promoted into the
+library.
 
 ## Rendering model
 

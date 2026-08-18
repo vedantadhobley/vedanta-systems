@@ -58,7 +58,7 @@ export function FoundFootyFixtureWorkbench() {
         time: `${Math.min(minute + 4, 90)}'`,
         detail: 'Goal',
         player: 'Declan Rice',
-        tone: 'live',
+        tone: 'accent',
       },
       ...current,
     ])
@@ -92,7 +92,7 @@ export function FoundFootyFixtureWorkbench() {
         <section className="instrument-workbench__stage" aria-labelledby="fixture-study-title">
           <div className="instrument-workbench__stage-label" id="fixture-study-title">
             <PhosphorData tone="quiet">ENGLAND — PREMIER LEAGUE</PhosphorData>
-            <PhosphorData active tone="live">LIVE / 1</PhosphorData>
+            <PhosphorData active tone="accent">LIVE / 1</PhosphorData>
           </div>
 
           <InstrumentDisclosure
@@ -100,7 +100,6 @@ export function FoundFootyFixtureWorkbench() {
             contentId="fixture-study-events"
             expanded={expanded}
             onExpandedChange={setExpanded}
-            tone="live"
             summary={(
               <>
                 <PhosphorData className="fixture-study__toggle-icon" exciteKey={expanded ? 'open' : 'closed'} tone="quiet">
@@ -118,10 +117,10 @@ export function FoundFootyFixtureWorkbench() {
                   <PhosphorData className="fixture-study__round" tone="quiet">Premier League · Matchweek 31</PhosphorData>
                 </span>
 
-                <PhosphorData className="fixture-study__scan" active tone="warning">
+                <PhosphorData className="fixture-study__scan" active tone="accent">
                   <InstrumentIcon name="extract" />
                 </PhosphorData>
-                <PhosphorData className="fixture-study__minute" exciteKey={dataVersion} tone="live">
+                <PhosphorData className="fixture-study__minute" exciteKey={dataVersion} tone="accent">
                   {minute}'
                 </PhosphorData>
               </>
@@ -136,8 +135,8 @@ export function FoundFootyFixtureWorkbench() {
                 />
               ))}
               <div className="fixture-study__work-state">
-                <PhosphorData active tone="warning"><InstrumentIcon name="extract" /></PhosphorData>
-                <PhosphorData active tone="warning">extracting clips…</PhosphorData>
+                <PhosphorData active tone="accent"><InstrumentIcon name="extract" /></PhosphorData>
+                <PhosphorData active tone="accent">extracting clips…</PhosphorData>
               </div>
             </div>
           </InstrumentDisclosure>
@@ -146,7 +145,7 @@ export function FoundFootyFixtureWorkbench() {
             <InstrumentAction onClick={() => setExpanded((current) => !current)} tone="accent">
               {expanded ? 'contract fixture' : 'expand fixture'}
             </InstrumentAction>
-            <InstrumentAction onClick={simulateGoal} exciteKey={dataVersion} tone="live">
+            <InstrumentAction onClick={simulateGoal} exciteKey={dataVersion} tone="accent">
               simulate goal
             </InstrumentAction>
             <InstrumentAction onClick={reset} tone="quiet">reset</InstrumentAction>
