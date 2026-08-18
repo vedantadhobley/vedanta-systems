@@ -140,6 +140,13 @@ export function InstrumentDisclosure({
   const stepHeight = sequence
     ? [sequence.from, sequence.middle, sequence.to, sequence.to][sequence.phase]
     : 0
+  const afterimageHeights = sequence
+    ? [
+        ...(sequence.phase >= 1 ? [{ id: 'source', height: sequence.from }] : []),
+        ...(sequence.phase >= 2 ? [{ id: 'middle', height: sequence.middle }] : []),
+        ...(sequence.phase >= 3 ? [{ id: 'destination', height: sequence.to }] : []),
+      ]
+    : []
 
   return (
     <div
@@ -165,16 +172,25 @@ export function InstrumentDisclosure({
                 <span className="instrument-step-zoom__core" />
                 <span
                   key={`${sequence.id}-${sequence.phase}-near`}
-                  className="instrument-step-zoom__excitation instrument-step-zoom__excitation--near"
+                  className="instrument-step-zoom__emission instrument-step-zoom__emission--near"
                 />
                 <span
                   key={`${sequence.id}-${sequence.phase}-far`}
-                  className="instrument-step-zoom__excitation instrument-step-zoom__excitation--far"
+                  className="instrument-step-zoom__emission instrument-step-zoom__emission--far"
                 />
               </>
-            ) : (
-              <span className="instrument-step-zoom__afterglow" />
-            )}
+            ) : null}
+
+            {afterimageHeights.map(({ id, height }) => (
+              <span
+                key={`${sequence.id}-${id}`}
+                className="instrument-step-zoom__afterimage"
+                style={{ height }}
+              >
+                <span className="instrument-step-zoom__afterimage-pass instrument-step-zoom__afterimage-pass--near" />
+                <span className="instrument-step-zoom__afterimage-pass instrument-step-zoom__afterimage-pass--far" />
+              </span>
+            ))}
           </span>
         )}
 

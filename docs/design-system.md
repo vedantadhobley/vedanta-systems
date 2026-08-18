@@ -37,6 +37,13 @@ shared structural idea: a crisp operating plane in front of a luminous
 information plane. The rear plane is interpreted as a responsive phosphor
 display rather than an LCD or LED backlight.
 
+The working optical model is a transparent, LCD-like container layer in front
+of a continuous CRT-like data layer. White frames, rails, hit geometry, and
+focus geometry occupy the front plane. All text, icons, values, signals, and
+lavender transition outlines occupy the same rear plane. The classification is
+global: a data element does not move forward merely because it is outside a
+fixture aperture or inside a button.
+
 ## The two plane contracts
 
 | Plane | Owns | Visual behavior | Must not do |
@@ -79,9 +86,15 @@ while leaving room to tune the split after interaction testing.
    stroke is drawn, creating foreground/background separation without
    parallax or a drop shadow.
 6. Keep emission layers free of pointer events and layout influence.
-7. Give every data node low resting emission. Data that appears or changes
-   overshoots that resting level, then settles back to it.
-8. Do not apply blur, scanlines, noise, chromatic separation, or bloom to the
+7. Give every data node low resting emission. A value that appears or changes
+   may overshoot that luminance, cross briefly below it, then settle back. A
+   moving geometric core keeps constant luminance and expresses overshoot only
+   through the registration of its emission passes; it must not pulse.
+8. When content or geometry changes, retain the previous near and far visual
+   passes long enough to decay behind the new state. Persistence contains the
+   actual previous value, icon, or measured bounds; fading the new state is not
+   an afterimage.
+9. Do not apply blur, scanlines, noise, chromatic separation, or bloom to the
    complete application tree.
 
 This is a material model, not a CRT filter. The browser still renders clean
@@ -144,9 +157,10 @@ When a cell changes scale:
 2. One lavender phosphor frame replaces the white frame at the previous cell
    bounds.
 3. That same visible frame snaps to the intermediate bounds and then the
-   destination bounds. It does not blink or fade between registrations. Each
-   registration briefly excites near and far emission with a small horizontal
-   overshoot while the sharp lavender core remains fixed.
+   destination bounds. Its sharp core remains at constant intensity. Each new
+   registration gives the near and far emission a small horizontal overshoot
+   and undershoot, then settles to resting bloom. The previous measured bounds
+   remain only as fading emission.
 4. The lavender destination frame holds for one beat.
 5. The lavender core disappears at the same instant that the settled white
    frame and destination-only data snap in around the persistent shared data.
@@ -163,7 +177,9 @@ Render the three registrations with one emission envelope that jumps between
 measured integer bounds. A small phase state machine selects the source,
 intermediate, or destination bound directly. The envelope stays fully present
 between those selections; CSS must not interpolate its geometry or fade it
-between beats. Do not mount three overlapping outlines.
+between beats. Never mount several live cores. Separate persistence passes may
+retain old bounds, but they must be diffuse, non-interactive, and independently
+decaying rather than competing lavender frames.
 When contracting in normal document flow, a dedicated layout wrapper reserves
 the old footprint until the destination frame arrives so adjacent margins
 cannot jump into the stepped sequence. The wrapper may release while the
@@ -219,11 +235,13 @@ decoration and constrain paint work to the component that changed.
 
 One reusable phosphor effect means one semantic response model, not one literal
 renderer. Every implementation exposes the same sharp core, near emission, far
-emission, excitation, settled output, and decay phases. Ordinary text, icons,
-values, and outlines can render those passes with local DOM layers. Dense btop
-and contribution surfaces must group the same passes in a canvas or surface
-renderer so the effect does not multiply filters per cell. Tokens and component
-state form the shared API; the renderer remains an internal performance choice.
+emission, overshoot, undershoot, settled output, and previous-state persistence.
+All implementations use the same rear-plane registration and response tokens.
+Ordinary text, icons, values, and outlines can render those passes with local
+DOM layers. Dense btop and contribution surfaces must group the same passes in
+a canvas or surface renderer so the effect does not multiply filters per cell.
+Tokens and component state form the shared API; the renderer remains an
+internal performance choice.
 
 ### Library shape
 
@@ -250,23 +268,26 @@ contracts rather than force every project into the same card anatomy.
 The first source-owned primitives live in `src/components/instrument/`:
 
 - `InstrumentFrame` owns settled surface-plane geometry;
-- `PhosphorData` keeps an accessible sharp core and renders an `aria-hidden`
-  excitation copy behind it;
+- `PhosphorData` keeps an accessible sharp core and renders `aria-hidden` near,
+  far, and retained previous-state passes behind it;
 - `InstrumentIcon` maps semantic roles to the current Remix Icon provider;
 - `InstrumentAction` combines crisp hit/focus geometry with a data-plane
   label;
 - `InstrumentDisclosure` measures the compact and expanded forms, snaps the
   real frame to the controlled state, and renders three non-layout emission
   registrations at the previous, intermediate, and destination bounds. Each
-  registration re-excites near and far emission; arrival leaves a short
-  destination afterglow beneath the restored surface frame.
+  registration moves one constant-intensity core while the old bounds persist
+  as decaying emission; arrival leaves the destination persistence beneath the
+  restored surface frame.
 
-The first optical-depth calibration clips data emission to the component
-aperture, covers it with a two-pixel black lip beneath the white stroke, and
-registers the near and far emission passes at progressively deeper subpixel
-offsets. The source core remains in its exact layout position. This creates
-separation through occlusion and light registration rather than blurring or
-shadowing the readable data itself.
+The first optical-depth calibration assigns the rear-plane registration to the
+shared phosphor material, so it applies to every `PhosphorData` instance and to
+the lavender outline. Within a container, emission is clipped to its aperture
+and covered by a two-pixel black lip beneath the white stroke. Near and far
+passes receive progressively deeper subpixel offsets while the source core
+remains in its exact layout position. This creates separation through stacking,
+occlusion, and light registration rather than blurring or shadowing the
+readable data itself.
 
 The dev-only workbench is served from `/instrument-components.html`. Its
 Found Footy study uses representative local data and is intentionally absent

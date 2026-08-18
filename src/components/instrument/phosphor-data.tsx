@@ -1,4 +1,10 @@
-import type { ReactNode } from 'react'
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react'
 
 import { cn } from '@/lib/utils'
 
@@ -12,18 +18,56 @@ interface PhosphorDataProps {
   tone?: PhosphorTone
 }
 
+interface PhosphorAfterimage {
+  children: ReactNode
+  id: number
+}
+
+const PHOSPHOR_AFTERIMAGE_CLEANUP_MS = 220
+
 /**
- * Keeps the accessible data sharp and adds a disposable, aria-hidden emission
- * copy behind it. Real layout and selection always come from the core layer.
+ * Keeps accessible data sharp while aria-hidden near, far, and previous-state
+ * passes emit behind it. Real layout and selection come only from the core.
  */
 export function PhosphorData({
   children,
   className,
-  exciteKey = 0,
+  exciteKey,
   active = false,
   tone = 'neutral',
 }: PhosphorDataProps) {
-  const emissionKey = `${tone}-${String(exciteKey)}`
+  const contentKey = typeof children === 'string' || typeof children === 'number'
+    ? children
+    : 'complex'
+  const responseKey = `${tone}-${String(exciteKey ?? contentKey)}`
+  const previousVisualRef = useRef({ children, responseKey })
+  const afterimageIdRef = useRef(0)
+  const [afterimage, setAfterimage] = useState<PhosphorAfterimage | null>(null)
+
+  useLayoutEffect(() => {
+    const previous = previousVisualRef.current
+
+    if (previous.responseKey !== responseKey) {
+      afterimageIdRef.current += 1
+      setAfterimage({
+        children: previous.children,
+        id: afterimageIdRef.current,
+      })
+    }
+
+    previousVisualRef.current = { children, responseKey }
+  }, [children, responseKey])
+
+  useEffect(() => {
+    if (!afterimage) return
+
+    const activeAfterimageId = afterimage.id
+    const cleanup = window.setTimeout(() => {
+      setAfterimage((current) => current?.id === activeAfterimageId ? null : current)
+    }, PHOSPHOR_AFTERIMAGE_CLEANUP_MS)
+
+    return () => window.clearTimeout(cleanup)
+  }, [afterimage])
 
   return (
     <span
@@ -32,19 +76,37 @@ export function PhosphorData({
     >
       <span className="instrument-data__core">{children}</span>
       <span
-        key={`${emissionKey}-near`}
+        key={`${responseKey}-near`}
         aria-hidden="true"
         className="instrument-data__emission instrument-data__emission--near"
       >
         {children}
       </span>
       <span
-        key={`${emissionKey}-far`}
+        key={`${responseKey}-far`}
         aria-hidden="true"
         className="instrument-data__emission instrument-data__emission--far"
       >
         {children}
       </span>
+      {afterimage && (
+        <>
+          <span
+            key={`${afterimage.id}-afterimage-near`}
+            aria-hidden="true"
+            className="instrument-data__afterimage instrument-data__afterimage--near"
+          >
+            {afterimage.children}
+          </span>
+          <span
+            key={`${afterimage.id}-afterimage-far`}
+            aria-hidden="true"
+            className="instrument-data__afterimage instrument-data__afterimage--far"
+          >
+            {afterimage.children}
+          </span>
+        </>
+      )}
     </span>
   )
 }

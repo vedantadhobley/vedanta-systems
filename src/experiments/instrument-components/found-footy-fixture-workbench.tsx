@@ -108,11 +108,11 @@ export function FoundFootyFixtureWorkbench() {
 
                 <span className="fixture-study__identity">
                   <span className="fixture-study__score-line">
-                    <PhosphorData exciteKey={dataVersion}>Arsenal</PhosphorData>
+                    <PhosphorData>Arsenal</PhosphorData>
                     <PhosphorData className="fixture-study__score" exciteKey={dataVersion} tone="accent">
                       {homeScore} - 1
                     </PhosphorData>
-                    <PhosphorData exciteKey={dataVersion}>Liverpool</PhosphorData>
+                    <PhosphorData>Liverpool</PhosphorData>
                   </span>
                   <PhosphorData className="fixture-study__round" tone="quiet">Premier League · Matchweek 31</PhosphorData>
                 </span>
@@ -159,11 +159,11 @@ export function FoundFootyFixtureWorkbench() {
           </div>
           <div>
             <PhosphorData tone="quiet">STEP ZOOM</PhosphorData>
-            <p><PhosphorData tone="quiet">Three 120 ms snaps. Each registration re-excites one continuous lavender frame.</PhosphorData></p>
+            <p><PhosphorData tone="quiet">A stable lavender core snaps forward. Previous registrations decay behind it.</PhosphorData></p>
           </div>
           <div>
             <PhosphorData tone="quiet">DATA</PhosphorData>
-            <p><PhosphorData tone="quiet">Shared fixture data persists. Destination-only data arrives with the final white frame.</PhosphorData></p>
+            <p><PhosphorData tone="quiet">Text, icons, values, and outlines share one recessed phosphor response.</PhosphorData></p>
           </div>
         </aside>
       </div>
