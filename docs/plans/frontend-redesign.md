@@ -259,6 +259,13 @@ decays to a low continuous emission instead of a perfectly sharp zero-emission
 vector edge. This treatment remains local to data nodes; the container plane
 stays exact.
 
+The following review clarified that steady localized bloom, rather than core
+blur alone, is the main CRT material cue. Every data primitive now settles to
+visible low emission. Foreground frames and rails use a one-pixel black
+occlusion lip beneath their crisp stroke, so bloom is covered at a container
+boundary. That hard occlusion of soft light establishes the data plane behind
+the container plane without simulated parallax or drop shadow.
+
 ## Rendering model
 
 Use the [two-plane contract](../design-system.md#the-two-plane-contracts).

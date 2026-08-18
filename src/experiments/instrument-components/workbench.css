@@ -1,4 +1,5 @@
 .instrument-scope {
+  --instrument-ground: #000000;
   --instrument-frame-neutral: #45434b;
   --instrument-frame-accent: #715b8f;
   --instrument-frame-live: #4d7368;
@@ -8,9 +9,10 @@
   --instrument-data-live: #8de0c1;
   --instrument-data-warning: #e7c56c;
   --instrument-data-danger: #ed7b83;
-  --instrument-data-core-softness: 0.32px;
+  --instrument-data-core-softness: 0.24px;
   --instrument-data-emission-softness: 0.72px;
-  --instrument-data-rest-emission: 0.1;
+  --instrument-data-rest-emission: 0.14;
+  --instrument-frame-occlusion: 1px;
   --instrument-focus: #d7b8f5;
   --instrument-font-data: 'GT Pressura Mono', ui-monospace, monospace;
 }
@@ -147,6 +149,9 @@
   inset: 0 auto 0 0;
   width: 1px;
   background: var(--instrument-frame-neutral);
+  box-shadow:
+    -1px 0 var(--instrument-ground),
+    1px 0 var(--instrument-ground);
   content: '';
 }
 

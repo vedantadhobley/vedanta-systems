@@ -68,14 +68,20 @@ while leaving room to tune the split after interaction testing.
 ## Rendering contract
 
 1. Render semantic state once in accessible HTML.
-2. Keep the readable data core sharp at all times.
+2. Keep the data core readable at all times. Slight beam softness is allowed;
+   legibility must not depend on bloom.
 3. Build phosphor emission from the actual data node or an `aria-hidden`
    visual duplicate tied to that node.
 4. Place container geometry above the emission layer within the component's
    local stacking context.
-5. Keep emission layers free of pointer events and layout influence.
-6. Excite only data that appears or changes. Static data settles.
-7. Do not apply blur, scanlines, noise, chromatic separation, or bloom to the
+5. Give foreground container strokes a narrow ground-colored occlusion lip.
+   Bloom that reaches a boundary disappears beneath this lip before the crisp
+   stroke is drawn, creating foreground/background separation without
+   parallax or a drop shadow.
+6. Keep emission layers free of pointer events and layout influence.
+7. Give every data node low resting emission. Data that appears or changes
+   overshoots that resting level, then settles back to it.
+8. Do not apply blur, scanlines, noise, chromatic separation, or bloom to the
    complete application tree.
 
 This is a material model, not a CRT filter. The browser still renders clean
