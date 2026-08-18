@@ -3,6 +3,7 @@ import {
   useLayoutEffect,
   useRef,
   useState,
+  type CSSProperties,
   type ReactNode,
 } from 'react'
 
@@ -16,7 +17,7 @@ interface StepSequence {
   to: number
 }
 
-const STEP_ZOOM_CLEANUP_MS = 520
+const STEP_ZOOM_CLEANUP_MS = 620
 
 interface InstrumentDisclosureProps {
   children: ReactNode
@@ -49,6 +50,7 @@ export function InstrumentDisclosure({
   const previousExpandedRef = useRef(expanded)
   const sequenceIdRef = useRef(0)
   const [sequence, setSequence] = useState<StepSequence | null>(null)
+  const reservedCollapseSpace = sequence ? Math.max(0, sequence.from - sequence.to) : 0
 
   const toggle = () => {
     if (disabled) return
@@ -108,13 +110,21 @@ export function InstrumentDisclosure({
       ref={rootRef}
       className={cn('instrument-disclosure', className)}
       data-expanded={expanded}
+      style={reservedCollapseSpace > 0 ? { marginBottom: reservedCollapseSpace } : undefined}
       tone={tone}
     >
       {sequence && (
-        <span key={sequence.id} className="instrument-step-zoom" aria-hidden="true">
-          <span className="instrument-step-zoom__beat instrument-step-zoom__beat--one" style={{ height: sequence.from }} />
-          <span className="instrument-step-zoom__beat instrument-step-zoom__beat--two" style={{ height: sequence.middle }} />
-          <span className="instrument-step-zoom__beat instrument-step-zoom__beat--three" style={{ height: sequence.to }} />
+        <span
+          key={sequence.id}
+          className="instrument-step-zoom"
+          aria-hidden="true"
+          style={{
+            '--instrument-step-from-height': `${sequence.from}px`,
+            '--instrument-step-middle-height': `${sequence.middle}px`,
+            '--instrument-step-to-height': `${sequence.to}px`,
+          } as CSSProperties}
+        >
+          <span className="instrument-step-zoom__envelope" />
         </span>
       )}
 

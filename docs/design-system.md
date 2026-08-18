@@ -153,6 +153,11 @@ a discrete cut between semantic scales, bridged by emitted light rather than a
 morph between boxes. Expansion and contraction use the same contract in
 opposite directions.
 
+Render the three registrations with one emission envelope that jumps between
+measured bounds. Do not mount three overlapping outlines. When contracting in
+normal document flow, reserve the old footprint until the emission envelope
+clears so adjacent content cannot move inside the afterimage.
+
 The rejected shell demos did not implement this behavior. The exact shape,
 timing, overshoot, zoom-in inverse, interruption behavior, and relationship to
 scroll position remain to be designed with Vedanta.

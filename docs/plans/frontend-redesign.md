@@ -271,6 +271,19 @@ Reduced motion retains settled bloom while disabling excitation. Dense btop
 and contribution surfaces will need a grouped bloom renderer rather than the
 per-node DOM path.
 
+The first two-pass calibration still read as almost no bloom. Resting near and
+far emission are now intentionally strong enough to merge perceptually with
+the source as one luminous mark. Excitation raises the same emission instead
+of switching a separate glow effect on and off.
+
+The original step implementation used three independent rectangles. It was
+rejected as visibly buggy: the rectangles overlapped, and contraction painted
+the old large bounds across controls that had already moved. The replacement
+uses one emission envelope that jumps discretely through the measured source,
+intermediate, and destination heights. During contraction, the old footprint
+remains reserved but visually empty until the envelope clears; the real frame
+and disclosure state still change immediately.
+
 ## Rendering model
 
 Use the [two-plane contract](../design-system.md#the-two-plane-contracts).

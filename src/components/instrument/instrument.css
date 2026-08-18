@@ -86,7 +86,7 @@
 
 .instrument-data__emission--far {
   z-index: 0;
-  filter: blur(var(--instrument-data-bloom-far-radius, 2.6px));
+  filter: blur(var(--instrument-data-bloom-far-radius, 3.5px));
   text-shadow: 0 0 6px currentColor;
   animation: instrument-data-excitation-far 440ms linear forwards;
 }
@@ -175,24 +175,18 @@
   pointer-events: none;
 }
 
-.instrument-step-zoom__beat {
+.instrument-step-zoom__envelope {
   position: absolute;
   inset: 0 0 auto;
+  height: var(--instrument-step-from-height);
   border: 1px solid var(--instrument-data-accent, #c9a0f0);
   opacity: 0;
   box-shadow:
-    0 0 2px color-mix(in srgb, var(--instrument-data-accent, #c9a0f0) 80%, transparent),
-    inset 0 0 4px color-mix(in srgb, var(--instrument-data-accent, #c9a0f0) 28%, transparent);
-  will-change: opacity, transform;
-  animation: instrument-step-beat 170ms linear forwards;
-}
-
-.instrument-step-zoom__beat--two {
-  animation-delay: 140ms;
-}
-
-.instrument-step-zoom__beat--three {
-  animation-delay: 280ms;
+    0 0 4px color-mix(in srgb, var(--instrument-data-accent, #c9a0f0) 100%, transparent),
+    0 0 12px color-mix(in srgb, var(--instrument-data-accent, #c9a0f0) 45%, transparent),
+    inset 0 0 5px color-mix(in srgb, var(--instrument-data-accent, #c9a0f0) 38%, transparent);
+  mix-blend-mode: screen;
+  animation: instrument-step-envelope 560ms linear forwards;
 }
 
 .instrument-action {
@@ -233,83 +227,115 @@
 
 @keyframes instrument-data-excitation-near {
   0% {
-    opacity: 0.7;
+    opacity: 1;
     transform: translateX(0.55px) scaleX(1.012);
   }
   15% {
-    opacity: 0.46;
+    opacity: 0.93;
     transform: translateX(-0.32px) scaleX(1.004);
   }
   34% {
-    opacity: 0.32;
+    opacity: 0.89;
     transform: translateX(0.18px);
   }
   62% {
-    opacity: 0.34;
+    opacity: 0.86;
     transform: translateX(0);
   }
   100% {
-    opacity: var(--instrument-data-bloom-near-opacity, 0.32);
+    opacity: var(--instrument-data-bloom-near-opacity, 0.85);
     transform: translateX(0);
   }
 }
 
 @keyframes instrument-data-excitation-far {
   0% {
-    opacity: 0.34;
+    opacity: 0.7;
     transform: translateX(0.35px) scaleX(1.006);
   }
   22% {
-    opacity: 0.2;
+    opacity: 0.5;
     transform: translateX(-0.18px);
   }
   58% {
-    opacity: 0.11;
+    opacity: 0.35;
     transform: translateX(0);
   }
   100% {
-    opacity: var(--instrument-data-bloom-far-opacity, 0.11);
+    opacity: var(--instrument-data-bloom-far-opacity, 0.3);
     transform: translateX(0);
   }
 }
 
 @keyframes instrument-active-signal-near {
-  0%, 100% { opacity: var(--instrument-data-bloom-near-opacity, 0.32); }
-  9% { opacity: 0.65; }
-  18% { opacity: 0.38; }
-  54% { opacity: 0.52; }
-  72% { opacity: 0.34; }
+  0%, 100% { opacity: var(--instrument-data-bloom-near-opacity, 0.85); }
+  9% { opacity: 1; }
+  18% { opacity: 0.88; }
+  54% { opacity: 0.96; }
+  72% { opacity: 0.86; }
 }
 
 @keyframes instrument-active-signal-far {
-  0%, 100% { opacity: var(--instrument-data-bloom-far-opacity, 0.11); }
-  9% { opacity: 0.32; }
-  18% { opacity: 0.14; }
-  54% { opacity: 0.23; }
-  72% { opacity: 0.12; }
+  0%, 100% { opacity: var(--instrument-data-bloom-far-opacity, 0.3); }
+  9% { opacity: 0.62; }
+  18% { opacity: 0.36; }
+  54% { opacity: 0.5; }
+  72% { opacity: 0.32; }
 }
 
-@keyframes instrument-step-beat {
+@keyframes instrument-step-envelope {
   0% {
+    height: var(--instrument-step-from-height);
     opacity: 0;
-    transform: scaleX(0.996);
   }
-  18% {
-    opacity: 0.82;
-    transform: scaleX(1.003);
+  4% {
+    height: var(--instrument-step-from-height);
+    opacity: 1;
   }
-  48% {
-    opacity: 0.38;
-    transform: scaleX(1);
+  21% {
+    height: var(--instrument-step-from-height);
+    opacity: 0;
+  }
+  31.99% {
+    height: var(--instrument-step-from-height);
+    opacity: 0;
+  }
+  32% {
+    height: var(--instrument-step-middle-height);
+    opacity: 0;
+  }
+  36% {
+    height: var(--instrument-step-middle-height);
+    opacity: 1;
+  }
+  53% {
+    height: var(--instrument-step-middle-height);
+    opacity: 0;
+  }
+  63.99% {
+    height: var(--instrument-step-middle-height);
+    opacity: 0;
+  }
+  64% {
+    height: var(--instrument-step-to-height);
+    opacity: 0;
+  }
+  68% {
+    height: var(--instrument-step-to-height);
+    opacity: 1;
+  }
+  88% {
+    height: var(--instrument-step-to-height);
+    opacity: 0.26;
   }
   100% {
+    height: var(--instrument-step-to-height);
     opacity: 0;
-    transform: scaleX(1);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .instrument-step-zoom__beat {
+  .instrument-step-zoom__envelope {
     animation: none;
     opacity: 0;
   }
@@ -317,12 +343,12 @@
   .instrument-data__emission--near,
   .instrument-data--active .instrument-data__emission--near {
     animation: none;
-    opacity: var(--instrument-data-bloom-near-opacity, 0.32);
+    opacity: var(--instrument-data-bloom-near-opacity, 0.85);
   }
 
   .instrument-data__emission--far,
   .instrument-data--active .instrument-data__emission--far {
     animation: none;
-    opacity: var(--instrument-data-bloom-far-opacity, 0.11);
+    opacity: var(--instrument-data-bloom-far-opacity, 0.3);
   }
 }

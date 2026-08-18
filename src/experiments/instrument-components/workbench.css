@@ -10,9 +10,9 @@
   --instrument-data-warning: #e7c56c;
   --instrument-data-danger: #ed7b83;
   --instrument-data-bloom-near-radius: 0.8px;
-  --instrument-data-bloom-near-opacity: 0.32;
-  --instrument-data-bloom-far-radius: 2.6px;
-  --instrument-data-bloom-far-opacity: 0.11;
+  --instrument-data-bloom-near-opacity: 0.85;
+  --instrument-data-bloom-far-radius: 3.5px;
+  --instrument-data-bloom-far-opacity: 0.3;
   --instrument-frame-occlusion: 1px;
   --instrument-focus: #d7b8f5;
   --instrument-font-data: 'GT Pressura Mono', ui-monospace, monospace;
