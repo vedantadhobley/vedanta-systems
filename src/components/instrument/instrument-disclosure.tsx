@@ -155,23 +155,25 @@ export function InstrumentDisclosure({
           </span>
         )}
 
-        <button
-          type="button"
-          aria-controls={contentId}
-          aria-expanded={expanded}
-          className="instrument-disclosure__toggle"
-          disabled={disabled}
-          onClick={toggle}
-          onTouchStart={() => {}}
-        >
-          {summary}
-        </button>
+        <div className="instrument-disclosure__aperture">
+          <button
+            type="button"
+            aria-controls={contentId}
+            aria-expanded={expanded}
+            className="instrument-disclosure__toggle"
+            disabled={disabled}
+            onClick={toggle}
+            onTouchStart={() => {}}
+          >
+            {summary}
+          </button>
 
-        {expanded && (
-          <div id={contentId} className="instrument-disclosure__content">
-            {children}
-          </div>
-        )}
+          {expanded && (
+            <div id={contentId} className="instrument-disclosure__content">
+              {children}
+            </div>
+          )}
+        </div>
       </InstrumentFrame>
     </div>
   )

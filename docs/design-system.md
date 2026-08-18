@@ -138,14 +138,16 @@ between navigation levels can use the same grammar later.
 
 When a cell changes scale:
 
-1. Application state and destination layout update immediately, but the
-   steady white frame and its data disappear before the browser paints.
-2. One lavender phosphor frame replaces them at the previous cell bounds.
+1. Application state and destination layout update immediately. The steady
+   white frame disappears before the browser paints. Data shared by both
+   semantic scales remains visible; destination-only data stays hidden.
+2. One lavender phosphor frame replaces the white frame at the previous cell
+   bounds.
 3. That same visible frame snaps to the intermediate bounds and then the
    destination bounds. It does not blink or fade between registrations.
 4. The lavender destination frame holds for one beat.
 5. The lavender frame disappears at the same instant that the settled white
-   frame and destination data snap back in.
+   frame and destination-only data snap in around the persistent shared data.
 
 The lavender transition belongs to the data/emission plane. The source and
 destination white frames belong to the container plane and only appear in

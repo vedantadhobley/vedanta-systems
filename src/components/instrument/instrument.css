@@ -103,6 +103,12 @@
   overflow: visible;
 }
 
+.instrument-disclosure__aperture {
+  position: relative;
+  z-index: 1;
+  overflow: hidden;
+}
+
 .instrument-disclosure__toggle {
   position: relative;
   display: flex;
@@ -149,7 +155,6 @@
 }
 
 .instrument-disclosure[data-transitioning='true'] > .instrument-frame__surface,
-.instrument-disclosure[data-transitioning='true'] .instrument-disclosure__toggle,
 .instrument-disclosure[data-transitioning='true'] .instrument-disclosure__content {
   opacity: 0;
 }

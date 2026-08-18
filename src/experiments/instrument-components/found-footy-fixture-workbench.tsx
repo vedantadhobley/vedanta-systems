@@ -163,7 +163,7 @@ export function FoundFootyFixtureWorkbench() {
           </div>
           <div>
             <PhosphorData tone="quiet">DATA</PhosphorData>
-            <p><PhosphorData tone="quiet">Destination data returns with the white frame after the final lavender beat.</PhosphorData></p>
+            <p><PhosphorData tone="quiet">Shared fixture data persists. Destination-only data arrives with the final white frame.</PhosphorData></p>
           </div>
         </aside>
       </div>

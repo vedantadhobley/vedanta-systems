@@ -8,7 +8,7 @@
   --instrument-data-bloom-near-opacity: 0.85;
   --instrument-data-bloom-far-radius: 3.5px;
   --instrument-data-bloom-far-opacity: 0.3;
-  --instrument-frame-occlusion: 1px;
+  --instrument-frame-occlusion: 2px;
   --instrument-focus: #ffffff;
   --instrument-font-data: 'GT Pressura Mono', ui-monospace, monospace;
 }
