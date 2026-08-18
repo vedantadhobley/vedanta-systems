@@ -283,20 +283,26 @@ initially used one CSS-animated envelope, but animating measured height while
 painting blurred shadows still produced unstable intermediate rendering.
 
 The current renderer is phase-driven. React selects one rounded measured
-height at each of three equal 220 ms beats. The settled white frame and its
-destination-only data disappear for the sequence; fixture data shared by both
-scales stays visible. One uninterrupted lavender frame snaps through the
-source, intermediate, and destination bounds, holds at the destination for
-the third beat, then swaps out exactly when the white frame and new data
-return. CSS never interpolates or fades the lavender geometry. A dedicated
-layout wrapper reserves the old height during contraction, which prevents
-adjacent margins and controls from jumping into the afterimage. The workbench
-exposes only white and lavender data; the unrequested green, yellow, and red
-prototype roles were removed rather than promoted into the library.
+height at each of three equal 120 ms registrations. The settled white frame and
+its destination-only data disappear for the 360 ms mechanical sequence;
+fixture data shared by both scales stays visible. One uninterrupted lavender
+frame snaps through the source, intermediate, and destination bounds. Each
+registration re-excites near and far emission with a small horizontal
+overshoot. At arrival the lavender core swaps out exactly when the white frame
+and new data return, while a destination-shaped afterglow decays beneath the
+white frame for another 200 ms. CSS never interpolates or fades the lavender
+geometry. A dedicated layout wrapper reserves the old height during
+contraction until arrival, which prevents adjacent margins and controls from
+jumping into the afterimage. The workbench exposes only white and lavender
+data; the unrequested green, yellow, and red prototype roles were removed
+rather than promoted into the library. The timing and response remain
+provisional.
 
-The first depth calibration clips steady data to a local aperture and widens
-the pure-black occlusion lip beneath the white frame to two pixels. This tests
-depth through real layer occlusion rather than additional blur, shadow, or
+The first depth calibration clips steady data to a local aperture, widens the
+pure-black occlusion lip beneath the white frame to two pixels, and registers
+the near and far emission passes at progressively deeper subpixel offsets. The
+sharp source core does not move. This tests depth through layer occlusion and
+emitted-light registration rather than additional core blur, drop shadow, or
 page-wide post-processing.
 
 ## Rendering model

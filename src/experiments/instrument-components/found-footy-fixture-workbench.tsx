@@ -155,11 +155,11 @@ export function FoundFootyFixtureWorkbench() {
         <aside className="instrument-workbench__notes" aria-label="Prototype contract">
           <div>
             <PhosphorData tone="quiet">FRAME</PhosphorData>
-            <p><PhosphorData tone="quiet">White at rest. It swaps out during step zoom and returns at the destination.</PhosphorData></p>
+            <p><PhosphorData tone="quiet">White at rest. It returns above the lavender destination afterglow.</PhosphorData></p>
           </div>
           <div>
             <PhosphorData tone="quiet">STEP ZOOM</PhosphorData>
-            <p><PhosphorData tone="quiet">One continuous lavender frame snaps through previous, intermediate, and destination.</PhosphorData></p>
+            <p><PhosphorData tone="quiet">Three 120 ms snaps. Each registration re-excites one continuous lavender frame.</PhosphorData></p>
           </div>
           <div>
             <PhosphorData tone="quiet">DATA</PhosphorData>

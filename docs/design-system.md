@@ -144,10 +144,14 @@ When a cell changes scale:
 2. One lavender phosphor frame replaces the white frame at the previous cell
    bounds.
 3. That same visible frame snaps to the intermediate bounds and then the
-   destination bounds. It does not blink or fade between registrations.
+   destination bounds. It does not blink or fade between registrations. Each
+   registration briefly excites near and far emission with a small horizontal
+   overshoot while the sharp lavender core remains fixed.
 4. The lavender destination frame holds for one beat.
-5. The lavender frame disappears at the same instant that the settled white
+5. The lavender core disappears at the same instant that the settled white
    frame and destination-only data snap in around the persistent shared data.
+   A destination-shaped afterglow remains beneath the white frame and decays
+   after arrival.
 
 The lavender transition belongs to the data/emission plane. The source and
 destination white frames belong to the container plane and only appear in
@@ -161,12 +165,16 @@ intermediate, or destination bound directly. The envelope stays fully present
 between those selections; CSS must not interpolate its geometry or fade it
 between beats. Do not mount three overlapping outlines.
 When contracting in normal document flow, a dedicated layout wrapper reserves
-the old footprint until the emission envelope clears so adjacent margins
-cannot collapse into the afterimage.
+the old footprint until the destination frame arrives so adjacent margins
+cannot jump into the stepped sequence. The wrapper may release while the
+destination-shaped afterglow continues beneath the settled frame.
 
-The rejected shell demos did not implement this behavior. The exact shape,
-timing, overshoot, zoom-in inverse, interruption behavior, and relationship to
-scroll position remain to be designed with Vedanta.
+The current calibration uses 120 ms registrations: 360 ms for the three-step
+mechanical sequence, followed by a 200 ms destination afterglow. These values
+are prototype inputs, not design-system constants. The rejected shell demos
+did not implement this behavior. The exact shape, timing, overshoot, zoom-in
+inverse, interruption behavior, and relationship to scroll position remain to
+be designed with Vedanta.
 
 ## Color and type
 
@@ -209,6 +217,14 @@ Every primitive must support desktop, touch, keyboard, reduced motion, and a
 no-effect readable state. It must avoid continuous React render loops for
 decoration and constrain paint work to the component that changed.
 
+One reusable phosphor effect means one semantic response model, not one literal
+renderer. Every implementation exposes the same sharp core, near emission, far
+emission, excitation, settled output, and decay phases. Ordinary text, icons,
+values, and outlines can render those passes with local DOM layers. Dense btop
+and contribution surfaces must group the same passes in a canvas or surface
+renderer so the effect does not multiply filters per cell. Tokens and component
+state form the shared API; the renderer remains an internal performance choice.
+
 ### Library shape
 
 Treat this as a source-owned personal component system, similar to shadcn's
@@ -241,7 +257,16 @@ The first source-owned primitives live in `src/components/instrument/`:
   label;
 - `InstrumentDisclosure` measures the compact and expanded forms, snaps the
   real frame to the controlled state, and renders three non-layout emission
-  registrations at the previous, intermediate, and destination bounds.
+  registrations at the previous, intermediate, and destination bounds. Each
+  registration re-excites near and far emission; arrival leaves a short
+  destination afterglow beneath the restored surface frame.
+
+The first optical-depth calibration clips data emission to the component
+aperture, covers it with a two-pixel black lip beneath the white stroke, and
+registers the near and far emission passes at progressively deeper subpixel
+offsets. The source core remains in its exact layout position. This creates
+separation through occlusion and light registration rather than blurring or
+shadowing the readable data itself.
 
 The dev-only workbench is served from `/instrument-components.html`. Its
 Found Footy study uses representative local data and is intentionally absent

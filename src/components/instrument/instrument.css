@@ -61,6 +61,10 @@
   z-index: 1;
   filter: blur(var(--instrument-data-bloom-near-radius, 0.8px));
   text-shadow: 0 0 2px currentColor;
+  transform: translate(
+    var(--instrument-data-depth-near-x, 0px),
+    var(--instrument-data-depth-near-y, 0px)
+  );
   animation: instrument-data-excitation-near 280ms linear forwards;
 }
 
@@ -68,6 +72,10 @@
   z-index: 0;
   filter: blur(var(--instrument-data-bloom-far-radius, 3.5px));
   text-shadow: 0 0 6px currentColor;
+  transform: translate(
+    var(--instrument-data-depth-far-x, 0px),
+    var(--instrument-data-depth-far-y, 0px)
+  );
   animation: instrument-data-excitation-far 440ms linear forwards;
 }
 
@@ -104,6 +112,10 @@
 }
 
 .instrument-disclosure__aperture {
+  --instrument-data-depth-near-x: 0.3px;
+  --instrument-data-depth-near-y: 0.45px;
+  --instrument-data-depth-far-x: 0.6px;
+  --instrument-data-depth-far-y: 0.85px;
   position: relative;
   z-index: 1;
   overflow: hidden;
@@ -168,16 +180,52 @@
   pointer-events: none;
 }
 
-.instrument-step-zoom__envelope {
+.instrument-step-zoom__core,
+.instrument-step-zoom__excitation,
+.instrument-step-zoom__afterglow {
   position: absolute;
   inset: 0;
   box-sizing: border-box;
+  color: var(--instrument-data-accent, #c9a0f0);
+}
+
+.instrument-step-zoom__core {
   border: 1px solid var(--instrument-data-accent, #c9a0f0);
   opacity: 1;
   box-shadow:
     0 0 4px color-mix(in srgb, var(--instrument-data-accent, #c9a0f0) 100%, transparent),
     0 0 12px color-mix(in srgb, var(--instrument-data-accent, #c9a0f0) 45%, transparent),
     inset 0 0 5px color-mix(in srgb, var(--instrument-data-accent, #c9a0f0) 38%, transparent);
+}
+
+.instrument-step-zoom__excitation {
+  border: 1px solid currentColor;
+  pointer-events: none;
+  transform-origin: center;
+}
+
+.instrument-step-zoom__excitation--near {
+  box-shadow:
+    0 0 6px currentColor,
+    inset 0 0 6px color-mix(in srgb, currentColor 60%, transparent);
+  animation: instrument-step-excitation-near 105ms linear both;
+}
+
+.instrument-step-zoom__excitation--far {
+  filter: blur(1.2px);
+  box-shadow: 0 0 18px 2px color-mix(in srgb, currentColor 55%, transparent);
+  mix-blend-mode: screen;
+  animation: instrument-step-excitation-far 120ms linear both;
+}
+
+.instrument-step-zoom__afterglow {
+  border: 1px solid currentColor;
+  box-shadow:
+    0 0 8px currentColor,
+    0 0 20px 2px color-mix(in srgb, currentColor 45%, transparent),
+    inset 0 0 7px color-mix(in srgb, currentColor 40%, transparent);
+  mix-blend-mode: screen;
+  animation: instrument-step-afterglow 200ms linear both;
 }
 
 .instrument-action {
@@ -218,42 +266,104 @@
 @keyframes instrument-data-excitation-near {
   0% {
     opacity: 1;
-    transform: translateX(0.55px) scaleX(1.012);
+    transform: translate(
+      calc(var(--instrument-data-depth-near-x, 0px) + 0.55px),
+      var(--instrument-data-depth-near-y, 0px)
+    ) scaleX(1.012);
   }
   15% {
     opacity: 0.93;
-    transform: translateX(-0.32px) scaleX(1.004);
+    transform: translate(
+      calc(var(--instrument-data-depth-near-x, 0px) - 0.32px),
+      var(--instrument-data-depth-near-y, 0px)
+    ) scaleX(1.004);
   }
   34% {
     opacity: 0.89;
-    transform: translateX(0.18px);
+    transform: translate(
+      calc(var(--instrument-data-depth-near-x, 0px) + 0.18px),
+      var(--instrument-data-depth-near-y, 0px)
+    );
   }
   62% {
     opacity: 0.86;
-    transform: translateX(0);
+    transform: translate(
+      var(--instrument-data-depth-near-x, 0px),
+      var(--instrument-data-depth-near-y, 0px)
+    );
   }
   100% {
     opacity: var(--instrument-data-bloom-near-opacity, 0.85);
-    transform: translateX(0);
+    transform: translate(
+      var(--instrument-data-depth-near-x, 0px),
+      var(--instrument-data-depth-near-y, 0px)
+    );
   }
 }
 
 @keyframes instrument-data-excitation-far {
   0% {
     opacity: 0.7;
-    transform: translateX(0.35px) scaleX(1.006);
+    transform: translate(
+      calc(var(--instrument-data-depth-far-x, 0px) + 0.35px),
+      var(--instrument-data-depth-far-y, 0px)
+    ) scaleX(1.006);
   }
   22% {
     opacity: 0.5;
-    transform: translateX(-0.18px);
+    transform: translate(
+      calc(var(--instrument-data-depth-far-x, 0px) - 0.18px),
+      var(--instrument-data-depth-far-y, 0px)
+    );
   }
   58% {
     opacity: 0.35;
-    transform: translateX(0);
+    transform: translate(
+      var(--instrument-data-depth-far-x, 0px),
+      var(--instrument-data-depth-far-y, 0px)
+    );
   }
   100% {
     opacity: var(--instrument-data-bloom-far-opacity, 0.3);
-    transform: translateX(0);
+    transform: translate(
+      var(--instrument-data-depth-far-x, 0px),
+      var(--instrument-data-depth-far-y, 0px)
+    );
+  }
+}
+
+@keyframes instrument-step-excitation-near {
+  0% {
+    opacity: 1;
+    transform: scaleX(1.006);
+  }
+  28% {
+    opacity: 0.78;
+    transform: scaleX(1.002);
+  }
+  100% {
+    opacity: 0;
+    transform: scaleX(1);
+  }
+}
+
+@keyframes instrument-step-excitation-far {
+  0% {
+    opacity: 0.82;
+    transform: scaleX(1.01);
+  }
+  100% {
+    opacity: 0;
+    transform: scaleX(1);
+  }
+}
+
+@keyframes instrument-step-afterglow {
+  0% {
+    opacity: 0.68;
+  }
+  100% {
+    opacity: 0;
   }
 }
 

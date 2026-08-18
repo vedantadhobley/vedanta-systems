@@ -13,12 +13,14 @@ interface StepSequence {
   id: number
   from: number
   middle: number
-  phase: 0 | 1 | 2
+  phase: 0 | 1 | 2 | 3
   to: number
 }
 
-const STEP_ZOOM_BEAT_MS = 220
-const STEP_ZOOM_CLEANUP_MS = STEP_ZOOM_BEAT_MS * 3
+const STEP_ZOOM_BEAT_MS = 120
+const STEP_ZOOM_AFTERGLOW_MS = 200
+const STEP_ZOOM_ARRIVAL_MS = STEP_ZOOM_BEAT_MS * 3
+const STEP_ZOOM_CLEANUP_MS = STEP_ZOOM_ARRIVAL_MS + STEP_ZOOM_AFTERGLOW_MS
 
 interface InstrumentDisclosureProps {
   children: ReactNode
@@ -49,7 +51,8 @@ export function InstrumentDisclosure({
   const previousExpandedRef = useRef(expanded)
   const sequenceIdRef = useRef(0)
   const [sequence, setSequence] = useState<StepSequence | null>(null)
-  const reservedCollapseHeight = sequence?.from && sequence.from > sequence.to
+  const transitioning = Boolean(sequence && sequence.phase < 3)
+  const reservedCollapseHeight = transitioning && sequence && sequence.from > sequence.to
     ? sequence.from
     : undefined
 
@@ -117,6 +120,11 @@ export function InstrumentDisclosure({
         ? { ...current, phase: 2 }
         : current)
     }, STEP_ZOOM_BEAT_MS * 2)
+    const arrival = window.setTimeout(() => {
+      setSequence((current) => current?.id === activeSequenceId
+        ? { ...current, phase: 3 }
+        : current)
+    }, STEP_ZOOM_ARRIVAL_MS)
     const cleanup = window.setTimeout(() => {
       setSequence((current) => current?.id === activeSequenceId ? null : current)
     }, STEP_ZOOM_CLEANUP_MS)
@@ -124,12 +132,13 @@ export function InstrumentDisclosure({
     return () => {
       window.clearTimeout(middleBeat)
       window.clearTimeout(destinationBeat)
+      window.clearTimeout(arrival)
       window.clearTimeout(cleanup)
     }
   }, [activeSequenceId])
 
   const stepHeight = sequence
-    ? [sequence.from, sequence.middle, sequence.to][sequence.phase]
+    ? [sequence.from, sequence.middle, sequence.to, sequence.to][sequence.phase]
     : 0
 
   return (
@@ -141,17 +150,31 @@ export function InstrumentDisclosure({
         ref={rootRef}
         className="instrument-disclosure"
         data-expanded={expanded}
-        data-transitioning={sequence ? 'true' : undefined}
+        data-transitioning={transitioning ? 'true' : undefined}
       >
         {sequence && (
           <span
             key={sequence.id}
             className="instrument-step-zoom"
-            data-step={sequence.phase + 1}
+            data-step={sequence.phase < 3 ? sequence.phase + 1 : 'afterglow'}
             aria-hidden="true"
             style={{ height: stepHeight }}
           >
-            <span className="instrument-step-zoom__envelope" />
+            {sequence.phase < 3 ? (
+              <>
+                <span className="instrument-step-zoom__core" />
+                <span
+                  key={`${sequence.id}-${sequence.phase}-near`}
+                  className="instrument-step-zoom__excitation instrument-step-zoom__excitation--near"
+                />
+                <span
+                  key={`${sequence.id}-${sequence.phase}-far`}
+                  className="instrument-step-zoom__excitation instrument-step-zoom__excitation--far"
+                />
+              </>
+            ) : (
+              <span className="instrument-step-zoom__afterglow" />
+            )}
           </span>
         )}
 
