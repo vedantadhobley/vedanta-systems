@@ -46,6 +46,9 @@ function FixtureEvent({ event, exciteKey }: { event: EventRow; exciteKey: number
 export function FoundFootyFixtureWorkbench() {
   const [expanded, setExpanded] = useState(false)
   const [frameBehavior, setFrameBehavior] = useState<InstrumentFrameBehavior>('persistent')
+  const [occlusionEnabled, setOcclusionEnabled] = useState(true)
+  const [occlusionDepth, setOcclusionDepth] = useState(4)
+  const [occlusionWidth, setOcclusionWidth] = useState(2)
   const [projectionEnabled, setProjectionEnabled] = useState(true)
   const [projectionTrail, setProjectionTrail] = useState(8)
   const [projectionFalloff, setProjectionFalloff] = useState(1.8)
@@ -85,11 +88,15 @@ export function FoundFootyFixtureWorkbench() {
   const scopeStyle = {
     '--instrument-data-bloom-near-opacity': Math.min(1, 0.85 * bloomPercent / 100),
     '--instrument-data-bloom-far-opacity': Math.min(1, 0.3 * bloomPercent / 100),
+    '--instrument-frame-occlusion': '0px',
+    '--instrument-projected-occlusion-opacity': occlusionEnabled ? 1 : 0,
+    '--instrument-projected-occlusion-width': `${occlusionWidth}px`,
   } as CSSProperties
 
   return (
     <InstrumentProjectionField
       enabled={projectionEnabled}
+      occlusionDepth={occlusionDepth}
       trailFalloff={projectionFalloff}
       trailIntensity={projectionIntensity / 100}
       trailLength={projectionTrail}
@@ -131,7 +138,40 @@ export function FoundFootyFixtureWorkbench() {
               >
                 projector / {projectionEnabled ? 'center' : 'off'}
               </InstrumentAction>
+              <InstrumentAction
+                aria-pressed={occlusionEnabled}
+                onClick={() => setOcclusionEnabled((current) => !current)}
+                tone="accent"
+              >
+                occlusion / {occlusionEnabled ? 'projected' : 'off'}
+              </InstrumentAction>
             </div>
+
+            <label className="instrument-workbench__scale">
+              <PhosphorData tone="quiet">depth</PhosphorData>
+              <input
+                type="range"
+                min="0"
+                max="12"
+                step="0.5"
+                value={occlusionDepth}
+                onChange={(event) => setOcclusionDepth(Number(event.target.value))}
+              />
+              <PhosphorData tone="quiet">{occlusionDepth.toFixed(1)} px</PhosphorData>
+            </label>
+
+            <label className="instrument-workbench__scale">
+              <PhosphorData tone="quiet">umbra</PhosphorData>
+              <input
+                type="range"
+                min="0.5"
+                max="6"
+                step="0.5"
+                value={occlusionWidth}
+                onChange={(event) => setOcclusionWidth(Number(event.target.value))}
+              />
+              <PhosphorData tone="quiet">{occlusionWidth.toFixed(1)} px</PhosphorData>
+            </label>
 
             <label className="instrument-workbench__scale">
               <PhosphorData tone="quiet">trail</PhosphorData>
@@ -261,7 +301,7 @@ export function FoundFootyFixtureWorkbench() {
         <aside className="instrument-workbench__notes" aria-label="Prototype contract">
           <div>
             <PhosphorData tone="quiet">FRAME</PhosphorData>
-            <p><PhosphorData tone="quiet">Persistent keeps the white foreground present. Handoff replaces it during registration and restores it on arrival.</PhosphorData></p>
+            <p><PhosphorData tone="quiet">Persistent keeps the white foreground and its directional knockout present. Handoff removes both until the destination frame returns.</PhosphorData></p>
           </div>
           <div>
             <PhosphorData tone="quiet">STEP ZOOM</PhosphorData>

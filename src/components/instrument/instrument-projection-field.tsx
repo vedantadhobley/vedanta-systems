@@ -13,6 +13,7 @@ import { INSTRUMENT_PROJECTION_RAY_COUNT } from './instrument-projection-rays'
 interface InstrumentProjectionFieldProps {
   children: ReactNode
   enabled?: boolean
+  occlusionDepth?: number
   trailFalloff?: number
   trailIntensity?: number
   trailLength?: number
@@ -26,16 +27,17 @@ interface InstrumentProjectionFieldProps {
 export function InstrumentProjectionField({
   children,
   enabled = true,
+  occlusionDepth = 0,
   trailFalloff = 1.8,
   trailIntensity = 0.4,
   trailLength = 8,
 }: InstrumentProjectionFieldProps) {
   const animationFrameRef = useRef<number | null>(null)
   const resizeObserverRef = useRef<ResizeObserver | null>(null)
-  const settingsRef = useRef({ enabled, trailFalloff, trailIntensity, trailLength })
+  const settingsRef = useRef({ enabled, occlusionDepth, trailFalloff, trailIntensity, trailLength })
   const targetsRef = useRef(new Set<HTMLElement>())
 
-  settingsRef.current = { enabled, trailFalloff, trailIntensity, trailLength }
+  settingsRef.current = { enabled, occlusionDepth, trailFalloff, trailIntensity, trailLength }
 
   const updateTargets = useCallback(() => {
     animationFrameRef.current = null
@@ -52,6 +54,7 @@ export function InstrumentProjectionField({
         : 0
       const falloff = Math.max(settings.trailFalloff, 0.1)
       const intensity = Math.max(settings.trailIntensity, 0)
+      const occlusionScale = 1 + Math.max(settings.occlusionDepth, 0) / maximumDistance
 
       target.style.setProperty(
         '--instrument-projector-origin-x',
@@ -60,6 +63,10 @@ export function InstrumentProjectionField({
       target.style.setProperty(
         '--instrument-projector-origin-y',
         `${(originY - bounds.top).toFixed(3)}px`,
+      )
+      target.style.setProperty(
+        '--instrument-projector-occlusion-scale',
+        occlusionScale.toFixed(6),
       )
 
       for (let sample = 1; sample <= INSTRUMENT_PROJECTION_RAY_COUNT; sample += 1) {
@@ -99,7 +106,7 @@ export function InstrumentProjectionField({
 
   useLayoutEffect(() => {
     scheduleUpdate()
-  }, [enabled, scheduleUpdate, trailFalloff, trailIntensity, trailLength])
+  }, [enabled, occlusionDepth, scheduleUpdate, trailFalloff, trailIntensity, trailLength])
 
   useEffect(() => {
     const resizeObserver = typeof ResizeObserver === 'undefined'

@@ -324,6 +324,15 @@ rather than one DOM ray stack per cell. The workbench can disable the field and
 tune trail length, ray intensity, falloff exponent, bloom intensity, and step
 timing independently.
 
+`InstrumentFrame` also exposes an opt-in projected-occlusion pass between its
+complete data composite and its crisp white surface stroke. The pass paints no
+new visible surface: it uses pure ground black to remove lower-plane emission.
+Its frame copy scales away from the same viewport-center origin, so the narrow
+umbra is directional rather than a uniform inset lip. The workbench can disable
+the pass and tune its maximum radial displacement and width without changing
+bloom. Handoff transitions remove the occlusion pass with the white frame; a
+hidden surface cannot continue casting a visible knockout.
+
 The current DOM ray stack is the reference renderer, not the assumed final
 implementation. The [projected-data rendering research](./projected-data-rendering.md)
 evaluates grouped PixiJS, Three.js post-processing, and minimal WebGL paths for

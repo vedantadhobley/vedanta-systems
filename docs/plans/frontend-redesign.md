@@ -331,6 +331,14 @@ destination. `handoff` removes the white frame for the three lavender beats and
 restores the destination frame when the lavender core disappears. Both remain
 prototype inputs; review must choose one or define where each is appropriate.
 
+The current depth experiment replaces the uniform inset lip with an opt-in
+black occlusion frame between the data and surface planes. That hidden frame
+scales away from the shared viewport-center projector origin, producing a
+directional knockout only where lower-plane light reaches it. `depth` controls
+the maximum radial displacement and `umbra` controls the hard mask width; no
+extra scattering or ground color was added. In handoff mode the mask disappears
+with the white frame and returns only at the settled destination.
+
 `PhosphorData` now retains the actual previous visual when its response key or
 primitive text changes. A score update therefore paints the old score only in
 decaying near and far passes behind the immediately current semantic value.

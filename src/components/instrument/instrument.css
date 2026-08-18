@@ -13,6 +13,20 @@
   pointer-events: none;
 }
 
+.instrument-frame__projected-occlusion {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  box-sizing: border-box;
+  border: var(--instrument-projected-occlusion-width, 2px) solid var(--instrument-ground, #000000);
+  opacity: var(--instrument-projected-occlusion-opacity, 0);
+  pointer-events: none;
+  transform: scale(var(--instrument-projector-occlusion-scale, 1));
+  transform-origin:
+    var(--instrument-projector-origin-x, 50%)
+    var(--instrument-projector-origin-y, 50%);
+}
+
 .instrument-frame__content {
   position: relative;
   z-index: 1;
@@ -248,6 +262,10 @@
 }
 
 .instrument-disclosure[data-frame-behavior='handoff'][data-transitioning='true'] > .instrument-frame__surface {
+  opacity: 0;
+}
+
+.instrument-disclosure[data-frame-behavior='handoff'][data-transitioning='true'] > .instrument-frame__projected-occlusion {
   opacity: 0;
 }
 
