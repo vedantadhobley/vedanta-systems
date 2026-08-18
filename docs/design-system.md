@@ -81,10 +81,11 @@ while leaving room to tune the split after interaction testing.
    source node. Use separate near and far falloff passes behind the core.
 4. Place container geometry above the emission layer within the component's
    local stacking context.
-5. Give foreground container strokes a narrow ground-colored occlusion lip.
-   Bloom that reaches a boundary disappears beneath this lip before the crisp
-   stroke is drawn, creating foreground/background separation without
-   parallax or a drop shadow.
+5. Give foreground container strokes a narrow ground-colored optical lip and
+   inset the CRT viewport behind it. Bloom that reaches the viewport boundary
+   stops abruptly beneath this lip before the crisp stroke is drawn, creating
+   foreground/background separation without parallax or a drop shadow. The lip
+   is dead space, not a second visible border.
 6. Keep emission layers free of pointer events and layout influence.
 7. Give every data node low resting emission. A value that appears or changes
    may overshoot that luminance, cross briefly below it, then settle back. A
@@ -151,27 +152,31 @@ between navigation levels can use the same grammar later.
 
 When a cell changes scale:
 
-1. Application state and destination layout update immediately. The steady
-   white frame disappears before the browser paints. Data shared by both
-   semantic scales remains visible; destination-only data stays hidden.
-2. One lavender phosphor frame replaces the white frame at the previous cell
-   bounds.
+1. Application state and destination layout update immediately. The white
+   foreground frame stays fully present and encloses the complete source-to-
+   destination envelope. Data shared by both semantic scales remains visible;
+   destination-only data stays hidden.
+2. One lavender phosphor registration appears inside the optical lip at the
+   previous cell bounds. It does not replace or touch the white frame.
 3. That same visible frame snaps to the intermediate bounds and then the
    destination bounds. Its sharp core remains at constant intensity. Each new
    registration gives the near and far emission a small horizontal overshoot
    and undershoot, then settles to resting bloom. The previous measured bounds
    remain only as fading emission.
 4. The lavender destination frame holds for one beat.
-5. The lavender core disappears at the same instant that the settled white
-   frame and destination-only data snap in around the persistent shared data.
-   A destination-shaped afterglow remains beneath the white frame and decays
-   after arrival.
+5. The lavender core disappears when destination-only data appears around the
+   persistent shared data. On contraction, the enclosing white frame snaps to
+   the smaller destination at this instant. A destination-shaped afterglow
+   remains beneath the white frame and decays after arrival.
 
-The lavender transition belongs to the data/emission plane. The source and
-destination white frames belong to the container plane and only appear in
-settled states. This is a discrete cut between semantic scales, bridged by one
-continuous emitted outline rather than a morph between digital boxes.
-Expansion and contraction use the same contract in opposite directions.
+The lavender transition belongs to the data/emission plane. The white frame
+belongs to the container plane and remains the foreground depth reference
+throughout the interaction. This is a discrete cut between semantic scales,
+bridged by one continuous emitted outline rather than a morph between digital
+boxes. Expansion and contraction use the same registration sequence in
+opposite directions. Retaining the larger white envelope during contraction
+is a provisional depth calibration and must be reviewed against the immediate
+container-response contract.
 
 Render the three registrations with one emission envelope that jumps between
 measured integer bounds. A small phase state machine selects the source,
@@ -280,14 +285,15 @@ The first source-owned primitives live in `src/components/instrument/`:
   as decaying emission; arrival leaves the destination persistence beneath the
   restored surface frame.
 
-The first optical-depth calibration assigns the rear-plane registration to the
-shared phosphor material, so it applies to every `PhosphorData` instance and to
-the lavender outline. Within a container, emission is clipped to its aperture
-and covered by a two-pixel black lip beneath the white stroke. Near and far
-passes receive progressively deeper subpixel offsets while the source core
-remains in its exact layout position. This creates separation through stacking,
-occlusion, and light registration rather than blurring or shadowing the
-readable data itself.
+The current optical-depth calibration assigns a shared fractional registration
+to the complete phosphor material, so readable cores, every `PhosphorData`
+instance, and the lavender outline occupy one displaced rear plane. Within the
+fixture, data lives in an inset CRT viewport whose emission is clipped beneath
+a four-pixel black optical lip and the white stroke. Near and far passes receive
+additional progressively deeper subpixel offsets. The lavender registration is
+inset by the same lip while the foreground frame remains visible around it.
+This creates separation through stacking, dead space, occlusion, and light
+registration rather than blurring or shadowing the readable data itself.
 
 The dev-only workbench is served from `/instrument-components.html`. Its
 Found Footy study uses representative local data and is intentionally absent

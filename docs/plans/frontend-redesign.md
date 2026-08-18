@@ -283,32 +283,35 @@ initially used one CSS-animated envelope, but animating measured height while
 painting blurred shadows still produced unstable intermediate rendering.
 
 The current renderer is phase-driven. React selects one rounded measured
-height at each of three equal 120 ms registrations. The settled white frame and
-its destination-only data disappear for the 360 ms mechanical sequence;
-fixture data shared by both scales stays visible. One uninterrupted lavender
-core snaps through the source, intermediate, and destination bounds without
-changing intensity. Its near and far passes use the same brief horizontal
-overshoot, undershoot, and resting bloom response as text and icons. When the
-core leaves a registration, near and far copies of those actual measured bounds
-persist and decay behind the next registration. At arrival the lavender core
-swaps out exactly when the white frame and new data return, while the retained
-destination passes decay beneath the white frame for another 200 ms. CSS never
-interpolates or fades the live lavender geometry. A dedicated layout wrapper
-reserves the old height during
-contraction until arrival, which prevents adjacent margins and controls from
-jumping into the afterimage. The workbench exposes only white and lavender
-data; the unrequested green, yellow, and red prototype roles were removed
-rather than promoted into the library. The timing and response remain
-provisional.
+height at each of three equal 120 ms registrations. The white foreground frame
+remains fully opaque and encloses the largest source or destination bounds for
+the 360 ms mechanical sequence; fixture data shared by both scales stays
+visible while destination-only data waits. One uninterrupted lavender core,
+inset inside the foreground optical lip, snaps through the source,
+intermediate, and destination bounds without changing intensity. Its near and
+far passes use the same brief horizontal overshoot, undershoot, and resting
+bloom response as text and icons. When the core leaves a registration, near and
+far copies of those actual measured bounds persist and decay behind the next
+registration. At arrival the lavender core swaps out exactly when new data
+appears. On contraction, the foreground frame also snaps from the retained
+source envelope to the compact destination at arrival. The retained destination
+passes then decay beneath it for another 200 ms. CSS never interpolates or
+fades the live lavender geometry. A dedicated layout wrapper reserves the old
+height during contraction until arrival, which prevents adjacent margins and
+controls from jumping into the afterimage. The workbench exposes only white and
+lavender data; the unrequested green, yellow, and red prototype roles were
+removed rather than promoted into the library. The timing, inset, and retained
+contraction envelope remain provisional.
 
 The depth calibration now belongs to the shared phosphor material rather than
-the fixture aperture alone. Text, icons, values, and the lavender outline use
-the same progressively deeper subpixel registration for near and far emission.
-Every crisp frame and action surface stacks above that material; local
-apertures clip it, and the pure-black lip beneath a white frame is two pixels.
-The sharp source core does not move. This tests depth through global plane
-assignment, local occlusion, and emitted-light registration rather than
-additional core blur, drop shadow, or page-wide post-processing.
+the fixture aperture alone. Text, icons, values, and the lavender outline move
+together on a `0.4 × 0.6 px` rear-plane registration. Near and far emission add
+progressively deeper offsets. Every crisp frame and action surface stacks above
+that material. The fixture adds an actual inner CRT viewport, clipped behind a
+four-pixel pure-black optical lip; the lavender registration uses that same
+inset while the white frame stays visible. This tests depth through global
+plane assignment, dead space, local occlusion, and emitted-light registration
+rather than additional core blur, drop shadow, or page-wide post-processing.
 
 `PhosphorData` now retains the actual previous visual when its response key or
 primitive text changes. A score update therefore paints the old score only in

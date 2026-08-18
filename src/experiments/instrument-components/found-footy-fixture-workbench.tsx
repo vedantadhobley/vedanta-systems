@@ -155,11 +155,11 @@ export function FoundFootyFixtureWorkbench() {
         <aside className="instrument-workbench__notes" aria-label="Prototype contract">
           <div>
             <PhosphorData tone="quiet">FRAME</PhosphorData>
-            <p><PhosphorData tone="quiet">White at rest. It returns above the lavender destination afterglow.</PhosphorData></p>
+            <p><PhosphorData tone="quiet">The white foreground stays present. Its black optical lip masks the CRT aperture.</PhosphorData></p>
           </div>
           <div>
             <PhosphorData tone="quiet">STEP ZOOM</PhosphorData>
-            <p><PhosphorData tone="quiet">A stable lavender core snaps forward. Previous registrations decay behind it.</PhosphorData></p>
+            <p><PhosphorData tone="quiet">A stable lavender registration snaps inside the aperture. Previous bounds decay behind it.</PhosphorData></p>
           </div>
           <div>
             <PhosphorData tone="quiet">DATA</PhosphorData>

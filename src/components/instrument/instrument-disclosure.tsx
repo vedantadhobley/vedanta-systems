@@ -3,6 +3,7 @@ import {
   useLayoutEffect,
   useRef,
   useState,
+  type CSSProperties,
   type ReactNode,
 } from 'react'
 
@@ -33,7 +34,7 @@ interface InstrumentDisclosureProps {
 }
 
 /**
- * A controlled disclosure that swaps its settled surface for one continuous
+ * A controlled disclosure that keeps a foreground aperture above one
  * three-position emission frame while application layout updates underneath.
  */
 export function InstrumentDisclosure({
@@ -140,6 +141,9 @@ export function InstrumentDisclosure({
   const stepHeight = sequence
     ? [sequence.from, sequence.middle, sequence.to, sequence.to][sequence.phase]
     : 0
+  const transitionFrameHeight = sequence
+    ? sequence.phase < 3 ? Math.max(sequence.from, sequence.to) : sequence.to
+    : 0
   const afterimageHeights = sequence
     ? [
         ...(sequence.phase >= 1 ? [{ id: 'source', height: sequence.from }] : []),
@@ -158,6 +162,9 @@ export function InstrumentDisclosure({
         className="instrument-disclosure"
         data-expanded={expanded}
         data-transitioning={transitioning ? 'true' : undefined}
+        style={sequence ? {
+          '--instrument-disclosure-transition-height': `${Math.max(sequence.from, sequence.to)}px`,
+        } as CSSProperties : undefined}
       >
         {sequence && (
           <span
@@ -165,10 +172,10 @@ export function InstrumentDisclosure({
             className="instrument-step-zoom"
             data-step={sequence.phase < 3 ? sequence.phase + 1 : 'afterglow'}
             aria-hidden="true"
-            style={{ height: stepHeight }}
+            style={{ height: transitionFrameHeight }}
           >
             {sequence.phase < 3 ? (
-              <>
+              <span className="instrument-step-zoom__registration" style={{ height: stepHeight }}>
                 <span className="instrument-step-zoom__core" />
                 <span
                   key={`${sequence.id}-${sequence.phase}-near`}
@@ -178,7 +185,7 @@ export function InstrumentDisclosure({
                   key={`${sequence.id}-${sequence.phase}-far`}
                   className="instrument-step-zoom__emission instrument-step-zoom__emission--far"
                 />
-              </>
+              </span>
             ) : null}
 
             {afterimageHeights.map(({ id, height }) => (
@@ -195,23 +202,25 @@ export function InstrumentDisclosure({
         )}
 
         <div className="instrument-disclosure__aperture">
-          <button
-            type="button"
-            aria-controls={contentId}
-            aria-expanded={expanded}
-            className="instrument-disclosure__toggle"
-            disabled={disabled}
-            onClick={toggle}
-            onTouchStart={() => {}}
-          >
-            {summary}
-          </button>
+          <div className="instrument-disclosure__crt-plane">
+            <button
+              type="button"
+              aria-controls={contentId}
+              aria-expanded={expanded}
+              className="instrument-disclosure__toggle"
+              disabled={disabled}
+              onClick={toggle}
+              onTouchStart={() => {}}
+            >
+              {summary}
+            </button>
 
-          {expanded && (
-            <div id={contentId} className="instrument-disclosure__content">
-              {children}
-            </div>
-          )}
+            {expanded && (
+              <div id={contentId} className="instrument-disclosure__content">
+                {children}
+              </div>
+            )}
+          </div>
         </div>
       </InstrumentFrame>
     </div>

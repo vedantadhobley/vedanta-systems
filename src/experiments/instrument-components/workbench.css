@@ -8,6 +8,9 @@
   --instrument-data-bloom-near-opacity: 0.85;
   --instrument-data-bloom-far-radius: 3.5px;
   --instrument-data-bloom-far-opacity: 0.3;
+  --instrument-aperture-lip: 4px;
+  --instrument-phosphor-plane-x: 0.4px;
+  --instrument-phosphor-plane-y: 0.6px;
   --instrument-phosphor-depth-near-x: 0.3px;
   --instrument-phosphor-depth-near-y: 0.45px;
   --instrument-phosphor-depth-far-x: 0.6px;
@@ -15,7 +18,7 @@
   --instrument-phosphor-response-near-duration: 90ms;
   --instrument-phosphor-response-far-duration: 110ms;
   --instrument-phosphor-persistence-duration: 200ms;
-  --instrument-frame-occlusion: 2px;
+  --instrument-frame-occlusion: 4px;
   --instrument-focus: #ffffff;
   --instrument-font-data: 'GT Pressura Mono', ui-monospace, monospace;
 }
