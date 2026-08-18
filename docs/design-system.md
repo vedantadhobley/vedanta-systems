@@ -138,26 +138,26 @@ between navigation levels can use the same grammar later.
 
 When a cell changes scale:
 
-1. The first phosphor beat registers the previous cell bounds.
-2. The actual container snaps immediately to its destination bounds. It does
-   not tween, stretch, or fade. A second emission beat registers an
-   intermediate scale without becoming real layout geometry.
-3. The third beat coincides with the destination frame already present in its
-   settled geometry.
-4. Data that belongs to the destination scale appears inside the frame,
-   energizes, and decays after application state is already current.
+1. Application state and destination layout update immediately, but the
+   steady white frame and its data disappear before the browser paints.
+2. One lavender phosphor frame replaces them at the previous cell bounds.
+3. That same visible frame snaps to the intermediate bounds and then the
+   destination bounds. It does not blink or fade between registrations.
+4. The lavender destination frame holds for one beat.
+5. The lavender frame disappears at the same instant that the settled white
+   frame and destination data snap back in.
 
-The beats belong to the data/emission plane. The source and destination cells
-belong to the container plane and only ever exist in settled geometry. This is
-a discrete cut between semantic scales, bridged by emitted light rather than a
-morph between boxes. Expansion and contraction use the same contract in
-opposite directions.
+The lavender transition belongs to the data/emission plane. The source and
+destination white frames belong to the container plane and only appear in
+settled states. This is a discrete cut between semantic scales, bridged by one
+continuous emitted outline rather than a morph between digital boxes.
+Expansion and contraction use the same contract in opposite directions.
 
 Render the three registrations with one emission envelope that jumps between
 measured integer bounds. A small phase state machine selects the source,
-intermediate, or destination bound directly. CSS may animate each
-registration's light intensity, but it must not animate or interpolate the
-envelope's height or transform. Do not mount three overlapping outlines.
+intermediate, or destination bound directly. The envelope stays fully present
+between those selections; CSS must not interpolate its geometry or fade it
+between beats. Do not mount three overlapping outlines.
 When contracting in normal document flow, a dedicated layout wrapper reserves
 the old footprint until the emission envelope clears so adjacent margins
 cannot collapse into the afterimage.

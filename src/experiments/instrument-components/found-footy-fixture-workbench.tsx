@@ -155,15 +155,15 @@ export function FoundFootyFixtureWorkbench() {
         <aside className="instrument-workbench__notes" aria-label="Prototype contract">
           <div>
             <PhosphorData tone="quiet">FRAME</PhosphorData>
-            <p><PhosphorData tone="quiet">Snaps to the destination geometry. No opacity or height transition.</PhosphorData></p>
+            <p><PhosphorData tone="quiet">White at rest. It swaps out during step zoom and returns at the destination.</PhosphorData></p>
           </div>
           <div>
             <PhosphorData tone="quiet">STEP ZOOM</PhosphorData>
-            <p><PhosphorData tone="quiet">Three fast emission registrations: previous, intermediate, destination.</PhosphorData></p>
+            <p><PhosphorData tone="quiet">One continuous lavender frame snaps through previous, intermediate, and destination.</PhosphorData></p>
           </div>
           <div>
             <PhosphorData tone="quiet">DATA</PhosphorData>
-            <p><PhosphorData tone="quiet">A readable core remains current while its beam spread settles behind it.</PhosphorData></p>
+            <p><PhosphorData tone="quiet">Destination data returns with the white frame after the final lavender beat.</PhosphorData></p>
           </div>
         </aside>
       </div>

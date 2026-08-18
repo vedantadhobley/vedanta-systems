@@ -18,7 +18,7 @@ interface StepSequence {
 }
 
 const STEP_ZOOM_BEAT_MS = 220
-const STEP_ZOOM_CLEANUP_MS = 700
+const STEP_ZOOM_CLEANUP_MS = STEP_ZOOM_BEAT_MS * 3
 
 interface InstrumentDisclosureProps {
   children: ReactNode
@@ -31,8 +31,8 @@ interface InstrumentDisclosureProps {
 }
 
 /**
- * A controlled disclosure whose real frame cuts directly to its new geometry.
- * Three short emission-plane registrations describe the semantic scale change.
+ * A controlled disclosure that swaps its settled surface for one continuous
+ * three-position emission frame while application layout updates underneath.
  */
 export function InstrumentDisclosure({
   children,
@@ -141,10 +141,11 @@ export function InstrumentDisclosure({
         ref={rootRef}
         className="instrument-disclosure"
         data-expanded={expanded}
+        data-transitioning={sequence ? 'true' : undefined}
       >
         {sequence && (
           <span
-            key={`${sequence.id}-${sequence.phase}`}
+            key={sequence.id}
             className="instrument-step-zoom"
             data-step={sequence.phase + 1}
             aria-hidden="true"

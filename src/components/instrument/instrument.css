@@ -148,6 +148,12 @@
   position: relative;
 }
 
+.instrument-disclosure[data-transitioning='true'] > .instrument-frame__surface,
+.instrument-disclosure[data-transitioning='true'] .instrument-disclosure__toggle,
+.instrument-disclosure[data-transitioning='true'] .instrument-disclosure__content {
+  opacity: 0;
+}
+
 .instrument-step-zoom {
   position: absolute;
   z-index: 2;
@@ -159,16 +165,14 @@
 
 .instrument-step-zoom__envelope {
   position: absolute;
-  inset: var(--instrument-step-inset, 2px);
+  inset: 0;
   box-sizing: border-box;
   border: 1px solid var(--instrument-data-accent, #c9a0f0);
-  opacity: 0;
+  opacity: 1;
   box-shadow:
     0 0 4px color-mix(in srgb, var(--instrument-data-accent, #c9a0f0) 100%, transparent),
     0 0 12px color-mix(in srgb, var(--instrument-data-accent, #c9a0f0) 45%, transparent),
     inset 0 0 5px color-mix(in srgb, var(--instrument-data-accent, #c9a0f0) 38%, transparent);
-  will-change: opacity;
-  animation: instrument-step-registration 205ms linear both;
 }
 
 .instrument-action {
@@ -264,24 +268,7 @@
   72% { opacity: 0.32; }
 }
 
-@keyframes instrument-step-registration {
-  0% {
-    opacity: 1;
-  }
-  55% {
-    opacity: 0.92;
-  }
-  100% {
-    opacity: 0;
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
-  .instrument-step-zoom__envelope {
-    animation: none;
-    opacity: 0;
-  }
-
   .instrument-data__emission--near,
   .instrument-data--active .instrument-data__emission--near {
     animation: none;
