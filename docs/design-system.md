@@ -324,6 +324,11 @@ rather than one DOM ray stack per cell. The workbench can disable the field and
 tune trail length, ray intensity, falloff exponent, bloom intensity, and step
 timing independently.
 
+The current DOM ray stack is the reference renderer, not the assumed final
+implementation. The [projected-data rendering research](./projected-data-rendering.md)
+evaluates grouped PixiJS, Three.js post-processing, and minimal WebGL paths for
+continuous per-pixel rays, bloom, and event-scoped persistence.
+
 The lavender registration renders inside a 14-pixel overscan buffer; a separate
 aperture clips the composite symmetrically beneath the white stroke in
 persistent-frame mode. Its active core and emission stay constant across all

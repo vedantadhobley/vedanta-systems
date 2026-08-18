@@ -19,4 +19,7 @@ Use this index to route project work before searching the full docs tree.
 - [Frontend redesign exploration](./plans/frontend-redesign.md) — rejected
   shell studies and the progressive migration plan from the current UI.
 - [Ports](./ports.md) — host-port assignments and exceptions.
+- [Projected data rendering research](./projected-data-rendering.md) — radial
+  scattering, bloom, persistence, React integration, and candidate GPU
+  renderers for the rear data plane.
 - [Todo](./todo.md) — active work, deferred cleanup, and unresolved choices.
