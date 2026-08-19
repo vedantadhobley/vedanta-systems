@@ -167,16 +167,19 @@ and dhobley repos. This repo owns the browser-facing consumer:
 
 - [x] Add the sequence-aware NATS frame store and
   `/api/btop/<node>/{health,stream}` routes without replacing the live path.
-- [x] Add the disabled-by-default node publisher, frame encoder tests, and
-  versioned schema in the shared NATS repo.
+- [x] Add the sequence-aware frame encoder prototype and versioned schema in
+  the shared NATS repo. Its disabled direct-agent publisher is superseded and
+  must not be deployed.
 - [x] Reconcile the public-display child against current upstream btop as
   configurable operator/public profiles (`feature/vedanta-profiles`,
   `6f76ec6`) and verify GPU plus non-GPU builds.
 - [ ] Move node-agent packaging to the authoritative `~/workspace/btop/src`
   checkout and retire this repo's stale embedded `btop/src` child.
-- [ ] Add the authenticated compute-interface NATS listener, per-node
-  publish-only credentials, BFF subscribe-only credentials, firewall rules,
-  and control-plane secret delivery.
+- [ ] Remove the direct NATS publisher from the node agent and implement the
+  same private-stream relay contract in joi-control-plane and
+  nexus-control-plane. Give each relay publish rights only for its owned nodes.
+- [ ] Bind each agent's HTTP/SSE endpoint to the compute network and restrict
+  it to its owning control plane. NATS remains internal to luv.
 - [ ] Point the luv tile at the new route after the first native agent proves
   startup, reconnect, sequence-gap, and periodic-full recovery.
 - [ ] Move joi only after its NixOS-hosted native agent is healthy; do not

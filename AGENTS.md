@@ -74,8 +74,9 @@ The proxy stack itself lives in `~/workspace/proxy/`; its
   credentials at `~/.cloudflared/`.
 - **btop monitor**: the live legacy path runs duplicate luv containers and
   luv-hosted SSH collectors for joi; joi is currently dead after its NixOS and
-  network migration. The replacement is one native agent per physical node,
-  publishing ordered frames through Core NATS to the BFF. The authoritative
+  network migration. The replacement is one native agent per physical node;
+  its owning control plane consumes a private HTTP/SSE stream and publishes
+  ordered frames through Core NATS to the BFF. The authoritative
   modified source is `~/workspace/btop/src`; this repo's `btop/src` is the
   stale public-display child used by the legacy image. See `docs/btop.md`.
 
@@ -86,7 +87,7 @@ The proxy stack itself lives in `~/workspace/proxy/`; its
 | **found-footy** | **Pattern B, live both envs.** Proxies the Go read API (`found-footy-{env}-api:8081`) for fixtures/search/events (reshaped by the shim), plus a NATS live-feed bridge (`found-footy.<env>.>` → SSE) and share_id video re-proxy (302 → presigned Garage). Dev 2026-08-13, prod 2026-08-15. | Done — no direct mongo/minio peers. |
 | **spin-cycle** | Reads `spin-cycle-{env}-postgres` directly (Pattern A) | `spin-cycle-{env}-api:3000` already exists — vs-api just needs to swap from pg pool to HTTP proxy. |
 | **long-exposure** | Reads `long-exposure-{env}-postgres` directly (Pattern A, by design until LE grows its own API) | Pattern B once LE has a separate api service. The `caddy.d/long-exposure.caddy` file documents the current design. |
-| **btop-luv / btop-joi** | Legacy Express proxies `/api/btop-{luv,joi}/{health,stream}` to host ports; joi is currently unavailable. A dormant sequence-aware NATS consumer exists at `/api/btop/<node>/*`. | One native agent per node → Core NATS → BFF → same-origin browser SSE; no direct worker route. |
+| **btop-luv / btop-joi** | Legacy Express proxies `/api/btop-{luv,joi}/{health,stream}` to host ports; joi is currently unavailable. A dormant sequence-aware NATS consumer exists at `/api/btop/<node>/*`. | One native agent per node → private HTTP/SSE → owning control plane → Core NATS → BFF → browser SSE. |
 | **legal-tender** | Not surfaced. | Pattern B from day one when it lands. |
 
 Pattern A vs B is the central architectural call here — see
@@ -152,9 +153,10 @@ Pattern A vs B is the central architectural call here — see
 - **Legal Tender**: not surfaced. It must use Pattern B when it lands.
 - **btop**: luv remains on the legacy duplicate-container path; joi is down
   because its legacy collector SSHes from luv into the pre-migration host.
-  The dormant NATS consumer, shared frame schema, optional agent publisher,
-  and current-upstream source profile have landed. Secure remote NATS access
-  and node-owned deployment definitions are the next gate; see `docs/btop.md`.
+  The dormant NATS consumer, shared frame schema, and current-upstream source
+  profile have landed. The un-deployed direct agent publisher was a boundary
+  mistake and is superseded. Private agent endpoints and control-plane relay
+  implementations are the next gate; see `docs/btop.md`.
 - **Open infra question**: `nginx.conf`'s `/btop-luv/` location block references `vedanta-systems-prod-btop` (singular) — predates the luv/joi split where the actual container is `vedanta-systems-prod-btop-luv`. Probably stale/dead; verify before pruning. Tracked in @docs/todo.md.
 
 ## Memory model (for me, the agent)

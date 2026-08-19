@@ -18,6 +18,8 @@ collection topology:
 
 ```text
 one native btop agent on each node
+  -> private HTTP/SSE over the node's compute network
+  -> owning control-plane relay
   -> Core NATS btop.<node>.frame events
   -> vedanta-systems BFF reconstructs current node frames
   -> same-origin /api/btop/<node>/stream SSE
@@ -27,8 +29,10 @@ one native btop agent on each node
 There is one agent per physical node, with no development/production
 duplication. luv uses Compose, joi uses its declared NixOS-hosted Compose
 stack, and Nexus uses its shared `virtualisation.oci-containers` module. The
-joi and Nexus control planes deploy the agents and own node lifecycle; they do
-not relay terminal frames or use btop health as workload readiness.
+joi and Nexus control planes deploy the agents, consume their private streams,
+and publish the canonical NATS frames. They also own node lifecycle, but do not
+use btop health as workload readiness. The node agents never connect to NATS or
+the frontend.
 
 `src/server/routes/btop.ts` is the first migration slice. It subscribes to the
 future NATS subjects and exposes `/api/btop/{node}/{health,stream}` while the
@@ -68,7 +72,8 @@ embedded source copy.
 - **AMD APU Support**: GTT memory reporting for Ryzen AI MAX+ 395 (Strix Halo)
 - **Custom Theme**: Lavender theme matching site aesthetics
 - **SSE Broadcast**: Single btop instance, all clients receive same stream
-- **NATS Agent Mode**: Optional canonical node stream for the multi-node path
+- **Private Agent Stream**: Node-local HTTP/SSE consumed only by its control plane
+- **Control-plane Relay**: Canonical NATS publication and reconnect handling
 - **Delta Encoding**: Send changed cells, with a full-frame fallback
 - **CSS Grid Rendering**: Deterministic fixed-cell alignment across layouts
 - **Read-only**: No keyboard input, display only
@@ -158,31 +163,35 @@ Frame N: FULL     → fallback when more than 50% of cells changed
 }
 ```
 
-## Multi-node NATS contract
+## Multi-node relay and NATS contract
 
-The agent publishes canonical frames once per node. Delta calculation no
-longer happens independently for every browser connection.
+The node agent exposes its parsed full/delta stream over private HTTP/SSE. The
+owning control plane opens that connection, validates and reconstructs the
+terminal, then publishes one canonical NATS stream per node. Delta calculation
+no longer happens independently for every public browser connection.
 
 - Subject: `btop.<node>.frame`. btop is an environment-less infrastructure
   singleton; the node token is the routing dimension.
 - Envelope: the workspace `{id, ts, source, version, subject, payload}` shape.
 - Payload: `{node, session, sequence, frame}`.
-- `session`: changes when the captured btop process restarts.
+- `session`: assigned by the control-plane relay and changes when its upstream
+  agent connection is replaced.
 - `sequence`: increases for every full or delta frame in a session.
 - `frame`: the existing compact `{t:"f",c:[...]}` or `{t:"d",d:[...]}`
   browser representation.
 
-The BFF accepts a delta only when its session matches and its sequence is the
-next value. A gap marks that node unsynchronized. A later full frame restores
-it. Agents must publish a full frame at startup, after reconnecting to NATS,
-and periodically so a restarted BFF can recover without NATS request/reply or
-durable replay.
+The control-plane relay owns sequence numbers and NATS credentials. It emits a
+full frame when it first synchronizes an agent, after reconnecting to NATS, and
+periodically so a restarted BFF can recover without NATS request/reply or
+durable replay. The BFF accepts a delta only when its session matches and its
+sequence is the next value. A gap marks that node unsynchronized until a later
+full frame restores it.
 
-An unchanged capture publishes an empty delta. It advances sequence and acts
-as a small liveness event, so a quiet terminal is not mistaken for an offline
-node. The initial implementation publishes once per second and forces a full
-frame after 30 deltas; both values are configurable and must be measured during
-the luv pilot.
+While the private agent stream and health endpoint remain fresh, the relay
+publishes an empty delta for an unchanged capture. It advances sequence and
+acts as a small liveness event, so a quiet terminal is not mistaken for an
+offline node. Cadence and periodic-full frequency must be measured during the
+luv pilot.
 
 Frames use Core NATS because they are transient live state. Replaying old
 terminal motion after a node powers off would be incorrect. The BFF keeps the
@@ -206,22 +215,37 @@ btop/
 
 ## Configuration
 
-### Native-agent environment
+### Native-agent boundary
 
-NATS publishing is disabled unless `NATS_URL` is set, so the existing
-containers retain their current behavior.
+The target node agent exposes only private HTTP endpoints:
 
-| Variable | Meaning | Default |
-|---|---|---|
-| `NATS_URL` | Workspace broker URL | unset; publishing disabled |
-| `BTOP_NODE` | Lowercase physical node slug used in the subject | required with `NATS_URL` |
-| `NATS_CREDS` | Scoped NATS credentials file inside the container | unset during the local open-mode pilot only |
-| `BTOP_PUBLISH_INTERVAL_SEC` | Canonical publish cadence | `1.0` |
-| `BTOP_FULL_FRAME_INTERVAL` | Delta count before a forced full frame | `30` |
+- `/stream`: full/delta terminal cells for one control-plane consumer;
+- `/health`: capture freshness for relay admission;
+- `/frame`: optional full-frame diagnostics, private to operators.
 
-The image pins `nats-py[nkeys]` so remote deployments can use NKey/JWT
-credentials. Do not configure a remote agent until authenticated broker access
-and firewall restrictions land.
+The service binds only on the node's compute interface. Host firewall rules
+admit its owning control plane and reject other callers. The agent has no NATS
+URL or NATS credentials.
+
+The current un-deployed prototype in `broadcast-server.py` still contains an
+optional direct NATS publisher. That was a boundary mistake. Do not enable it;
+remove it when the control-plane relays land.
+
+### Control-plane relay
+
+`joi-control-plane` owns the joi relay. `nexus-control-plane` owns one relay per
+known Nexus worker and uses its lifecycle state to decide whether silence means
+expected power-off or a fault. The luv relay follows the same protocol locally.
+Each relay:
+
+1. connects to the private agent `/stream` and checks `/health`;
+2. reconstructs a complete 132×43 frame;
+3. assigns relay session and sequence values;
+4. forces a full frame after either upstream or NATS reconnect;
+5. publishes only the nodes its control plane owns.
+
+Because the control planes run on luv, they reach workspace NATS through its
+internal Docker network. No compute-network NATS listener is required.
 
 ### BFF environment
 
@@ -231,11 +255,10 @@ and firewall restrictions land.
 | `BTOP_NATS_CREDS` | Optional subscriber credentials file inside the API container | unset during the local open-mode pilot only |
 | `BTOP_NODES` | Comma-separated desired node inventory, including nodes that may be powered off | set to `luv,joi` in current Compose files |
 
-Remote agents require a broker listener on the compute interface with scoped
-credentials and firewall restrictions. Each agent may publish only its own
-`btop.<node>.frame` subject. The BFF may subscribe only to `btop.*.frame`.
-Do not expose NATS to the public internet and do not put credentials in the
-browser.
+Control-plane credentials may publish only their owned subjects: joi gets
+`btop.joi.frame`, while Nexus gets the approved `btop.nexus*.frame` set. The
+BFF may subscribe only to `btop.*.frame`. Do not expose NATS to the compute
+network or public internet, and do not put credentials in agents or browsers.
 
 ### btop.conf highlights
 
@@ -520,11 +543,14 @@ environment:
 
 When `BTOP_HOST` is not `local`, the container SSHes to the remote host and
 runs btop there. The dead joi services still use this mode. This mechanism is
-being removed; every node will run its own native agent.
+being removed; every node will run its own native agent and its control plane
+will consume that agent over private HTTP/SSE.
 
 ## Relationship to Other Services
 
-The agent does not depend on Express to capture or encode btop. The public
-browser depends on the Express BFF for same-origin SSE and never connects to
-NATS or a node directly. Prometheus remains the owner of historical host and
-GPU metrics; btop is a transient interactive instrument.
+The agent does not depend on Express to capture or encode btop. Its owning
+control plane is the only cross-node consumer and the only NATS publisher. The
+public browser depends on the Express BFF for same-origin SSE and never
+connects to NATS, a control plane, or a node directly. Prometheus remains the
+owner of historical host and GPU metrics; btop is a transient interactive
+instrument.

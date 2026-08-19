@@ -398,3 +398,31 @@ cannot allocate arbitrary node caches. Subscriber credentials can be mounted
 through `BTOP_NATS_CREDS` when the secured compute-interface listener lands.
 
 ---
+
+## 2026-08-19 — Route native btop streams through owning control planes
+
+**Context.** The first multi-node design let each node agent publish directly
+to NATS. That bypassed the existing joi and Nexus control-plane boundary and
+would have required exposing NATS plus distributing broker credentials to
+every monitored node.
+
+**Decision.** Each native btop agent exposes private HTTP/SSE on its compute
+network. Its owning control plane consumes and reconstructs that stream,
+assigns the canonical session and sequence, and publishes
+`btop.<node>.frame` through Core NATS. joi-control-plane owns joi;
+nexus-control-plane owns the Nexus workers. The luv path uses the same relay
+contract locally. Agents and browsers never receive NATS credentials.
+
+This supersedes only the publisher boundary in the preceding dormant-bridge
+decision. The subject, envelope, frame schema, BFF reconstruction, sequence-gap
+handling, and same-origin browser SSE remain valid.
+
+**Consequences.** NATS stays on luv's internal service network. Control planes
+can combine transport health with authoritative node lifecycle state, avoid
+reconnecting to intentionally powered-off workers, and force a full frame
+after either upstream-agent or NATS recovery. Node endpoints require private
+compute-network binding and control-plane-only firewall access. The un-deployed
+direct publisher in `broadcast-server.py` is a superseded prototype and must
+be removed before rollout.
+
+---

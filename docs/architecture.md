@@ -127,7 +127,8 @@ This is the legacy path. The native multi-node migration now has a dormant
 consumer at `src/server/routes/btop.ts`:
 
 ```text
-node-local agent -> Core NATS btop.<node>.frame
+node-local agent -> private HTTP/SSE on the compute network
+  -> owning control-plane relay -> Core NATS btop.<node>.frame
   -> Express in-memory reconstruction
   -> /api/btop/<node>/{health,stream}
   -> browser
@@ -136,13 +137,17 @@ node-local agent -> Core NATS btop.<node>.frame
 The existing routes and containers stay active until the luv agent proves the
 new path. The joi SSH collector is currently unavailable after joi's NixOS and
 network migration. The target has one native agent per physical node, no
-development/production duplication, and no browser-to-node connection. See
-the [btop integration contract](./btop.md).
+development/production duplication, and no browser-to-node or node-to-NATS
+connection. joi-control-plane relays joi; nexus-control-plane relays its
+workers. The luv path uses the same relay boundary locally. See the
+[btop integration contract](./btop.md).
 
 The BFF inventory comes from `BTOP_NODES` plus authenticated publisher
 discovery. This preserves explicit offline entries for powered-down nodes and
-rejects arbitrary public node names. `BTOP_NATS_CREDS` supplies the future
-subscribe-only credentials; the browser remains on same-origin SSE.
+rejects arbitrary public node names. `BTOP_NATS_CREDS` supplies the BFF's
+future subscribe-only credentials. NATS stays on luv's internal service
+network; node agents receive no broker credentials. The browser remains on
+same-origin SSE.
 
 ## Network model
 
