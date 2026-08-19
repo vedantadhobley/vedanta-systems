@@ -33,7 +33,11 @@ These are the standards against which an exploration succeeds or fails:
    filter applied at maximum intensity to every surface.
 4. **Desktop and mobile fluency.** Neither layout is a reduced version of
    the other. Navigation and controls must remain obvious and comfortable
-   on both.
+   on both. Shared semantics do not require identical mechanics: hover and
+   real pointer movement may expose information on a mouse, while touch needs
+   deliberate tap targets and must keep ordinary gestures free of side effects.
+   Hybrid devices follow the active input instead of a user-agent or viewport
+   classification.
 5. **Operational usefulness.** The portal is an instrument Vedanta uses,
    not only a portfolio visitors observe. Live and historical data remain
    fast, accurate, and easy to inspect. The two live btop surfaces are a

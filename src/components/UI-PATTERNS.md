@@ -130,10 +130,11 @@ assumed its one-shot autoplay call succeeded, which caused:
 
 **Location:** `VideoModal` component in `/src/components/found-footy-browser.tsx`
 
-**Key insight:** Native controls start disabled and appear only after a direct
-tap on the video. Muted autoplay is the default, but autoplay is never assumed
-to succeed. A custom play action appears only when the browser rejects playback
-or the timeline stops advancing.
+**Key insight:** Native controls start disabled. A real mouse movement over the
+video reveals them on desktop; a deliberate tap reveals them on touch input;
+keyboard focus reveals them without requiring pointer input. Muted autoplay is
+the default, but autoplay is never assumed to succeed. A custom play action
+appears only when the browser rejects playback or the timeline stops advancing.
 
 ### Implementation
 
@@ -146,8 +147,13 @@ const [controlsEnabled, setControlsEnabled] = useState(false)
   autoPlay
   muted
   playsInline
+  tabIndex={0}
   controls={controlsEnabled}
+  onPointerMove={event => {
+    if (event.pointerType === 'mouse') setControlsEnabled(true)
+  }}
   onClick={() => setControlsEnabled(true)}
+  onFocus={() => setControlsEnabled(true)}
   onPlaying={() => setPlaybackStatus('playing')}
   // ...
 />
@@ -168,9 +174,13 @@ const [controlsEnabled, setControlsEnabled] = useState(false)
    pause/play cycle when the browser claims to play without advancing.
 4. **Failure remains recoverable:** a custom play button calls `play()`
    directly inside the user's tap. It is not a native video control bar.
-5. **Controls are on demand:** the first deliberate tap reveals the browser's
-   native controls without intentionally pausing the autoplaying clip. Once
-   visible, an intentional native pause remains paused.
+5. **Controls follow the active input:** real mouse movement over the video
+   reveals native controls on desktop. Touch movement does not; the first
+   deliberate tap reveals them without intentionally pausing the autoplaying
+   clip. Keyboard focus also reveals them. A hybrid device follows the
+   `PointerEvent.pointerType` of the current interaction rather than a global
+   mobile/desktop guess. Once controls are visible, an intentional native pause
+   remains paused.
 6. **Failures stay visible:** rejected promises and media errors include the
    trigger plus media state in the console.
 
@@ -183,3 +193,6 @@ const [controlsEnabled, setControlsEnabled] = useState(false)
 3. **Always add `onTouchStart={() => {}}`** - Required for iOS `:active` support
 4. **Treat autoplay as optional** - Prove playback started and provide a direct user-action fallback
 5. **Grace periods prevent event bleed-through** - Especially important for modals/overlays
+6. **Branch on input capability, not viewport width or user agent** - Prefer
+   CSS interaction media queries and `PointerEvent.pointerType`; hybrid devices
+   can use mouse and touch in one session

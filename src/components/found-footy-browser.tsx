@@ -1371,6 +1371,7 @@ function ClipButton({ index, isBest, onClick }: ClipButtonProps) {
   return (
     <button
       onClick={onClick}
+      aria-label={`Play clip ${index}${isBest ? ', best available clip' : ''}`}
       className={cn(
         "w-7 h-7 border flex items-center justify-center transition-none font-mono leading-none",
         "hover:border-corpo-light hover:text-corpo-light",
@@ -1613,6 +1614,16 @@ const MemoizedVideoModal = memo(function VideoModal({ url, title, subtitle, even
     setControlsEnabled(true)
   }
 
+  // Desktop users expect transport controls to surface when they move the
+  // pointer over the picture. Touch movement is usually scrolling or a gesture,
+  // so mobile keeps the deliberate-tap contract above. Checking the event's
+  // actual pointer type also handles hybrid laptops without classifying the
+  // whole device as either "desktop" or "mobile".
+  const handlePointerMove = (e: React.PointerEvent<HTMLVideoElement>) => {
+    if (controlsEnabled || e.pointerType !== 'mouse') return
+    setControlsEnabled(true)
+  }
+
   return (
     <div 
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/80"
@@ -1692,12 +1703,15 @@ const MemoizedVideoModal = memo(function VideoModal({ url, title, subtitle, even
             src={url}
             controls={controlsEnabled}
             playsInline
+            tabIndex={0}
             preload="auto"
             crossOrigin="anonymous"
             disableRemotePlayback // Hide Chromecast button
             className="w-full border border-corpo-border block"
             style={{ maxHeight: '80vh', backgroundColor: '#000' }}
             onClick={handleShowControls}
+            onPointerMove={handlePointerMove}
+            onFocus={() => setControlsEnabled(true)}
             onPlaying={() => {
               lastCurrentTimeRef.current = videoRef.current?.currentTime ?? 0
               lastProgressAtRef.current = performance.now()

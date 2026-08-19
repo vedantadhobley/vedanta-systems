@@ -306,3 +306,24 @@ still exposes the manual play action, and a browser that reports
 weakening the original false-playing recovery path.
 
 ---
+
+## 2026-08-19 — Adapt video controls to the active input modality
+
+**Context.** Native video controls initially stayed hidden until a click or tap.
+That is appropriate for touch, where movement is normally a scroll or gesture,
+but desktop users expect controls to surface as soon as they move a mouse over
+the picture. Classifying an entire device as mobile or desktop would mishandle
+touch-capable laptops and pointer changes during a session.
+
+**Decision.** Reveal native controls on a video `pointermove` only when the
+active pointer reports `pointerType === 'mouse'`. Preserve the deliberate click
+or tap path for all inputs, and reveal the controls when keyboard focus reaches
+the video. Use input capabilities and the current pointer event instead of
+viewport width or user-agent detection for interaction behavior.
+
+**Consequences.** An idle mouse does not reveal controls merely because a modal
+opened beneath it. Actual mouse movement does. Touch scrolling and movement do
+not expose controls, while a deliberate tap still does. Hybrid hardware follows
+the input currently in use.
+
+---
