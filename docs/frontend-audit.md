@@ -47,6 +47,21 @@ boundary:
 
 This is data revalidation, not a page reload.
 
+### P0 — SSE reconnection does not prove that state is current
+
+Found Footy correctly treats NATS messages as refetch hints while connected,
+but the browser stream has no replay contract. A transient EventSource failure
+reopens the stream without fetching a snapshot. Opening a video deliberately
+closes the stream, and closing the video reconnects it without first fetching
+the state that may have changed during playback. Visibility recovery does
+refetch, but only after the live-day check described above.
+
+An open SSE connection proves only that future hints can arrive. It does not
+prove that the browser received every hint during the disconnected interval.
+Every transition from possibly disconnected to live must reconcile through
+REST, then use SSE for later notifications. Keep direct clock patches
+ephemeral and replaceable by the next snapshot.
+
 ### P1 — Every route starts every live project provider
 
 `App` mounts Found Footy and Spin Cycle providers above the router. Opening the
@@ -190,3 +205,7 @@ lands, then make providers safe under Strict Mode.
 The audit does not recommend a shell rewrite first. The current operational
 layouts remain the reference behavior while these contracts become reusable
 components.
+
+The [frontend re-foundation plan](./plans/frontend-refoundation.md) turns these
+findings into the active migration sequence. This audit remains a dated
+evidence record rather than a second plan.

@@ -88,10 +88,12 @@ docker compose -f docker-compose.dev.yml up -d --build     # dev
 
 ## 4. Verify
 
+Replace `<base-domain>` with the configured workspace base domain.
+
 ```bash
 curl -sI https://vedanta.systems/                                  # prod (public)
-curl -sI http://vedanta-systems-dev.luv/                           # dev frontend (tailnet)
-curl -sI http://vedanta-systems-dev-api.luv/api/found-footy/health # dev api (tailnet)
+curl -sI http://vedanta-systems-dev.<base-domain>/                 # dev frontend (tailnet)
+curl -sI http://vedanta-systems-dev-api.<base-domain>/api/health   # dev api (tailnet)
 ```
 
 The api container has no published host port and is not directly fronted

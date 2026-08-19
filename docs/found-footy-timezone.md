@@ -18,7 +18,8 @@ This single difference cascades through everything below.
 
 A user can see:
 
-1. **All completed fixtures** — every fixture in `fixtures_completed` (up to 90 days of dates from the server). No timezone filtering; history is always fully visible.
+1. **All completed fixtures in the current API window** — history is not
+   removed by the staging-preview cutoff.
 2. **All active fixtures** — any fixture currently in `fixtures_active` (in-play right now). Always visible.
 3. **Today's staging fixtures** — upcoming fixtures whose date, in the user's timezone, is today.
 4. **One full future day of staging fixtures** — the *first* date after today (in the user's timezone) that has any fixtures at all. Not necessarily tomorrow — if tomorrow has no fixtures but the day after does, that day is the one shown.
@@ -31,13 +32,18 @@ Staging fixtures have no events, no scores, no videos — they're just scheduled
 
 ## How It Works: Normal Browsing
 
-### Server: `/dates` endpoint
+### BFF: `/dates?tz=<minutes-east-of-UTC>` endpoint
 
-Returns distinct `YYYY-MM-DD` dates (extracted from `fixture.date` in UTC) across all three collections: `fixtures_completed`, `fixtures_active`, `fixtures_staging`. These are **UTC dates** — the server has no concept of user timezone.
+The client sends `0` in UTC mode or the browser's current UTC offset in local
+mode. The BFF reads the current Found Footy fixture window from the Go API,
+shifts each kickoff by that offset, and returns distinct `YYYY-MM-DD` values.
+The returned date index is therefore bucketed for the requested mode rather
+than always being UTC.
 
-### Client: `availableDatesInMode`
+### Client: `navigableDates`
 
-In `found-footy-browser.tsx`, the raw UTC date list is filtered against the user's timezone-aware `today`:
+In `FootyStreamContext.tsx`, the mode-bucketed date list is filtered against
+the user's timezone-aware `today`:
 
 ```
 All dates where date ≤ today  →  navigable (past + today)
@@ -45,7 +51,8 @@ First date where date > today  →  navigable (next future day)
 Everything else                →  hidden
 ```
 
-The date arrows in the nav bar only cycle through `availableDatesInMode`. Dates beyond the cutoff are unreachable.
+The date arrows in the nav bar only cycle through `navigableDates`. Dates
+beyond the cutoff are unreachable.
 
 ### Client: fixture fetching
 
@@ -53,21 +60,20 @@ When the user navigates to a date, the context fetches `/fixtures?date=YYYY-MM-D
 
 ## How It Works: Search
 
-### Server: `/search?q=<query>` endpoint
+### BFF: `/search?q=<query>` endpoint
 
-Searches all three collections in parallel:
-- `fixtures_completed` — matches team names, player names, assist names (limit 100)
-- `fixtures_active` — same filter (limit 50)
-- `fixtures_staging` — matches team names only, no events to search (limit 50)
-
-Results are deduped, sorted by date descending, and grouped by **UTC date**. The server returns everything it finds with no timezone awareness.
+The BFF proxies the Found Footy Go search endpoint, which matches competition,
+team, scorer, and assist names. It reshapes the flat fixture results for the
+legacy frontend, derives highlight metadata, and groups results by **UTC date**.
+The BFF does not apply the user's navigation cutoff.
 
 ### Client: `filteredSearchResults`
 
 Search results are re-processed client-side through the same scoping rule:
 
 1. Each fixture's date is converted to the user's timezone via `getDateForTimestamp`.
-2. The cutoff date is computed — the newest date in `availableDatesInMode` (same list used for normal navigation).
+2. The cutoff date is computed from the newest date in `navigableDates` (the
+   same list used for normal navigation).
 3. **Completed/active fixtures** (status ≠ `NS`) pass through unconditionally.
 4. **Staging fixtures** (status = `NS`) are dropped if their timezone-local date exceeds the cutoff.
 5. Surviving fixtures are regrouped by their **timezone-local date** (not the server's UTC grouping).
@@ -88,17 +94,23 @@ If Feb 21 is the "next future date" for the AEDT user, they see it. If Feb 21 is
 
 Toggling from Local to UTC (or vice versa) can shift which date a fixture belongs to and whether it falls within the cutoff. This is intentional — each mode shows an internally consistent view.
 
-### `availableDates` are UTC but the cutoff is timezone-local
+### `availableDates` follow the selected mode
 
-The `/dates` endpoint returns UTC dates. The client compares these against `getToday()` (timezone-aware). This works because date strings are `YYYY-MM-DD` and the comparison is lexicographic — a UTC date of `2026-02-21` compared against a local `today` of `2026-02-21` correctly identifies it as today, even though the underlying moments differ.
+The client refetches `/dates` when the user switches Local/UTC mode. It compares
+those mode-bucketed `YYYY-MM-DD` strings with `getToday()` in the same mode.
+Fixture requests still fetch the selected date plus its adjacent UTC dates,
+then use `getDateForTimestamp()` for final client-side bucketing.
 
-The one subtlety: the available dates list reflects UTC boundaries, so a fixture that lands on a *different* local date than its UTC date might cause its local date to be absent from `availableDates`. This doesn't matter for the cutoff calculation (which only needs to know the max navigable date), but it's why fixture fetching requests adjacent UTC dates and filters locally.
+The local-mode date index currently uses one numeric offset captured at request
+time, not an IANA timezone evaluated at each kickoff. Historical fixtures on
+the other side of a daylight-saving transition can differ by one hour from the
+browser's final bucketing. This is tracked in the todo list.
 
 ## File Map
 
 | File | Role |
 |------|------|
 | `src/contexts/timezone-context.tsx` | `getToday()`, `getDateForTimestamp()`, timezone toggle state |
-| `src/contexts/FootyStreamContext.tsx` | Fetches `/dates`, manages `availableDates`, search state |
-| `src/components/found-footy-browser.tsx` | `availableDatesInMode` (navigation cutoff), `filteredSearchResults` (search cutoff) |
-| `src/server/routes/found-footy.ts` | `/dates`, `/search`, `/fixtures` endpoints — all UTC, no timezone logic |
+| `src/contexts/FootyStreamContext.tsx` | Fetches `/dates`, derives `navigableDates`, manages route data and search state |
+| `src/components/found-footy-browser.tsx` | Applies the `filteredSearchResults` staging cutoff and renders navigation |
+| `src/server/routes/found-footy.ts` | `/dates` fixed-offset bucketing; `/search` UTC grouping; `/fixtures` UTC date filter |

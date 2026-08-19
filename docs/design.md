@@ -12,6 +12,11 @@ the screen surface, with luminous data rendered beneath them. Develop it
 progressively from the current production UI. Do not infer a new shell or
 navigation design from the mood references in this brief.
 
+The [frontend re-foundation plan](./plans/frontend-refoundation.md) governs
+how this language lands with live-data correctness, input, accessibility, and
+route ownership. Visual and runtime work are one migration, not parallel
+rewrites that must be reconciled later.
+
 The Claude artifact linked below is a historical reference. It contains
 the first implemented `pop → pop → pop` system-reveal study and other
 useful visual ideas. It is not a specification, and neither the artifact
@@ -43,11 +48,14 @@ These are the standards against which an exploration succeeds or fails:
    fast, accurate, and easy to inspect. The two live btop surfaces are a
    primary part of the product, not secondary decoration or a status-card
    summary that a redesign may abstract away.
-6. **Atmosphere.** The interface should feel like precise projected light
+6. **Continuity.** A route recovers its authoritative state after sleep,
+   reconnect, page restoration, midnight, and timezone changes without a full
+   page reload. Decorative continuity never substitutes for data freshness.
+7. **Atmosphere.** The interface should feel like precise projected light
    behind a physical foreground mask: sharp focus-free cores, controlled
    bloom, fast phosphor-like excitation, and a quieter afterglow. Phosphor is
    a temporal response model, not a mandate to simulate CRT texture.
-7. **Color restraint.** Start shared components with pure black, white
+8. **Color restraint.** Start shared components with pure black, white
    container strokes, and white/lavender data. Do not invent semantic hues as
    part of a prototype. Add a color only when a real instrument needs the
    distinction and Vedanta has reviewed it. Existing data-rich instruments
@@ -168,10 +176,11 @@ monitors, the spinner HUD, the replicant-record lookups):
   of the effect. The UI should feel as though it is the display, not a web
   page placed behind an imitation-display filter.
 - **Fog + depth** remain scene references, not a global screen treatment. The
-  component ground is pure black. The current moon samples `moon.mp4` into a
-  low-resolution pixel canvas and contains substantial mobile-resume recovery
-  logic. Whether a later composition keeps, replaces, or removes it is an
-  exploration question.
+  component ground is pure black. A dormant `MoonBackground` component samples
+  `moon.mp4` into a low-resolution pixel canvas and contains substantial
+  mobile-resume recovery logic, but `App` does not currently mount it. Whether
+  a later composition keeps, replaces, or removes it is an exploration
+  question.
 - **Hardware bezels + labeled controls** — verbs as instrument keys
   (`V2 · EV · REC · ◄◄ ►►`), not web buttons.
 - **Record cards** — drill-downs read like the film's replicant-record
@@ -305,17 +314,20 @@ The frontend renders `phase` × `videos.length` (× `player`, `debounce_count`):
 `complete`+0 → "no clips found", `complete`+N → "N clips", `detected`+null →
 "unknown scorer", `removed` → "VAR — overturned".
 
-Until `phase` ships, the Pattern-B shim (`src/server/routes/found-footy.ts`)
-fakes it from `state==='completed'` / unknown-scorer / has-clips — exact for
-finished games, ambiguous only for live ones. See
-[`docs/decisions.md` 2026-08-13](./decisions.md).
+`phase` and `debounce_count` now ship from the Found Footy Go API. The current
+Pattern-B shim (`src/server/routes/found-footy.ts`) maps that semantic phase
+back into the legacy `_monitor_complete` / `_download_complete` fields because
+the production component still consumes the old Mongo-shaped contract. A
+pre-phase fallback remains for compatibility. The migrated frontend should
+consume the semantic phase directly and delete that presentation-era mapping.
 
 ## Where this connects
 
 - [`AGENTS.md`](../AGENTS.md) — front door; request paths, the found-footy
   live-data path the wave will eventually read from.
 - [`docs/architecture.md`](./architecture.md) — how the frontend is served.
-- [`docs/todo.md`](./todo.md) — the redesign is a workstream; the
-  found-footy NATS→SSE path is what makes the wave live.
+- [`docs/plans/frontend-refoundation.md`](./plans/frontend-refoundation.md) —
+  active migration and frontend runtime contract.
+- [`docs/todo.md`](./todo.md) — unresolved and deferred project work.
 - Cross-project cutover context lives in
   [`~/workspace/vedanta-dhobley/docs/plans/2026-08-15-cutover.md`](../../../vedanta-dhobley/docs/plans/2026-08-15-cutover.md).

@@ -1,9 +1,15 @@
-# Frontend redesign exploration
+# Frontend visual exploration log
 
-Status: direction reset on `feature/phosphor-shell-exploration`. Both shell
-studies are rejected. The current production interface is the baseline.
+Status: historical evidence on `feature/phosphor-shell-exploration`. Both
+shell studies are rejected. The instrument-component workbench remains a
+prototype, not a selected production implementation.
 
-## Objective
+The [frontend re-foundation plan](./frontend-refoundation.md) owns current
+migration order and runtime architecture. This file preserves the design turns,
+prototype behavior, and review findings that informed it. Do not treat the
+chronology below as an active checklist.
+
+## Historical objective
 
 Develop a reusable visual system for vedanta.systems without replacing its
 working information architecture. The governing direction is a two-plane
@@ -22,8 +28,10 @@ generated code are references. None is a specification.
 
 The confirmed requirements and current visual vocabulary live in the
 [design brief](../design.md). The working component and rendering contracts
-live in the [interface design system](../design-system.md). Decisions move to
-[the decision log](../decisions.md) only after a prototype is selected.
+live in the [interface design system](../design-system.md). The active
+[re-foundation plan](./frontend-refoundation.md) joins that visual work to
+runtime, accessibility, and route ownership. Decisions move to
+[the decision log](../decisions.md) only after they are selected.
 
 ## Historical first exploration slice
 
@@ -103,7 +111,7 @@ failed the revised design test:
 Treat the lab as rejected reference code only. Do not promote its shell,
 navigation, animation, or optional btop effect into production.
 
-## Current direction
+## Direction that survived the shell studies
 
 The site contains two visual element types:
 
@@ -407,7 +415,12 @@ The prototype meets type-check/build requirements, does not regress current
 page behavior, and establishes reusable primitives instead of one-off visual
 timelines.
 
-## Progressive implementation
+## Superseded migration sketch
+
+The active sequence now lives in the
+[frontend re-foundation plan](./frontend-refoundation.md). The list below is
+retained to show how the visual prototype was expected to grow before the
+runtime audit expanded the scope.
 
 1. Inventory one current Found Footy fixture by container-plane and
    data-plane part.

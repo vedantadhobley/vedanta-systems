@@ -22,6 +22,8 @@ Reached from the browser via the Express API:
 `host-gateway` (prod) / `host.docker.internal` (dev) on the port
 above. See `mountBtopProxy` in `src/server/index.ts`.
 
-For the workspace-wide cross-project port allocation scheme (3X00 /
-4X00 per-project slot ranges, plus the always-on 300x infra band),
-see the canonical table in `~/.claude/CLAUDE.md`.
+These btop bindings are explicit exceptions, not members of a numeric project
+band. The old 300x infrastructure band and 3X0Y project slots are retired.
+Workspace routing and the exception register live in
+`~/workspace/proxy/CONVENTIONS.md` and
+`~/workspace/vedanta-dhobley/docs/topology.md`.

@@ -7,19 +7,18 @@ they're deleted from this file when the work lands.
 
 ---
 
-## Now — frontend correctness before visual migration
+## Now — frontend re-foundation through Found Footy
 
-The [2026-08-19 frontend audit](./frontend-audit.md) found one live-data
-correctness issue that should lead the next frontend pass: Found Footy does not
-advance or revalidate correctly when a live-day view resumes after midnight.
-Implement the audit's live-following state and lifecycle sequence, then
-route-scope the Found Footy and Spin Cycle providers so inactive projects do not
-keep requests and SSE connections alive.
+The [frontend re-foundation plan](./plans/frontend-refoundation.md) is the
+authoritative sequence. Begin with Found Footy's route-owned runtime: separate
+live intent from the selected date, reconcile REST after every disconnected
+interval, protect request ordering, and handle wake, page restore, network
+recovery, midnight, and timezone changes.
 
-After that, establish the shared input, focus, and modal primitives before
-migrating more production UI into the two-plane component system. The audit
-owns the evidence and implementation order; do not duplicate its full finding
-list here.
+Then land shared input, focus, dialog, disclosure, and media primitives with
+the first complete two-plane route slice. The
+[2026-08-19 frontend audit](./frontend-audit.md) owns the evidence; the plan
+owns implementation order. Do not duplicate their full finding lists here.
 
 ---
 
@@ -127,13 +126,13 @@ data surface. Don't migrate proactively.
 
 ---
 
-## Found Footy — timezone navigation (fold into the frontend rewrite)
+## Found Footy — timezone navigation (fold into the re-foundation)
 
 Surfaced 2026-08-11 while auditing the found-footy ingest/retention
 tz contract from the Go-rebuild side. Both items live in the
 timezone-scoping path documented in `docs/found-footy-timezone.md`.
-The frontend is slated for a rewrite, so capture-and-defer rather
-than patch in place — but the rewrite MUST address #1.
+The active re-foundation captures these in its Found Footy slice rather than
+patching the legacy provider in isolation. The slice must address #1.
 
 1. **"One future day" splits a tz-straddling match day for eastern
    users.** `navigableDates` (`FootyStreamContext.tsx`) keeps every
@@ -150,15 +149,14 @@ than patch in place — but the rewrite MUST address #1.
    edge case is already half-acknowledged in
    `found-footy-timezone.md` §"Fixture straddles midnight".
 
-2. **`found-footy-timezone.md` is stale.** §"Server: `/dates`
-   endpoint" (line ~36) and §"`availableDates` are UTC but the cutoff
-   is timezone-local" (lines ~91-95) describe a **UTC-only** `/dates`
-   with "no concept of user timezone." The code has since moved on:
-   `getAvailableDates(offsetMin)` shifts each timestamp by the
-   caller's offset via `$dateAdd`, and the client calls
-   `/dates?tz=<tzMin>`. `availableDates` are now **timezone-local**,
-   not UTC. Update the doc (or delete the stale sections) when the
-   rewrite touches this path.
+2. **The date index uses one current fixed offset, not an IANA timezone.**
+   The client calls `/dates?tz=<tzMin>` with the browser's offset at request
+   time. The BFF applies that offset to every fixture in the window, while
+   `getDateForTimestamp()` uses the browser's date rules for each timestamp.
+   Historical fixtures across a daylight-saving boundary can therefore be
+   indexed an hour differently from their final client bucketing. Replace the
+   fixed-offset index contract or prove the retained window cannot expose the
+   mismatch.
 
 ---
 

@@ -4,6 +4,11 @@ Status: working guideline. This document defines the direction to prototype
 progressively on the current production interface. It does not approve a new
 shell, navigation model, font, palette, or motion timeline.
 
+This document owns visual material and component anatomy. The
+[frontend re-foundation plan](./plans/frontend-refoundation.md) owns runtime,
+route, input, accessibility, and migration order. A component enters the
+source-owned system only when it satisfies both contracts.
+
 The site is made from two visual element types: **containers** and **data**.
 This mirrors the system it represents: containers provide structure and
 operation; data moves through them.
@@ -291,7 +296,7 @@ copy-and-adapt model but governed by Vedanta Systems' own rendering contracts.
 Do not make it a separate package until a real consumer outside this frontend
 needs one.
 
-Build it in four layers:
+Its visual half has four layers:
 
 1. **Foundations:** plane, color, typography, spacing, focus, excitation, and
    reduced-motion tokens.
@@ -303,6 +308,11 @@ Build it in four layers:
 
 Project compositions may differ. They must reuse the plane and interaction
 contracts rather than force every project into the same card anatomy.
+
+The broader component system also includes behavior and runtime primitives such
+as disclosure, dialogs, media playback, date intent, snapshot reconciliation,
+and stream ownership. Keep those concerns separate from optical renderers even
+when one composed control uses both.
 
 ### First implementation slice
 
@@ -372,9 +382,11 @@ Found Footy study uses representative local data and is intentionally absent
 from the normal production build. The current timing, palette values, and
 component names are prototype inputs for review, not locked decisions.
 
-## Progressive adoption
+## Visual adoption sequence
 
-The current production interface is the baseline. Do not replace its shell or
+The current production interface is the baseline. The active sequence is in
+the [frontend re-foundation plan](./plans/frontend-refoundation.md); this list
+defines only the visual dependency order. Do not replace the shell or
 navigation while developing this system.
 
 1. Inventory one existing Found Footy fixture and classify each visible part

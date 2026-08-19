@@ -1,6 +1,7 @@
 # btop Integration
 
-Real-time system monitor displayed on vedanta.systems using btop + SSE broadcast + CSS Grid rendering.
+Real-time system monitor displayed on vedanta.systems using btop, a Python SSE
+broadcaster, the Express BFF, and CSS Grid rendering.
 
 ## Features
 
@@ -9,8 +10,8 @@ Real-time system monitor displayed on vedanta.systems using btop + SSE broadcast
   - rocm-smi v1.x compatibility
 - **Custom Theme**: Lavender theme matching site aesthetics
 - **SSE Broadcast**: Single btop instance, all clients receive same stream
-- **Delta Encoding**: Only send changed cells, ~80% bandwidth reduction
-- **CSS Grid Rendering**: Pixel-perfect character alignment on all devices
+- **Delta Encoding**: Send changed cells, with a full-frame fallback
+- **CSS Grid Rendering**: Deterministic fixed-cell alignment across layouts
 - **Read-only**: No keyboard input, display only
 - **Host Networking**: Sees real host network traffic
 
@@ -18,17 +19,23 @@ Real-time system monitor displayed on vedanta.systems using btop + SSE broadcast
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│ btop Container (network_mode: host, pid: host)              │
+│ btop Container (host network; host PID namespace on luv)    │
 │                                                             │
 │   btop ──► tmux ──► capture ──► ANSI Parser ──► SSE Server │
 │            (132x43)              (Python)        (deltas)   │
 └─────────────────────────────────────────────────────────────┘
-                              │
-                              ▼ SSE (full frame or delta)
+                              │ host ports 3102/3103 or 4102/4103
+                              ▼
+┌─────────────────────────────────────────────────────────────┐
+│ Express BFF                                                 │
+│ /api/btop-{luv,joi}/{health,stream} → host-gateway          │
+└─────────────────────────────────────────────────────────────┘
+                              │ same-origin SSE
+                              ▼
 ┌─────────────────────────────────────────────────────────────┐
 │ Browser                                                     │
 │                                                             │
-│   viewer.html ──► Apply Delta ──► Cell State ──► CSS Grid  │
+│   BtopMonitor ──► Apply Delta ──► Cell State ──► CSS Grid  │
 │   (EventSource)   (merge changes)  (5676 cells)  (render)  │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -40,7 +47,7 @@ Real-time system monitor displayed on vedanta.systems using btop + SSE broadcast
 | **btop** | Best-looking TUI system monitor with GPU support |
 | **tmux** | Fixed-size terminal (132x43), consistent capture |
 | **Python SSE** | Broadcast server with ANSI parsing + delta encoding |
-| **CSS Grid** | Pixel-perfect alignment, each character in fixed 6×12px cell |
+| **CSS Grid** | Deterministic alignment, each character in a fixed 6×12px cell |
 
 ### Why CSS Grid over xterm.js?
 
@@ -54,18 +61,18 @@ Real-time system monitor displayed on vedanta.systems using btop + SSE broadcast
 
 ### Problem
 
-Full terminal frame = 132×43 = 5,676 cells × ~20 bytes = **~12 KB per frame**.
-But only ~30% of cells actually change between frames (graphs, numbers, processes).
-We were resending 70% unchanged data every second.
+A full terminal frame contains 132×43 = 5,676 cells. Most captures change
+only a subset of those cells, so repeating the whole JSON cell array wastes
+bandwidth and browser work.
 
 ### Solution
 
 Server parses ANSI, tracks state, sends only changed cells:
 
 ```
-Frame 1: FULL     → 5,676 cells    (~12 KB)
-Frame 2: DELTA    →   847 changed  (~2.5 KB)  79% smaller
-Frame 3: DELTA    →   312 changed  (~1 KB)    92% smaller
+Frame 1: FULL     → 5,676 cells
+Frame 2: DELTA    → changed cells only
+Frame N: FULL     → fallback when more than 50% of cells changed
 ```
 
 ### Message Format
@@ -92,23 +99,14 @@ Frame 3: DELTA    →   312 changed  (~1 KB)    92% smaller
 }
 ```
 
-### Bandwidth Savings
-
-| Scenario | Full | Delta | Reduction |
-|----------|------|-------|-----------|
-| Idle system | 12 KB | ~0.5 KB | 96% |
-| Light activity | 12 KB | ~1.5 KB | 87% |
-| Heavy activity | 12 KB | ~3 KB | 75% |
-| **Average** | 12 KB | ~2 KB | **~85%** |
-
 ## Files
 
 ```
 btop/
 ├── Dockerfile           # Multi-stage build: compile btop, runtime with Python
 ├── entrypoint.sh        # Starts tmux→btop, then Python SSE server
-├── broadcast-server.py  # Python SSE server, captures tmux, broadcasts raw ANSI
-├── viewer.html          # CSS Grid viewer, parses ANSI client-side
+├── broadcast-server.py  # Captures tmux, parses ANSI, broadcasts cell deltas
+├── viewer.html          # Standalone development viewer for the cell protocol
 ├── btop.conf            # btop configuration (lavender theme, shown boxes, etc.)
 ├── themes/
 │   └── vedanta-lavender.theme
@@ -160,24 +158,27 @@ set -ga terminal-overrides ",*256col*:Tc"  # Enable true color
 }
 ```
 
-The viewer parses ANSI escape codes client-side and renders each character in its own fixed-size grid cell, then scales the entire grid with CSS transform to fit the container.
+The Python broadcaster parses ANSI into cells. The production
+`BtopMonitor` component applies full/delta cell messages, renders each
+character in a fixed-size grid cell, and scales the grid to fit its container.
+`viewer.html` is a standalone diagnostic client for the same protocol.
 
 ## Ports
 
-| Environment | Port | Notes |
-|-------------|------|-------|
-| Development | 4102 | Direct access (network_mode: host) |
-| Production | 3102 | Direct access (network_mode: host), proxied via API |
+| Environment | luv | joi | Browser path |
+|-------------|-----|-----|--------------|
+| Development | 4102 | 4103 | `/api/btop-{luv,joi}` through Vite → Express |
+| Production | 3102 | 3103 | `/api/btop-{luv,joi}` through nginx → Express |
 
 **Note**: btop uses `network_mode: host` to see real host network traffic, so it binds directly to host ports rather than using Docker port mapping.
 
 ## Docker Compose
 
-### Development (docker-compose.dev.yml)
+### Per-node shape
 
 ```yaml
-btop:
-  container_name: vedanta-systems-dev-btop
+btop-luv:
+  container_name: vedanta-systems-dev-btop-luv
   build:
     context: ./btop
     dockerfile: Dockerfile
@@ -196,21 +197,34 @@ btop:
   group_add:
     - "44"   # video
     - "992"  # render
+
+btop-joi:
+  container_name: vedanta-systems-dev-btop-joi
+  network_mode: host
+  volumes:
+    - /run/user/1000/keyring/ssh:/ssh-agent:ro
+  environment:
+    - WRAPPER_PORT=4103
+    - BTOP_HOST=${BTOP_JOI_SSH_HOST}
+    - SSH_AUTH_SOCK=/ssh-agent
 ```
 
-### Production
+Production uses the same two services with ports `3102` and `3103`. The joi
+container runs locally but SSHes to joi for the btop process; its health check
+returns `503` when no fresh capture arrives for 30 seconds.
 
-Same configuration, proxied through nginx:
+The public request path is:
 
-```nginx
-location /btop/ {
-    set $btop_upstream vedanta-systems-prod-btop;
-    proxy_pass http://$btop_upstream:4102/;
-    proxy_buffering off;
-    proxy_cache off;
-    proxy_read_timeout 86400s;
-}
+```text
+browser /api/btop-{luv,joi}/{health,stream}
+  → in-container nginx
+  → vedanta-systems-prod-api:3001
+  → host-gateway:{3102,3103}
+  → Python broadcaster
 ```
+
+nginx returns `404` for the standalone `/api/btop-luv/` and
+`/api/btop-joi/` roots. Only health and stream paths are public.
 
 ## SSE Protocol
 
@@ -222,28 +236,24 @@ The Python server exposes:
 
 Each frame:
 ```json
-{"frame": "<raw ANSI output from btop>"}
+{"t":"f","c":[["╭","5a4080",null,0]]}
+{"t":"d","d":[[127,"5","a57fd8",null,0]]}
 ```
 
-The viewer parses ANSI codes and renders to CSS Grid:
+The browser applies a full frame or changed cells directly:
 ```javascript
 eventSource.onmessage = (event) => {
     const data = JSON.parse(event.data);
-    const cells = parseAnsiToGrid(data.frame);
-    renderGrid(cells);
+    if (data.t === 'f') renderFull(data.c);
+    if (data.t === 'd') applyDelta(data.d);
 };
 ```
 
 ### Proxy Support
 
-When loaded through the API proxy (`/api/btop/`), the viewer detects this and uses the correct stream URL:
-```javascript
-function getStreamUrl() {
-    const path = window.location.pathname;
-    if (path.includes('/api/btop')) return '/api/btop/stream';
-    return '/stream';
-}
-```
+`BtopMonitor` receives `/api/btop-luv` or `/api/btop-joi` as `apiPrefix`
+and opens `${apiPrefix}/stream`. Express proxies only `health` and `stream` to
+the matching host port with SSE buffering disabled along the request path.
 
 ## Source Modifications
 
@@ -372,10 +382,10 @@ plumb), and explicitly handles APU + Vulkan workloads correctly. It's
 the tool of record for any Strix Halo iGPU monitoring this stack
 doesn't surface.
 
-The CSS Grid rendering provides pixel-perfect alignment on both
-desktop and mobile.
+The CSS Grid rendering preserves fixed terminal-cell alignment on desktop and
+mobile.
 
-## Future: Multi-System Support
+## Multi-System Support
 
 The architecture supports monitoring multiple systems:
 
@@ -383,14 +393,16 @@ The architecture supports monitoring multiple systems:
 environment:
   - BTOP_HOST=local           # This system
   # or
-  - BTOP_HOST=user@10.0.0.5   # SSH to remote system
+  - BTOP_HOST=vedanta@<host>.<your-tailnet>.ts.net  # SSH to remote system
 ```
 
-When `BTOP_HOST` is not "local", the container SSHs to the remote host and runs btop there. Requires SSH key mounted.
+When `BTOP_HOST` is not `local`, the container SSHes to the remote host and
+runs btop there. The joi services use this mode today through the mounted host
+SSH agent.
 
 ## Relationship to Other Services
 
-- **API Server (4101)**: Node.js Express server for found-footy and other projects
-- **btop Server (4102)**: Separate Python SSE server, no dependencies on API
-
-These are independent services. btop does not use the Express API - it has its own lightweight Python server specifically for SSE broadcast.
+The Python broadcasters do not depend on Express to capture or encode btop.
+The public browser path does depend on the Express BFF: it is the only
+same-origin proxy to the host-network services. btop's capture plane and the
+portal API are separate processes with a narrow `health`/`stream` interface.

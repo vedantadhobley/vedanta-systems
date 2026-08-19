@@ -1,17 +1,27 @@
 # vedanta-systems
 
-The unified portal at [vedanta.systems](https://vedanta.systems). React + shadcn/ui frontend + Express BFF API that hosts UIs for an ecosystem of self-hosted projects (found-footy, spin-cycle, long-exposure) and surfaces live system monitoring (btop on the luv + joi nodes). Fronted by Caddy and exposed publicly through Cloudflare Tunnel; everything else stays internal / tailnet-only.
+The unified portal at [vedanta.systems](https://vedanta.systems). Its current
+React + shadcn/ui frontend and Express BFF host UIs for an ecosystem of
+self-hosted projects (found-footy, spin-cycle, long-exposure) and surface live
+system monitoring (btop on the luv + joi nodes). Caddy fronts the portal and
+Cloudflare Tunnel exposes the public host; everything else stays internal or
+tailnet-only.
 
 ## Stack
 
-- **Frontend**: React 18, TypeScript, Vite, Tailwind, shadcn/ui. Filesystem-style URL navigation (paths like `~/workspace/<project>`).
+- **Current frontend**: React 18, TypeScript, Vite, Tailwind, shadcn/ui.
+  Filesystem-style URL navigation (paths like `~/workspace/<project>`). The
+  active rewrite retains React and progressively replaces visual and behavior
+  contracts with a source-owned component system.
 - **API**: Express, served by `tsx`. Per-project routers under `src/server/routes/`,
   plus a cached, server-authenticated GitHub contribution projection.
 - **Prod ingress**: Cloudflare Tunnel → Caddy → in-container nginx → SPA / API / OG meta server.
 - **Dev ingress**: workspace Caddy → Vite dev server (HMR) → API via Vite's built-in proxy.
 - **System monitoring**: custom-patched btop in a per-node container, broadcast over SSE.
 
-Cyberpunk corpo-terminal aesthetic throughout — lavender + dark theme, monospace font, no border-radius.
+The current visual baseline is a lavender, black, square-edged
+corpo-terminal. The active design direction adds crisp container geometry over
+a projected data plane without sacrificing clarity or response.
 
 ## Develop locally
 
@@ -45,7 +55,10 @@ docker compose -f docker-compose.yml up -d --build
 
 ## Architecture + deep dives
 
+- [`docs/README.md`](./docs/README.md) — documentation routing index
 - [`docs/architecture.md`](./docs/architecture.md) — full request paths, network model, btop's host-network exception
+- [`docs/plans/frontend-refoundation.md`](./docs/plans/frontend-refoundation.md) — active frontend runtime and component-system migration
+- [`docs/design.md`](./docs/design.md) — living design brief and product constraints
 - [`docs/btop.md`](./docs/btop.md) — btop integration, AMD APU patches, SSE protocol, theme
 - [`docs/ports.md`](./docs/ports.md) — host-port allocation (btop only; HTTP services go through Caddy)
 - [`docs/found-footy-timezone.md`](./docs/found-footy-timezone.md) — found-footy's fixture-visibility rule × timezone toggle
@@ -58,4 +71,4 @@ docker compose -f docker-compose.yml up -d --build
 
 ---
 
-Built for the cyberpunk corpo-terminal aesthetic.
+Built as an operational interface for Vedanta's systems.

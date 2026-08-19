@@ -1,6 +1,8 @@
 # Projected data rendering research
 
-Status: implementation research, not a selected dependency or locked decision.
+Status: 2026-08-18 implementation research, not a selected dependency or
+locked decision. Library compatibility statements below are a dated snapshot;
+verify current versions before selecting a renderer.
 
 This document evaluates browser and React rendering approaches for the rear
 projected-data plane. The visual target remains the

@@ -14,10 +14,12 @@ Use this index to route project work before searching the full docs tree.
   for crisp containers, phosphor data, composite controls, and reusable
   primitives.
 - [Found Footy timezone behavior](./found-footy-timezone.md) — fixture
-  visibility and timezone-aware navigation behavior; known stale sections
-  are tracked in the todo list.
-- [Frontend redesign exploration](./plans/frontend-redesign.md) — rejected
-  shell studies and the progressive migration plan from the current UI.
+  visibility and timezone-aware navigation behavior.
+- [Plans](./plans/README.md) — routing index for active and historical plans.
+- [Frontend re-foundation](./plans/frontend-refoundation.md) — active runtime,
+  component-system, accessibility, and route-migration plan.
+- [Frontend visual exploration log](./plans/frontend-redesign.md) — rejected
+  shell studies and the instrument workbench record; not the active plan.
 - [Frontend audit](./frontend-audit.md) — 2026-08-19 runtime, input,
   responsive, accessibility, lifecycle, and animation findings.
 - [Ports](./ports.md) — host-port assignments and exceptions.

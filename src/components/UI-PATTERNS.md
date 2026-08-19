@@ -1,6 +1,13 @@
 # UI Patterns & Solutions
 
-This document describes the established UI patterns in this codebase, including hard-won solutions to cross-platform interaction issues.
+Status: current-production behavior and migration evidence. The
+[frontend re-foundation plan](../../docs/plans/frontend-refoundation.md) and
+[interface design system](../../docs/design-system.md) govern new shared
+components. Preserve the verified behavior here, but do not promote every
+implementation detail into the new API.
+
+This document describes established patterns in the current codebase,
+including hard-won solutions to cross-platform interaction issues.
 
 ---
 
@@ -98,7 +105,9 @@ iOS Safari doesn't trigger `:active` states on tap unless the element has a touc
 onTouchStart={() => {}} // Required for iOS :active to work
 ```
 
-This is NOT a hack - it's the documented way to enable `:active` on iOS.
+This is a compatibility workaround in the current buttons. Centralize it in a
+shared action primitive and retest it against the supported iOS versions rather
+than copying empty handlers throughout new project components.
 
 ### When NOT to Use `.nav-btn`
 
@@ -106,7 +115,7 @@ If you only have a single icon (no line/fill pair), don't use `.nav-btn`. Use a 
 
 ```tsx
 <button 
-  className="text-corpo-text/70 hover:text-corpo-text active:text-lavender transition-colors"
+  className="text-btn p-1"
   onTouchStart={() => {}}
 >
   <RiSomeIcon className="w-5 h-5" />
@@ -190,7 +199,8 @@ const [controlsEnabled, setControlsEnabled] = useState(false)
 
 1. **Prefer CSS over JavaScript for interaction states** - More reliable, less code, better performance
 2. **Use `@media (hover: hover)`** - Don't apply hover styles on touch devices
-3. **Always add `onTouchStart={() => {}}`** - Required for iOS `:active` support
+3. **Centralize the current iOS `:active` workaround** - Keep it where current
+   testing requires it; do not scatter new empty handlers across project code
 4. **Treat autoplay as optional** - Prove playback started and provide a direct user-action fallback
 5. **Grace periods prevent event bleed-through** - Especially important for modals/overlays
 6. **Branch on input capability, not viewport width or user agent** - Prefer

@@ -24,10 +24,10 @@ import { Readable } from 'node:stream'
  * upgrades. A VAR-removed clip resolves 410; a never-minted id 404s. That's
  * why the shareable URL is the share_id, not the underlying object path.
  *
- * Not yet wired (next layers): the NATS→SSE coalescing bridge (`/stream`
- * currently keeps alive with connected/health/heartbeat only, no live
- * refresh), `/dates`+`/search` are synthesized/stubbed, and `phase`/`assist`
- * land found-footy-side later (rendered as placeholders until then).
+ * The adapter also owns timezone-offset `/dates` synthesis, search reshaping,
+ * and the NATS→SSE bridge. The Go API now supplies `phase`,
+ * `debounce_count`, and forward-only assist data; this shim maps semantic
+ * phase back into the legacy flags consumed by the current frontend.
  */
 
 // Configuration interface for Found Footy routes
@@ -101,8 +101,8 @@ export function createFoundFootyRouter(config: FoundFootyConfig): Router {
   // REST is truth; each NATS message is a "refetch" hint. For the current window-refetching
   // frontend we coalesce fixture.update + event.video into the SSE `refresh` it already acts
   // on, and re-emit on our OWN NATS reconnect (closes the BFF<->NATS blip: the browser sees
-  // no disconnect, so it must be told to re-snapshot). fixture.clock (in-place minute tick,
-  // no fetch) is the next slice; until then the minute refreshes with the next update.
+  // no disconnect, so it must be told to re-snapshot). fixture.clock is forwarded as an
+  // ephemeral in-place minute patch.
   if (config.natsUrl) {
     ;(async () => {
       let nats: any
@@ -535,8 +535,8 @@ export function createFoundFootyRouter(config: FoundFootyConfig): Router {
     streamClip(req.params.shareId, req, res, filename)
   })
 
-  // GET /stream - SSE kept alive (connected/health/heartbeat). No live NATS
-  // refresh yet — that's the next layer (NATS -> SSE coalescing bridge).
+  // GET /stream - connected/health/heartbeat plus NATS-backed refresh and
+  // ephemeral clock messages broadcast through sseClients above.
   router.get('/stream', async (req: Request, res: Response) => {
     req.socket.setTimeout(0)
     req.socket.setNoDelay(true)

@@ -327,3 +327,42 @@ not expose controls, while a deliberate tap still does. Hybrid hardware follows
 the input currently in use.
 
 ---
+
+## 2026-08-19 — Re-found the frontend through complete route slices
+
+**Context.** The visual exploration established a useful two-plane material
+model, but two shell-first prototypes failed and the instrument workbench did
+not address the production runtime. The frontend audit then found stale live
+state across day boundaries and SSE gaps, globally mounted project providers,
+unprotected request ordering, structural accessibility faults, and continuous
+render work. These are architecture and component-contract problems, not
+evidence that React is the wrong framework.
+
+**Decision.** Retain React, Vite, and React Router for the first migration.
+Re-found the frontend through complete route slices, beginning with Found
+Footy. Each slice combines route-owned data, REST snapshot plus SSE
+reconciliation, input and accessibility primitives, and the source-owned
+two-plane component system. The current production interface is the behavioral
+baseline until the complete route passes its gates.
+
+shadcn is no longer the target component API, but existing shadcn/Radix-derived
+uses stay until replaced by a proven source-owned primitive. Tailwind remains a
+provisional layout and responsive-composition tool; reassess it after the
+Found Footy slice instead of removing it as preliminary work. Keep the
+component system in this repository until a second real consumer justifies a
+package.
+
+**Consequences.**
+
+- The active plan is `docs/plans/frontend-refoundation.md`. The previous
+  `frontend-redesign.md` is a visual exploration log, not a migration plan.
+- Found Footy correctness work and its visual migration are one vertical slice;
+  neither waits for a global shell rewrite.
+- Project code, providers, requests, and streams move to one lazy route
+  boundary. Only true preferences remain global.
+- Every disconnected-to-live transition reconciles an authoritative REST
+  snapshot before SSE connection is treated as current.
+- No framework upgrade, dependency purge, package extraction, or navigation
+  redesign is implied by this decision.
+
+---
