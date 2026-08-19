@@ -1408,6 +1408,10 @@ const MemoizedVideoModal = memo(function VideoModal({ url, title, subtitle, even
   const automaticRecoveryAttemptedRef = useRef(false)
   const playAttemptIDRef = useRef(0)
 
+  const invalidatePlaybackAttempts = useCallback(() => {
+    playAttemptIDRef.current++
+  }, [])
+
   // Set both the current and default mute state as soon as React binds the
   // element. WebKit makes its autoplay decision during media initialization,
   // before passive effects run, so muting only in useEffect is too late on
@@ -1470,12 +1474,12 @@ const MemoizedVideoModal = memo(function VideoModal({ url, title, subtitle, even
     
     video.addEventListener('volumechange', handleVolumeChange)
     return () => {
-      playAttemptIDRef.current++
+      invalidatePlaybackAttempts()
       video.removeEventListener('volumechange', handleVolumeChange)
       video.muted = true
       video.pause()
     }
-  }, [url, attemptPlayback])
+  }, [url, attemptPlayback, invalidatePlaybackAttempts])
 
   // Some browsers resolve play() and report `paused=false` without advancing
   // the timeline. Detect that frozen state, perform the same pause/play reset
