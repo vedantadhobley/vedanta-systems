@@ -1394,7 +1394,7 @@ interface VideoModalProps {
   onClose: () => void
 }
 
-type PlaybackStatus = 'starting' | 'playing' | 'needs-action' | 'error'
+type PlaybackStatus = 'starting' | 'playing' | 'paused' | 'needs-action' | 'error'
 
 const MemoizedVideoModal = memo(function VideoModal({ url, title, subtitle, eventId, onClose }: VideoModalProps) {
   const [copied, setCopied] = useState(false)
@@ -1488,6 +1488,15 @@ const MemoizedVideoModal = memo(function VideoModal({ url, title, subtitle, even
       if (!video || document.hidden || video.ended || video.readyState < 2) return
 
       const now = performance.now()
+      // A paused timeline is obeying the user, not stalled. Refresh the
+      // baseline while paused/seeking so resuming does not inherit an expired
+      // watchdog deadline and immediately trigger recovery.
+      if (video.paused || video.seeking) {
+        lastCurrentTimeRef.current = video.currentTime
+        lastProgressAtRef.current = now
+        return
+      }
+
       if (video.currentTime > lastCurrentTimeRef.current + 0.05) {
         lastCurrentTimeRef.current = video.currentTime
         lastProgressAtRef.current = now
@@ -1695,6 +1704,9 @@ const MemoizedVideoModal = memo(function VideoModal({ url, title, subtitle, even
               lastProgressAtRef.current = performance.now()
               setPlaybackStatus('playing')
             }}
+            onPause={() => setPlaybackStatus(status =>
+              status === 'needs-action' || status === 'error' ? status : 'paused'
+            )}
             onWaiting={() => setPlaybackStatus(status =>
               status === 'needs-action' || status === 'error' ? status : 'starting'
             )}

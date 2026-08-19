@@ -289,3 +289,20 @@ Playback rejection and media error details remain visible in the console.
 Shared links and ordinary clip clicks follow one recovery contract.
 
 ---
+
+## 2026-08-19 — Preserve deliberate pauses in the video watchdog
+
+**Context.** The autoplay recovery watchdog initially treated every stationary
+timeline as stalled. After native controls were revealed, a deliberate pause
+therefore triggered the automatic pause/play recovery four seconds later.
+
+**Decision.** A timeline is eligible for stall recovery only while the media
+element reports that it is playing and is not seeking. Paused and seeking media
+refresh the watchdog baseline without triggering recovery. Rejected autoplay
+still exposes the manual play action, and a browser that reports
+`paused === false` without advancing still receives the one automatic reset.
+
+**Consequences.** Native controls retain normal pause semantics without
+weakening the original false-playing recovery path.
+
+---

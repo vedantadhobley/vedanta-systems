@@ -162,13 +162,15 @@ const [controlsEnabled, setControlsEnabled] = useState(false)
 1. **Video opens:** `autoplay`, `muted`, and `playsinline` exist from element
    initialization; native controls start disabled.
 2. **Playback is observed:** `playing` and `timeupdate` prove the timeline is
-   advancing. A resolved `play()` promise alone is insufficient.
+   advancing. A resolved `play()` promise alone is insufficient. A paused or
+   seeking timeline is not classified as stalled.
 3. **Frozen playback gets one automatic reset:** the modal performs one muted
    pause/play cycle when the browser claims to play without advancing.
 4. **Failure remains recoverable:** a custom play button calls `play()`
    directly inside the user's tap. It is not a native video control bar.
 5. **Controls are on demand:** the first deliberate tap reveals the browser's
-   native controls without intentionally pausing the autoplaying clip.
+   native controls without intentionally pausing the autoplaying clip. Once
+   visible, an intentional native pause remains paused.
 6. **Failures stay visible:** rejected promises and media errors include the
    trigger plus media state in the console.
 
