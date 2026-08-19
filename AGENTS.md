@@ -72,12 +72,12 @@ The proxy stack itself lives in `~/workspace/proxy/`; its
 - **Cloudflared**: extracted to `~/workspace/proxy/` as a sibling of
   caddy in commit `6c8c480`. Tunnel name `vedanta-systems-prod`;
   credentials at `~/.cloudflared/`.
-- **btop monitor**: a custom-patched btop + Python SSE broadcaster in
-  its own container per node (luv + joi), with `network_mode: host`
-  for true network/process visibility. luv = local; joi = same image
-  but the entrypoint SSHes out to joi and runs btop there.
-  AMD-APU-specific patches (GTT memory type, rocm-smi v1.x acceptance,
-  custom theme) in `btop/src/`. See `docs/btop.md`.
+- **btop monitor**: the live legacy path runs duplicate luv containers and
+  luv-hosted SSH collectors for joi; joi is currently dead after its NixOS and
+  network migration. The replacement is one native agent per physical node,
+  publishing ordered frames through Core NATS to the BFF. The authoritative
+  modified source is `~/workspace/btop/src`; this repo's `btop/src` is the
+  stale public-display child used by the legacy image. See `docs/btop.md`.
 
 ## Surfaced projects (vs-api integration status)
 
@@ -86,7 +86,7 @@ The proxy stack itself lives in `~/workspace/proxy/`; its
 | **found-footy** | **Pattern B, live both envs.** Proxies the Go read API (`found-footy-{env}-api:8081`) for fixtures/search/events (reshaped by the shim), plus a NATS live-feed bridge (`found-footy.<env>.>` → SSE) and share_id video re-proxy (302 → presigned Garage). Dev 2026-08-13, prod 2026-08-15. | Done — no direct mongo/minio peers. |
 | **spin-cycle** | Reads `spin-cycle-{env}-postgres` directly (Pattern A) | `spin-cycle-{env}-api:3000` already exists — vs-api just needs to swap from pg pool to HTTP proxy. |
 | **long-exposure** | Reads `long-exposure-{env}-postgres` directly (Pattern A, by design until LE grows its own API) | Pattern B once LE has a separate api service. The `caddy.d/long-exposure.caddy` file documents the current design. |
-| **btop-luv / btop-joi** | Express proxies `/api/btop-{luv,joi}/{health,stream}` to the per-node btop container via host gateway (4102/4103 dev, 3102/3103 prod). | n/a — `network_mode: host` is incompatible with Caddy fronting. |
+| **btop-luv / btop-joi** | Legacy Express proxies `/api/btop-{luv,joi}/{health,stream}` to host ports; joi is currently unavailable. A dormant sequence-aware NATS consumer exists at `/api/btop/<node>/*`. | One native agent per node → Core NATS → BFF → same-origin browser SSE; no direct worker route. |
 | **legal-tender** | Not surfaced. | Pattern B from day one when it lands. |
 
 Pattern A vs B is the central architectural call here — see
@@ -129,7 +129,10 @@ Pattern A vs B is the central architectural call here — see
   plus `src/App.tsx`. During the frontend re-foundation, also give the route a
   lazy surface and route-owned provider; do not add another global provider.
 - **Adding any route that writes / refreshes / triggers anything.** Add a `location = /api/<project>/<write-path> { return 404; }` block in `nginx.conf` so internet traffic can't reach it. Internal callers (other containers on `luv-prod`) hit `vedanta-systems-prod-api:3001` directly, bypassing nginx — they keep working.
-- **btop changes.** AMD APU patches live in `btop/src/`. The known iGPU-busy-pct bug (Vulkan workloads read 0%) is a kernel/driver gap that can't be patched in btop itself — point users at `amdgpu_top` on the node instead.
+- **btop changes.** Hardware and profile source changes belong in the
+  authoritative `~/workspace/btop/src` checkout. Transport and browser
+  integration belong here. Do not add new patches to the stale embedded
+  `btop/src` child; migrate packaging to the authoritative source instead.
 - **Anything social-link related** (OG cards, Twitter cards, embed unfurls). Served by `og-server.js` via nginx's crawler routing (`error_page 418`). Production-only (dev doesn't run nginx).
 
 ## Active state
@@ -147,7 +150,11 @@ Pattern A vs B is the central architectural call here — see
   handling, and quarterly-extensible primitives remain in @docs/todo.md.
 - **Spin-cycle**: route active. Project itself is scheduled for maintenance (out-of-band). vs-api spin-cycle route is gated on `SPIN_CYCLE_POSTGRES_URI` at startup but doesn't currently degrade gracefully if the upstream goes away mid-flight. Decide-during-maintenance is in @docs/todo.md.
 - **Legal Tender**: not surfaced. It must use Pattern B when it lands.
-- **btop**: working on luv + joi via per-node containers. Known issue: Vulkan iGPU busy% reads 0% (kernel/driver gap; see `docs/btop.md`).
+- **btop**: luv remains on the legacy duplicate-container path; joi is down
+  because its legacy collector SSHes from luv into the pre-migration host.
+  The dormant NATS consumer, shared frame schema, optional agent publisher,
+  and current-upstream source profile have landed. Secure remote NATS access
+  and node-owned deployment definitions are the next gate; see `docs/btop.md`.
 - **Open infra question**: `nginx.conf`'s `/btop-luv/` location block references `vedanta-systems-prod-btop` (singular) — predates the luv/joi split where the actual container is `vedanta-systems-prod-btop-luv`. Probably stale/dead; verify before pruning. Tracked in @docs/todo.md.
 
 ## Memory model (for me, the agent)

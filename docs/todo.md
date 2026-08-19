@@ -160,6 +160,35 @@ patching the legacy provider in isolation. The slice must address #1.
 
 ---
 
+## Active — native multi-node btop migration
+
+The cross-node deployment belongs to the workspace btop, joi, Nexus, NATS,
+and dhobley repos. This repo owns the browser-facing consumer:
+
+- [x] Add the sequence-aware NATS frame store and
+  `/api/btop/<node>/{health,stream}` routes without replacing the live path.
+- [x] Add the disabled-by-default node publisher, frame encoder tests, and
+  versioned schema in the shared NATS repo.
+- [x] Reconcile the public-display child against current upstream btop as
+  configurable operator/public profiles (`feature/vedanta-profiles`,
+  `6f76ec6`) and verify GPU plus non-GPU builds.
+- [ ] Move node-agent packaging to the authoritative `~/workspace/btop/src`
+  checkout and retire this repo's stale embedded `btop/src` child.
+- [ ] Add the authenticated compute-interface NATS listener, per-node
+  publish-only credentials, BFF subscribe-only credentials, firewall rules,
+  and control-plane secret delivery.
+- [ ] Point the luv tile at the new route after the first native agent proves
+  startup, reconnect, sequence-gap, and periodic-full recovery.
+- [ ] Move joi only after its NixOS-hosted native agent is healthy; do not
+  revive the SSH collector.
+- [ ] Make the monitor list data-driven before adding Nexus nodes.
+- [ ] Remove `mountBtopProxy`, both btop Compose pairs, their host-port
+  exceptions, and the dead nginx viewer block after cutover.
+
+The two-plane visual system is not part of this migration.
+
+---
+
 ## Verify — `nginx.conf` cleanup
 
 `nginx.conf` is still load-bearing in prod (crawler routing to OG
@@ -179,9 +208,9 @@ streaming). One specific block looks stale:
 Related minor cleanup: `og-server.js` is alive (serves dynamic OG
 meta tags for crawlers via the `error_page 418` path; `start.sh`
 launches it alongside nginx). But its second responsibility —
-SSR-style data injection — is dead: the `$needs_footy_data` map in
-`nginx.conf` is commented out (preload added 1.3MB and crashed
-mobile). The dead code path in `og-server.js` could be trimmed; no
+  SSR-style data injection — is dead: the `$needs_footy_data` map in
+  `nginx.conf` is commented out (preload added 1.3MB and crashed
+  mobile). The dead code path in `og-server.js` could be trimmed; no
 behavior impact, just less surface area.
 
 ## Future projects in the portal

@@ -366,3 +366,35 @@ package.
   redesign is implied by this decision.
 
 ---
+
+## 2026-08-19 — Add a dormant sequence-aware multi-node btop bridge
+
+**Context.** The current btop path duplicates luv collectors by environment
+and runs joi's btop remotely over SSH from two luv containers. The joi path
+died after joi moved to NixOS and the compute VLAN. The cross-project
+[native-agent decision](../../../vedanta-dhobley/docs/decisions/2026-08-19-btop-node-agents.md)
+replaces that topology with one local agent per physical node and Core NATS
+fan-in through this BFF.
+
+**Decision.** Add `src/server/routes/btop.ts` as a second, dormant transport
+path. It subscribes to `btop.*.frame`, validates the workspace envelope,
+reconstructs one in-memory frame per node, and serves
+`/api/btop/<node>/{health,stream}` using the browser's existing full/delta
+format. A delta is accepted only when its publisher session matches and its
+sequence is contiguous. A gap marks the node unsynchronized until a full
+frame arrives.
+
+Keep the existing `/api/btop-{luv,joi}` HTTP proxies and all current tile
+configuration during the migration. Do not apply the unfinished two-plane
+visual system as part of the transport work.
+
+**Consequences.** The BFF can consume future native agents without another
+browser protocol rewrite. The new path has no production effect until a tile
+switches to it. The legacy path is removed only after luv and joi prove
+startup, stale-state, reconnect, sequence-gap, and periodic-full recovery.
+The configured node inventory preserves honest offline state for powered-down
+nodes, while frame discovery admits newly deployed nodes. Public requests
+cannot allocate arbitrary node caches. Subscriber credentials can be mounted
+through `BTOP_NATS_CREDS` when the secured compute-interface listener lands.
+
+---

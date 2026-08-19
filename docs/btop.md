@@ -1,15 +1,74 @@
 # btop Integration
 
-Real-time system monitor displayed on vedanta.systems using btop, a Python SSE
-broadcaster, the Express BFF, and CSS Grid rendering.
+Real-time system monitor displayed on vedanta.systems using a public-display
+btop build, a terminal-frame encoder, the Express BFF, and CSS Grid rendering.
 
-## Features
+## Current and target state
 
-- **AMD APU Support**: Custom-patched btop for Ryzen AI MAX+ 395 (Strix Halo)
-  - GTT memory type 2 detection
-  - rocm-smi v1.x compatibility
+The live path is still the legacy deployment described below:
+
+- luv runs separate development and production btop containers;
+- both joi containers run on luv and SSH to joi to start the remote btop
+  process;
+- the joi path is unavailable after joi's NixOS and network migration;
+- Express proxies four host ports through `/api/btop-{luv,joi}`.
+
+The replacement keeps the existing browser frame format but changes the
+collection topology:
+
+```text
+one native btop agent on each node
+  -> Core NATS btop.<node>.frame events
+  -> vedanta-systems BFF reconstructs current node frames
+  -> same-origin /api/btop/<node>/stream SSE
+  -> existing CSS Grid renderer
+```
+
+There is one agent per physical node, with no development/production
+duplication. luv uses Compose, joi uses its declared NixOS-hosted Compose
+stack, and Nexus uses its shared `virtualisation.oci-containers` module. The
+joi and Nexus control planes deploy the agents and own node lifecycle; they do
+not relay terminal frames or use btop health as workload readiness.
+
+`src/server/routes/btop.ts` is the first migration slice. It subscribes to the
+future NATS subjects and exposes `/api/btop/{node}/{health,stream}` while the
+legacy HTTP proxies remain active. No current tile uses the new route yet.
+`BTOP_NODES` seeds the desired inventory so a powered-off node remains visible;
+valid frames can also discover a node. Unknown public stream requests are
+rejected instead of allocating unbounded in-memory node state.
+The cross-project ownership and rollout live in the
+[multi-node btop plan](../../../vedanta-dhobley/docs/plans/btop-multinode.md).
+
+## Source ownership
+
+`~/workspace/btop/src` is the authoritative modified btop checkout. The
+`btop/src` tree in this repository is the older public-display child used by
+the live legacy image; it is not the parent of future node agents.
+
+Current upstream btop 1.4.7 already contains the robust ROCm 1.x ABI probe and
+AMD APU sysfs fallback that the child predates. Branch
+`feature/vedanta-profiles` in the authoritative checkout adds only the parts
+still required here:
+
+- `public_display_mode` for the compact, non-interactive embedded layout;
+- `show_net_ip` as an independent privacy control;
+- `gpu_mem_type = "vram" | "gtt"` across both ROCm and sysfs collectors;
+- `/hostfs` labeling as the monitored root.
+
+The default remains normal operator btop. A Strix Halo public-display profile
+sets `public_display_mode = true`, `show_net_ip = false`,
+`gpu_mem_type = "gtt"`, and `show_cpu_watts = false`. The last setting avoids
+labeling whole-package APU power as CPU-only power. Both GPU and non-GPU builds
+of commit `6f76ec6` pass with GCC 14. The packaging migration must build the
+node-agent image from that source authority and then remove this repo's stale
+embedded source copy.
+
+## Legacy image features
+
+- **AMD APU Support**: GTT memory reporting for Ryzen AI MAX+ 395 (Strix Halo)
 - **Custom Theme**: Lavender theme matching site aesthetics
 - **SSE Broadcast**: Single btop instance, all clients receive same stream
+- **NATS Agent Mode**: Optional canonical node stream for the multi-node path
 - **Delta Encoding**: Send changed cells, with a full-frame fallback
 - **CSS Grid Rendering**: Deterministic fixed-cell alignment across layouts
 - **Read-only**: No keyboard input, display only
@@ -99,6 +158,37 @@ Frame N: FULL     → fallback when more than 50% of cells changed
 }
 ```
 
+## Multi-node NATS contract
+
+The agent publishes canonical frames once per node. Delta calculation no
+longer happens independently for every browser connection.
+
+- Subject: `btop.<node>.frame`. btop is an environment-less infrastructure
+  singleton; the node token is the routing dimension.
+- Envelope: the workspace `{id, ts, source, version, subject, payload}` shape.
+- Payload: `{node, session, sequence, frame}`.
+- `session`: changes when the captured btop process restarts.
+- `sequence`: increases for every full or delta frame in a session.
+- `frame`: the existing compact `{t:"f",c:[...]}` or `{t:"d",d:[...]}`
+  browser representation.
+
+The BFF accepts a delta only when its session matches and its sequence is the
+next value. A gap marks that node unsynchronized. A later full frame restores
+it. Agents must publish a full frame at startup, after reconnecting to NATS,
+and periodically so a restarted BFF can recover without NATS request/reply or
+durable replay.
+
+An unchanged capture publishes an empty delta. It advances sequence and acts
+as a small liveness event, so a quiet terminal is not mistaken for an offline
+node. The initial implementation publishes once per second and forces a full
+frame after 30 deltas; both values are configurable and must be measured during
+the luv pilot.
+
+Frames use Core NATS because they are transient live state. Replaying old
+terminal motion after a node powers off would be incorrect. The BFF keeps the
+current reconstructed frame in memory and sends it as a full frame to each new
+browser SSE connection.
+
 ## Files
 
 ```
@@ -106,6 +196,7 @@ btop/
 ├── Dockerfile           # Multi-stage build: compile btop, runtime with Python
 ├── entrypoint.sh        # Starts tmux→btop, then Python SSE server
 ├── broadcast-server.py  # Captures tmux, parses ANSI, broadcasts cell deltas
+├── frame_protocol.py    # Canonical full/delta and workspace envelope encoder
 ├── viewer.html          # Standalone development viewer for the cell protocol
 ├── btop.conf            # btop configuration (lavender theme, shown boxes, etc.)
 ├── themes/
@@ -114,6 +205,37 @@ btop/
 ```
 
 ## Configuration
+
+### Native-agent environment
+
+NATS publishing is disabled unless `NATS_URL` is set, so the existing
+containers retain their current behavior.
+
+| Variable | Meaning | Default |
+|---|---|---|
+| `NATS_URL` | Workspace broker URL | unset; publishing disabled |
+| `BTOP_NODE` | Lowercase physical node slug used in the subject | required with `NATS_URL` |
+| `NATS_CREDS` | Scoped NATS credentials file inside the container | unset during the local open-mode pilot only |
+| `BTOP_PUBLISH_INTERVAL_SEC` | Canonical publish cadence | `1.0` |
+| `BTOP_FULL_FRAME_INTERVAL` | Delta count before a forced full frame | `30` |
+
+The image pins `nats-py[nkeys]` so remote deployments can use NKey/JWT
+credentials. Do not configure a remote agent until authenticated broker access
+and firewall restrictions land.
+
+### BFF environment
+
+| Variable | Meaning | Default |
+|---|---|---|
+| `BTOP_NATS_URL` | Optional btop-specific broker URL; falls back to `NATS_URL` | shared workspace broker |
+| `BTOP_NATS_CREDS` | Optional subscriber credentials file inside the API container | unset during the local open-mode pilot only |
+| `BTOP_NODES` | Comma-separated desired node inventory, including nodes that may be powered off | set to `luv,joi` in current Compose files |
+
+Remote agents require a broker listener on the compute interface with scoped
+credentials and firewall restrictions. Each agent may publish only its own
+`btop.<node>.frame` subject. The BFF may subscribe only to `btop.*.frame`.
+Do not expose NATS to the public internet and do not put credentials in the
+browser.
 
 ### btop.conf highlights
 
@@ -385,7 +507,7 @@ doesn't surface.
 The CSS Grid rendering preserves fixed terminal-cell alignment on desktop and
 mobile.
 
-## Multi-System Support
+## Legacy remote-node support
 
 The architecture supports monitoring multiple systems:
 
@@ -397,12 +519,12 @@ environment:
 ```
 
 When `BTOP_HOST` is not `local`, the container SSHes to the remote host and
-runs btop there. The joi services use this mode today through the mounted host
-SSH agent.
+runs btop there. The dead joi services still use this mode. This mechanism is
+being removed; every node will run its own native agent.
 
 ## Relationship to Other Services
 
-The Python broadcasters do not depend on Express to capture or encode btop.
-The public browser path does depend on the Express BFF: it is the only
-same-origin proxy to the host-network services. btop's capture plane and the
-portal API are separate processes with a narrow `health`/`stream` interface.
+The agent does not depend on Express to capture or encode btop. The public
+browser depends on the Express BFF for same-origin SSE and never connects to
+NATS or a node directly. Prometheus remains the owner of historical host and
+GPU metrics; btop is a transient interactive instrument.

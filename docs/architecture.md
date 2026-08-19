@@ -123,6 +123,27 @@ Ports listed in `docs/ports.md`. The standalone viewer URL
 (`/btop-luv/`) is 404'd by nginx in prod — only `/stream` and
 `/health` are reachable from the browser.
 
+This is the legacy path. The native multi-node migration now has a dormant
+consumer at `src/server/routes/btop.ts`:
+
+```text
+node-local agent -> Core NATS btop.<node>.frame
+  -> Express in-memory reconstruction
+  -> /api/btop/<node>/{health,stream}
+  -> browser
+```
+
+The existing routes and containers stay active until the luv agent proves the
+new path. The joi SSH collector is currently unavailable after joi's NixOS and
+network migration. The target has one native agent per physical node, no
+development/production duplication, and no browser-to-node connection. See
+the [btop integration contract](./btop.md).
+
+The BFF inventory comes from `BTOP_NODES` plus authenticated publisher
+discovery. This preserves explicit offline entries for powered-down nodes and
+rejects arbitrary public node names. `BTOP_NATS_CREDS` supplies the future
+subscribe-only credentials; the browser remains on same-origin SSE.
+
 ## Network model
 
 | Network | Purpose | Who's on it |
@@ -159,7 +180,7 @@ only frontend in the workspace.
 | Caddy public host | `~/workspace/proxy/caddy/caddy.d/public.caddy` | The `vedanta.systems` Cloudflare entry |
 | Caddy dev tailnet hosts | `~/workspace/proxy/caddy/caddy.d/vedanta-systems.caddy` | `vedanta-systems-dev.<base-domain>` + `vedanta-systems-dev-api.<base-domain>` |
 | In-container nginx | `nginx.conf` | Crawler routing, internal webhook 404s, SSE/range quirks, btop legacy block (see todo) |
-| Express + project routers | `src/server/index.ts`, `src/server/routes/<project>.ts` | Per-project routers (found-footy Pattern B; spin-cycle/long-exposure Pattern A) + inline btop proxy |
+| Express + project routers | `src/server/index.ts`, `src/server/routes/<project>.ts` | Per-project routers (found-footy Pattern B; spin-cycle/long-exposure Pattern A), legacy inline btop proxy, and the dormant NATS-backed btop router |
 | GitHub contribution BFF | `src/server/routes/github.ts` | Fixed-user GraphQL projection; server-only token; 15-minute cache |
 | Vite dev proxy | `vite.config.ts` | `/api/*` → `vedanta-systems-dev-api:3001` |
 | OG meta server | `og-server.js` + `start.sh` | Runs in vs-prod alongside nginx; data-injection half is currently disabled |
