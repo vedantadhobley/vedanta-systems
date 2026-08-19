@@ -50,8 +50,9 @@ RUN mkdir -p /usr/share/fonts/nerd-fonts && \
     rm JetBrainsMono.zip && \
     fc-cache -fv
 
-# Install Pillow for ANSI→PNG rendering
-RUN pip3 install --break-system-packages Pillow
+# Pin the live-frame transport client. The nkeys extra supports the scoped
+# credentials required before joi or Nexus can reach the broker.
+RUN pip3 install --break-system-packages Pillow "nats-py[nkeys]==2.15.0"
 
 ENV LANG=en_US.UTF-8
 ENV LC_ALL=en_US.UTF-8
@@ -61,6 +62,7 @@ COPY btop.conf /etc/btop/btop.conf
 COPY themes/ /etc/btop/themes/
 COPY viewer.html /var/www/viewer.html
 COPY broadcast-server.py /usr/local/bin/broadcast-server.py
+COPY frame_protocol.py /usr/local/bin/frame_protocol.py
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh /usr/local/bin/broadcast-server.py
 

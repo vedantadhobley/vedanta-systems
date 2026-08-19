@@ -13,6 +13,7 @@ Delta Encoding:
   - Falls back to full if >50% changed
 """
 
+import asyncio
 import subprocess
 import time
 import json
@@ -20,8 +21,11 @@ import threading
 import re
 import signal
 import os
+import uuid
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from socketserver import ThreadingMixIn
+
+from frame_protocol import NODE_PATTERN, build_envelope, encode_frame
 
 PORT = int(os.environ.get('WRAPPER_PORT', os.environ.get('BROADCAST_PORT', 4102)))
 TMUX_SESSION = 'btop'
@@ -35,6 +39,11 @@ current_cells = None  # List of [char, fg, bg, bold]
 cells_lock = threading.Lock()
 last_capture_time = 0.0  # monotonic time of last successful tmux capture
 STALE_THRESHOLD_SEC = 30.0  # /health returns 503 if no fresh capture within this window
+NATS_URL = os.environ.get('NATS_URL', '')
+NATS_CREDS = os.environ.get('NATS_CREDS', '')
+NODE_NAME = os.environ.get('BTOP_NODE', '')
+NATS_PUBLISH_INTERVAL_SEC = max(0.1, float(os.environ.get('BTOP_PUBLISH_INTERVAL_SEC', '1.0')))
+NATS_FULL_FRAME_INTERVAL = max(1, int(os.environ.get('BTOP_FULL_FRAME_INTERVAL', '30')))
 
 # ANSI color palette (16 basic colors)
 COLORS_16 = [
@@ -243,6 +252,95 @@ def frame_updater():
         time.sleep(REFRESH_INTERVAL)
 
 
+def current_cells_snapshot():
+    with cells_lock:
+        return [cell[:] for cell in current_cells] if current_cells is not None else None
+
+
+async def nats_frame_publisher():
+    """Publish one ordered full/delta stream for this physical node."""
+    import nats
+
+    session = str(uuid.uuid4())
+    sequence = 0
+    previous_cells = None
+    frames_since_full = 0
+
+    while True:
+        force_full = True
+
+        async def disconnected_cb():
+            log(f"NATS disconnected for {NODE_NAME}")
+
+        async def reconnected_cb():
+            nonlocal force_full
+            force_full = True
+            log(f"NATS reconnected for {NODE_NAME}; next frame will be full")
+
+        options = {
+            'servers': [NATS_URL],
+            'name': f'btop-{NODE_NAME}',
+            'max_reconnect_attempts': -1,
+            'reconnect_time_wait': 2,
+            'disconnected_cb': disconnected_cb,
+            'reconnected_cb': reconnected_cb,
+        }
+        if NATS_CREDS:
+            options['user_credentials'] = NATS_CREDS
+
+        connection = None
+        try:
+            connection = await nats.connect(**options)
+            log(f"NATS publisher connected: btop.{NODE_NAME}.frame")
+
+            while not connection.is_closed:
+                if not connection.is_connected:
+                    await asyncio.sleep(0.2)
+                    continue
+
+                cells = current_cells_snapshot()
+                if cells is None:
+                    await asyncio.sleep(0.2)
+                    continue
+
+                periodic_full = frames_since_full >= NATS_FULL_FRAME_INTERVAL
+                frame, previous_cells = encode_frame(
+                    cells,
+                    previous_cells,
+                    force_full=force_full or periodic_full,
+                )
+                envelope = build_envelope(NODE_NAME, session, sequence, frame)
+                encoded = json.dumps(envelope, separators=(',', ':')).encode()
+
+                if len(encoded) > connection.max_payload:
+                    raise RuntimeError(
+                        f"encoded btop frame is {len(encoded)} bytes; "
+                        f"broker limit is {connection.max_payload}"
+                    )
+
+                await connection.publish(envelope['subject'], encoded)
+                if frame['t'] == 'f':
+                    await connection.flush(timeout=2)
+                    frames_since_full = 0
+                    force_full = False
+                else:
+                    frames_since_full += 1
+
+                sequence += 1
+                await asyncio.sleep(NATS_PUBLISH_INTERVAL_SEC)
+        except Exception as error:
+            log(f"NATS publisher error: {error}; retrying in 5s")
+        finally:
+            if connection is not None and not connection.is_closed:
+                await connection.close()
+
+        await asyncio.sleep(5)
+
+
+def run_nats_publisher():
+    asyncio.run(nats_frame_publisher())
+
+
 class BroadcastHandler(BaseHTTPRequestHandler):
     protocol_version = 'HTTP/1.1'
     
@@ -370,6 +468,14 @@ def main():
     
     updater = threading.Thread(target=frame_updater, daemon=True)
     updater.start()
+
+    if NATS_URL:
+        if not NODE_PATTERN.fullmatch(NODE_NAME):
+            raise SystemExit('BTOP_NODE must be a lowercase node slug when NATS_URL is set')
+        publisher = threading.Thread(target=run_nats_publisher, daemon=True)
+        publisher.start()
+    else:
+        log("NATS publisher disabled (NATS_URL not set)")
     
     server = ThreadedHTTPServer(('0.0.0.0', PORT), BroadcastHandler)
     log(f"btop broadcast server running on port {PORT}")

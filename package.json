@@ -9,6 +9,8 @@
     "preview": "vite preview",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "type-check": "tsc --noEmit",
+    "test:btop": "node --import tsx --test src/server/routes/btop.test.ts",
+    "test:btop-agent": "python3 -m unittest btop/test_frame_protocol.py",
     "api": "tsx src/server/index.ts"
   },
   "dependencies": {

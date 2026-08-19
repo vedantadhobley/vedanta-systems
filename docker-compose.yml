@@ -37,6 +37,7 @@ services:
       # Live-feed bridge: NODE_ENV=production scopes the subscription to found-footy.prod.>
       # on the shared workspace NATS, fanned to SSE.
       - NATS_URL=nats://nats:4222
+      - BTOP_NODES=luv,joi
       # Spin Cycle PostgreSQL - connects to spin-cycle-prod-postgres on luv-prod network
       - SPIN_CYCLE_POSTGRES_URI=postgresql://${SPIN_CYCLE_POSTGRES_USER}:${SPIN_CYCLE_POSTGRES_PASS}@spin-cycle-prod-postgres:5432/spincycle
       # Long Exposure PostgreSQL (TimescaleDB; narratives) - long-exposure-prod-postgres on luv-prod

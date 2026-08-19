@@ -7,6 +7,7 @@ import { createFoundFootyRouter } from './routes/found-footy'
 import { createSpinCycleRouter } from './routes/spin-cycle'
 import { createLongExposureRouter } from './routes/long-exposure'
 import { createGitHubRouter } from './routes/github'
+import { createBtopRouter } from './routes/btop'
 
 const app = express()
 app.use(cors())
@@ -42,6 +43,15 @@ const longExposureConfig = {
 const githubConfig = {
   token: process.env.GITHUB_TOKEN || '',
   username: 'vedantadhobley',
+}
+
+const btopConfig = {
+  natsUrl: process.env.BTOP_NATS_URL || process.env.NATS_URL || '',
+  natsCredsPath: process.env.BTOP_NATS_CREDS || '',
+  nodes: (process.env.BTOP_NODES || '')
+    .split(',')
+    .map((node) => node.trim())
+    .filter(Boolean),
 }
 
 // Validate Found Footy config
@@ -87,6 +97,12 @@ if (longExposureConfig.postgresUri) {
 
 // GitHub contribution calendar — fixed user, read-only, cached server-side.
 app.use('/api/github', createGitHubRouter(githubConfig))
+
+// Multi-node btop target path. Node-local agents publish canonical full/delta
+// frames to NATS; this bridge reconstructs each node and fans it to browser SSE.
+// The existing /api/btop-{luv,joi} HTTP proxies remain active until native
+// agents replace both legacy containers.
+app.use('/api/btop', createBtopRouter(btopConfig))
 
 // ============ BTOP PROXY ============
 // Proxy btop frame/health/stream requests to btop containers
@@ -135,6 +151,7 @@ app.get('/api/health', (_req, res) => {
       'github-contributions': '/api/github/contributions',
       'btop-luv': '/api/btop-luv/health',
       'btop-joi': '/api/btop-joi/health',
+      'btop-nodes': '/api/btop/nodes',
     }
   })
 })
@@ -151,4 +168,5 @@ app.listen(PORT, () => {
   console.log(`   /api/github/contributions - Cached GitHub contribution calendar`)
   console.log(`   /api/btop-luv/* - System monitor (luv)`)
   console.log(`   /api/btop-joi/* - System monitor (joi)`)
+  console.log(`   /api/btop/:node/* - NATS-backed multi-node system monitors`)
 })
