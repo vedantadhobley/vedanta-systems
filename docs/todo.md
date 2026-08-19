@@ -7,6 +7,22 @@ they're deleted from this file when the work lands.
 
 ---
 
+## Now — frontend correctness before visual migration
+
+The [2026-08-19 frontend audit](./frontend-audit.md) found one live-data
+correctness issue that should lead the next frontend pass: Found Footy does not
+advance or revalidate correctly when a live-day view resumes after midnight.
+Implement the audit's live-following state and lifecycle sequence, then
+route-scope the Found Footy and Spin Cycle providers so inactive projects do not
+keep requests and SSE connections alive.
+
+After that, establish the shared input, focus, and modal primitives before
+migrating more production UI into the two-plane component system. The audit
+owns the evidence and implementation order; do not duplicate its full finding
+list here.
+
+---
+
 ## Now — long-exposure UI roadmap
 
 Major v2 landed end of May (`5b53ea5` rich browser + `f798b8d` date

@@ -18,6 +18,8 @@ Use this index to route project work before searching the full docs tree.
   are tracked in the todo list.
 - [Frontend redesign exploration](./plans/frontend-redesign.md) — rejected
   shell studies and the progressive migration plan from the current UI.
+- [Frontend audit](./frontend-audit.md) — 2026-08-19 runtime, input,
+  responsive, accessibility, lifecycle, and animation findings.
 - [Ports](./ports.md) — host-port assignments and exceptions.
 - [Projected data rendering research](./projected-data-rendering.md) — radial
   scattering, bloom, persistence, React integration, and candidate GPU
