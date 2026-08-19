@@ -127,6 +127,19 @@ clock, batch reveal-time updates once per frame, pause outside the viewport,
 and define a reduced-motion steady state. Measure before and after on a real
 iPhone.
 
+### P1 — The initial bundle includes every project surface
+
+The production build emits a 1,358.73 kB minified main JavaScript bundle
+(397.54 kB gzip) before optional diagram chunks. `App` statically imports every
+project browser, btop, README rendering, and the PDF resume even though one
+route is visible at a time. This makes a full reload heavier than the current
+navigation model requires and raises the memory floor on mobile.
+
+Split at real route and modal boundaries. Route-scoping providers and lazy
+loading their owning surfaces should land together so code, data, and live
+connections share one lifecycle. Preserve fast in-app navigation with targeted
+preload after the initial instrument is interactive.
+
 ### P1 — Request ordering is not protected consistently
 
 Found Footy date requests and debounced search requests are not aborted or
@@ -168,8 +181,8 @@ lands, then make providers safe under Strict Mode.
    providers.
 2. Establish accessible modal, link/button, focus, and input-modality
    primitives; repair the current structural violations with them.
-3. Move the contribution animation off React's render clock and add the
-   reduced-motion path.
+3. Split project routes and heavy modals, then move the contribution animation
+   off React's render clock and add the reduced-motion path.
 4. Rebuild the Long Exposure timeline interaction and exchange-time handling.
 5. Add browser interaction tests around each extracted primitive while the
    two-plane component system replaces current project UI progressively.
