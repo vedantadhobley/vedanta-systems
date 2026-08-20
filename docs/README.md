@@ -4,8 +4,11 @@ Use this index to route project work before searching the full docs tree.
 
 - [Architecture](./architecture.md) — request paths, service boundaries,
   networks, and project integration patterns.
-- [btop integration](./btop.md) — patched monitor containers, SSE protocol,
-  themes, and the known AMD iGPU limitation.
+- [btop integration](./btop.md) — legacy and target deployment, private
+  exporter boundary, control-plane relay, NATS frames, and browser SSE.
+- [btop source and profile](./btop-source.md) — source authority,
+  public-display configuration, legacy patch history, and the Strix Halo
+  utilization gap.
 - [Decisions](./decisions.md) — append-only record of choices that have
   landed and should not be silently revisited.
 - [Design language](./design.md) — living visual brief, confirmed product
@@ -15,6 +18,9 @@ Use this index to route project work before searching the full docs tree.
   primitives.
 - [Found Footy timezone behavior](./found-footy-timezone.md) — fixture
   visibility and timezone-aware navigation behavior.
+- [Found Footy live data](./found-footy-live-data.md) — current NATS/SSE/REST
+  lifecycle, disconnect gaps, carryover behavior, and target reconciliation
+  contract.
 - [Plans](./plans/README.md) — routing index for active and historical plans.
 - [Frontend re-foundation](./plans/frontend-refoundation.md) — active runtime,
   component-system, accessibility, and route-migration plan.
@@ -22,8 +28,15 @@ Use this index to route project work before searching the full docs tree.
   shell studies and the instrument workbench record; not the active plan.
 - [Frontend audit](./frontend-audit.md) — 2026-08-19 runtime, input,
   responsive, accessibility, lifecycle, and animation findings.
+- [Full-project audit](./full-project-audit-2026-08-20.md) — dated frontend,
+  BFF, security, infrastructure, dependency, runtime, and documentation
+  findings with remediation order.
 - [Ports](./ports.md) — host-port assignments and exceptions.
 - [Projected data rendering research](./projected-data-rendering.md) — radial
   scattering, bloom, persistence, React integration, and candidate GPU
   renderers for the rear data plane.
 - [Todo](./todo.md) — active work, deferred cleanup, and unresolved choices.
+- [Deployment notes](../deploy/INFRA-NOTES.md) — this project's ingress,
+  environment, bring-up, and verification pointers.
+- [Component UI patterns](../src/components/UI-PATTERNS.md) — current reusable
+  interaction contracts, including video autoplay and input modality.

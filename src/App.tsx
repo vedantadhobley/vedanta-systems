@@ -4,7 +4,7 @@ import { RiFolder2Line, RiFolder2Fill } from '@remixicon/react'
 import { GitHubContributionGraph } from '@/components/github-contribution-graph'
 import { Header, BottomNav } from '@/components/header'
 import { PathSegment } from '@/components/filesystem-nav'
-// TODO: Re-enable moon background video when performance issues are resolved
+// Dormant composition option; see public/videos/README.md before retaining or removing it.
 // import { MoonBackground } from '@/components/moon-background'
 import { FoundFootyBrowser } from '@/components/found-footy-browser'
 import { SpinCycleBrowser } from '@/components/spin-cycle-browser'

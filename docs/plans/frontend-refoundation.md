@@ -1,6 +1,7 @@
 # Frontend re-foundation
 
-Status: active.
+Status: approved architecture; implementation paused while btop transport is
+active and the two-plane visual language is developed separately.
 
 This is the authoritative implementation plan for the frontend rewrite. The
 current production interface remains the behavioral baseline until a migrated
@@ -28,6 +29,10 @@ This plan owns migration order and frontend architecture. The related docs
 have narrower jobs:
 
 - the [frontend audit](../frontend-audit.md) owns the dated evidence;
+- the [full-project audit](../full-project-audit-2026-08-20.md) owns the wider
+  BFF, infrastructure, security, and documentation evidence;
+- the [Found Footy live-data contract](../found-footy-live-data.md) owns the
+  current stream behavior and target reconciliation semantics;
 - the [design brief](../design.md) owns intent and confirmed product
   requirements;
 - the [interface design system](../design-system.md) owns visual material and
@@ -280,23 +285,25 @@ The first route cannot ship until these scenarios pass:
    that date and refreshes its data.
 3. The tab stays open through midnight: live mode advances once; pinned mode
    does not.
-4. The next staging match day remains complete when its kickoffs span two
+4. A match starts before midnight and remains active after midnight: the new
+   live day keeps it visible and current until the upstream marks it inactive.
+5. The next staging match day remains complete when its kickoffs span two
    local calendar dates.
-5. The date index and rendered fixture buckets agree across a daylight-saving
+6. The date index and rendered fixture buckets agree across a daylight-saving
    boundary.
-6. The network or SSE stream drops during an update: reconnection snapshots
+7. The network or SSE stream drops during an update: reconnection snapshots
    the authoritative state before declaring the view current.
-7. Rapid date and search changes cannot display an older response.
-8. Opening and closing a video cannot leave fixture data stale.
-9. The exact shared video route and ordinary clip opening preserve muted
+8. Rapid date and search changes cannot display an older response.
+9. Opening and closing a video cannot leave fixture data stale.
+10. The exact shared video route and ordinary clip opening preserve muted
    autoplay recovery on iPhone Safari/Chrome and desktop Chrome.
-10. Mouse movement reveals desktop video controls; touch movement does not;
+11. Mouse movement reveals desktop video controls; touch movement does not;
    deliberate tap and keyboard focus do.
-11. Every disclosure and modal works by touch, mouse, and keyboard with visible
+12. Every disclosure and modal works by touch, mouse, and keyboard with visible
    focus and correct focus restoration.
-12. Reduced motion and no-effect modes remain complete, readable interfaces.
-13. Hidden routes own no live connection or decorative render loop.
-14. The migrated route is at least as responsive and clear as production at
+13. Reduced motion and no-effect modes remain complete, readable interfaces.
+14. Hidden routes own no live connection or decorative render loop.
+15. The migrated route is at least as responsive and clear as production at
    phone and desktop widths.
 
 ## Non-goals for the first slice

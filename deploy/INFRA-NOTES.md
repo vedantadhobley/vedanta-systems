@@ -1,10 +1,14 @@
 # Deploy notes — what changes outside this repo
 
-The application code is fully contained in this repo. The host-level
-infrastructure changes needed to run vedanta-systems on luv live in the
-workspace's `~/workspace/proxy/` stack and `~/.cloudflared/` config — they
-aren't tracked here because they're cross-cutting, but they're listed here
-so the deploy is reproducible from one place.
+The application code is contained in this repo. Cross-project ingress belongs
+to `~/workspace/proxy/`; workspace topology and recovery ownership belong to
+`~/workspace/vedanta-dhobley/`. This file records only the vedanta-systems
+slice and points to those authorities.
+
+At the 2026-08-20 audit, nonsecret Cloudflare tunnel configuration still lived
+under untracked `~/.cloudflared/`. That is a recovery gap, not the target
+convention. Move nonsecret configuration into the proxy stack and keep only
+credentials in a declared gitignored data path.
 
 ## 1. Caddy routes (luv)
 
@@ -30,6 +34,11 @@ http://vedanta-systems-dev.{$BASE_DOMAIN}     { reverse_proxy vedanta-systems-de
 http://vedanta-systems-dev-api.{$BASE_DOMAIN} { reverse_proxy vedanta-systems-dev-api:3001 }
 ```
 
+The audited public block serves plaintext HTTP instead of redirecting it. This
+is current state, not the desired security contract. Change the owning proxy
+route to redirect HTTP to HTTPS and add the agreed response headers before the
+next public deployment.
+
 After editing either file, reload Caddy without restarting the container:
 
 ```bash
@@ -48,8 +57,10 @@ if you want to hit prod via http instead of https.
 ## 2. Cloudflare tunnel ingress (luv)
 
 Cloudflared no longer runs inside the vs-prod container — it was extracted
-into `~/workspace/proxy/` as a sibling of caddy. The tunnel name
-`vedanta-systems-prod` and credentials at `~/.cloudflared/` are unchanged.
+into `~/workspace/proxy/` as a sibling of caddy. The tunnel name is
+`vedanta-systems-prod`. Credentials are currently under `~/.cloudflared/`; the
+recovery follow-up above must move them to a declared gitignored workspace-data
+location without committing their contents.
 
 The ingress rule in `~/.cloudflared/config.yml` should look like:
 
@@ -81,6 +92,7 @@ docker compose -f ~/workspace/proxy/docker-compose.yml restart cloudflared
 cd ~/workspace/dev/vedanta-systems
 cp .env.example .env
 $EDITOR .env                                  # set the secrets
+chmod 600 .env
 docker compose -f docker-compose.yml up -d --build         # prod
 # or
 docker compose -f docker-compose.dev.yml up -d --build     # dev
@@ -99,4 +111,6 @@ curl -sI http://vedanta-systems-dev-api.<base-domain>/api/health   # dev api (ta
 The api container has no published host port and is not directly fronted
 by Caddy in prod (the prod frontend has its own internal nginx that proxies
 `/api/*` to `vedanta-systems-prod-api:3001` over `vedanta-systems-prod`).
-That's intentional — keeps the prod API behind same-origin, no CORS.
+That's intentional and keeps the browser path same-origin. Express currently
+enables wildcard CORS globally despite not needing it for production; replace
+that with route-specific behavior during API hardening.

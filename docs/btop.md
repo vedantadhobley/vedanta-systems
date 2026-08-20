@@ -17,7 +17,7 @@ The replacement keeps the existing browser frame format but changes the
 collection topology:
 
 ```text
-one native btop agent on each node
+one native btop exporter on each node
   -> private HTTP/SSE over the node's compute network
   -> owning control-plane relay
   -> Core NATS btop.<node>.frame events
@@ -26,53 +26,44 @@ one native btop agent on each node
   -> existing CSS Grid renderer
 ```
 
-There is one agent per physical node, with no development/production
-duplication. luv uses Compose, joi uses its declared NixOS-hosted Compose
-stack, and Nexus uses its shared `virtualisation.oci-containers` module. The
-joi and Nexus control planes deploy the agents, consume their private streams,
-and publish the canonical NATS frames. They also own node lifecycle, but do not
-use btop health as workload readiness. The node agents never connect to NATS or
-the frontend.
+There is one exporter per physical node, with no development/production
+duplication. Each node's declared Compose or NixOS configuration owns exporter
+deployment: luv uses Compose, joi uses its NixOS-hosted Compose stack, and
+Nexus uses its shared `virtualisation.oci-containers` module. The owning
+control plane consumes the private exporter stream and publishes canonical
+NATS frames. Control planes own node lifecycle, but do not use btop health as
+workload readiness. Exporters never connect to NATS or the frontend.
 
 `src/server/routes/btop.ts` is the first migration slice. It subscribes to the
 future NATS subjects and exposes `/api/btop/{node}/{health,stream}` while the
 legacy HTTP proxies remain active. No current tile uses the new route yet.
-`BTOP_NODES` seeds the desired inventory so a powered-off node remains visible;
-valid frames can also discover a node. Unknown public stream requests are
-rejected instead of allocating unbounded in-memory node state.
+`BTOP_NODES` seeds the desired inventory so a powered-off node remains visible.
+The current store also allocates any syntactically valid node received through
+NATS. That contradicts the target allowlist and must be fixed before this route
+is deployed. Public stream requests for unknown nodes are rejected, but NATS
+ingest is not yet constrained.
 The cross-project ownership and rollout live in the
 [multi-node btop plan](../../../vedanta-dhobley/docs/plans/btop-multinode.md).
 
 ## Source ownership
 
-`~/workspace/btop/src` is the authoritative modified btop checkout. The
-`btop/src` tree in this repository is the older public-display child used by
-the live legacy image; it is not the parent of future node agents.
+`~/workspace/btop/src` is the intended authority, but its reconciled feature
+branch was not in a durable clean checkout at the 2026-08-20 audit. Source
+state, profile options, legacy patch history, and the packaging gate live in
+[btop source and public-display profile](./btop-source.md). This repo's
+embedded `btop/src` remains only for the live legacy image.
 
-Current upstream btop 1.4.7 already contains the robust ROCm 1.x ABI probe and
-AMD APU sysfs fallback that the child predates. Branch
-`feature/vedanta-profiles` in the authoritative checkout adds only the parts
-still required here:
+## Legacy and target capabilities
 
-- `public_display_mode` for the compact, non-interactive embedded layout;
-- `show_net_ip` as an independent privacy control;
-- `gpu_mem_type = "vram" | "gtt"` across both ROCm and sysfs collectors;
-- `/hostfs` labeling as the monitored root.
-
-The default remains normal operator btop. A Strix Halo public-display profile
-sets `public_display_mode = true`, `show_net_ip = false`,
-`gpu_mem_type = "gtt"`, and `show_cpu_watts = false`. The last setting avoids
-labeling whole-package APU power as CPU-only power. Both GPU and non-GPU builds
-of commit `6f76ec6` pass with GCC 14. The packaging migration must build the
-node-agent image from that source authority and then remove this repo's stale
-embedded source copy.
-
-## Legacy image features
+The live legacy image provides the AMD APU, theme, SSE broadcast, CSS Grid,
+read-only, and host-visibility items below. Private exporter transport,
+control-plane relay, and canonical cross-node delta sequencing are target-path
+capabilities, not features of the deployed legacy image.
 
 - **AMD APU Support**: GTT memory reporting for Ryzen AI MAX+ 395 (Strix Halo)
 - **Custom Theme**: Lavender theme matching site aesthetics
 - **SSE Broadcast**: Single btop instance, all clients receive same stream
-- **Private Agent Stream**: Node-local HTTP/SSE consumed only by its control plane
+- **Private Exporter Stream**: Node-local HTTP/SSE consumed only by its control plane
 - **Control-plane Relay**: Canonical NATS publication and reconnect handling
 - **Delta Encoding**: Send changed cells, with a full-frame fallback
 - **CSS Grid Rendering**: Deterministic fixed-cell alignment across layouts
@@ -165,7 +156,7 @@ Frame N: FULL     → fallback when more than 50% of cells changed
 
 ## Multi-node relay and NATS contract
 
-The node agent exposes its parsed full/delta stream over private HTTP/SSE. The
+The node exporter exposes its parsed full/delta stream over private HTTP/SSE. The
 owning control plane opens that connection, validates and reconstructs the
 terminal, then publishes one canonical NATS stream per node. Delta calculation
 no longer happens independently for every public browser connection.
@@ -175,19 +166,19 @@ no longer happens independently for every public browser connection.
 - Envelope: the workspace `{id, ts, source, version, subject, payload}` shape.
 - Payload: `{node, session, sequence, frame}`.
 - `session`: assigned by the control-plane relay and changes when its upstream
-  agent connection is replaced.
+  exporter connection is replaced.
 - `sequence`: increases for every full or delta frame in a session.
 - `frame`: the existing compact `{t:"f",c:[...]}` or `{t:"d",d:[...]}`
   browser representation.
 
 The control-plane relay owns sequence numbers and NATS credentials. It emits a
-full frame when it first synchronizes an agent, after reconnecting to NATS, and
+full frame when it first synchronizes an exporter, after reconnecting to NATS, and
 periodically so a restarted BFF can recover without NATS request/reply or
 durable replay. The BFF accepts a delta only when its session matches and its
 sequence is the next value. A gap marks that node unsynchronized until a later
 full frame restores it.
 
-While the private agent stream and health endpoint remain fresh, the relay
+While the private exporter stream and health endpoint remain fresh, the relay
 publishes an empty delta for an unchanged capture. It advances sequence and
 acts as a small liveness event, so a quiet terminal is not mistaken for an
 offline node. Cadence and periodic-full frequency must be measured during the
@@ -215,16 +206,16 @@ btop/
 
 ## Configuration
 
-### Native-agent boundary
+### Native-exporter boundary
 
-The target node agent exposes only private HTTP endpoints:
+The target node exporter exposes only private HTTP endpoints:
 
 - `/stream`: full/delta terminal cells for one control-plane consumer;
 - `/health`: capture freshness for relay admission;
 - `/frame`: optional full-frame diagnostics, private to operators.
 
 The service binds only on the node's compute interface. Host firewall rules
-admit its owning control plane and reject other callers. The agent has no NATS
+admit its owning control plane and reject other callers. The exporter has no NATS
 URL or NATS credentials.
 
 The current un-deployed prototype in `broadcast-server.py` still contains an
@@ -238,7 +229,7 @@ known Nexus worker and uses its lifecycle state to decide whether silence means
 expected power-off or a fault. The luv relay follows the same protocol locally.
 Each relay:
 
-1. connects to the private agent `/stream` and checks `/health`;
+1. connects to the private exporter `/stream` and checks `/health`;
 2. reconstructs a complete 132×43 frame;
 3. assigns relay session and sequence values;
 4. forces a full frame after either upstream or NATS reconnect;
@@ -258,7 +249,7 @@ internal Docker network. No compute-network NATS listener is required.
 Control-plane credentials may publish only their owned subjects: joi gets
 `btop.joi.frame`, while Nexus gets the approved `btop.nexus*.frame` set. The
 BFF may subscribe only to `btop.*.frame`. Do not expose NATS to the compute
-network or public internet, and do not put credentials in agents or browsers.
+network or public internet, and do not put credentials in exporters or browsers.
 
 ### btop.conf highlights
 
@@ -400,135 +391,12 @@ eventSource.onmessage = (event) => {
 and opens `${apiPrefix}/stream`. Express proxies only `health` and `stream` to
 the matching host port with SSE buffering disabled along the request path.
 
-## Source Modifications
+## Source, profile, and GPU limitation
 
-The btop source (`btop/src/`) is cloned from the official [aristocratos/btop](https://github.com/aristocratos/btop) repository with the following patches applied:
-
-### AMD APU Patches
-
-For Ryzen AI MAX+ 395 (Strix Halo) and other AMD APU support:
-
-**1. ROCm SMI v1.x Support (src/linux/btop_collect.cpp)**
-
-Ubuntu 24.04's rocm-smi package (5.7.0-1) reports library version as 1.0.0, but btop only accepts versions 5, 6, or 7. This patch treats version 1.x the same as v6/7:
-
-```cpp
-// Line ~1577: Accept version 1.x (Ubuntu 24.04 rocm-smi compatibility)
-} else if (version.major == 6 || version.major == 7 || version.major == 1) {
-```
-
-**2. GPU Memory Type Option (src/linux/btop_collect.cpp, src/btop_config.cpp)**
-
-On AMD APUs, the GPU uses unified memory (GTT - Graphics Translation Table) shared with the CPU. By default, btop queries VRAM which only shows the small BIOS carve-out (~512MB). This patch adds a `gpu_mem_type` config option:
-
-```ini
-# btop.conf
-gpu_mem_type = "gtt"   # Show unified memory (APUs)
-# gpu_mem_type = "vram" # Show dedicated VRAM (default)
-```
-
-```cpp
-// Line ~212: Add GTT memory type define
-#define RSMI_MEM_TYPE_GTT             2
-
-// Line ~1764: Use configured memory type
-rsmi_memory_type_t mem_type = (Config::getS("gpu_mem_type") == "gtt") ? RSMI_MEM_TYPE_GTT : RSMI_MEM_TYPE_VRAM;
-```
-
-**3. Show Net IP Option (src/btop_config.cpp, src/btop_draw.cpp)**
-
-Privacy option to hide IP address in network box:
-
-```ini
-# btop.conf
-show_net_ip = false  # Hide IP for public displays
-```
-
-### Display Customizations
-
-For the public-facing display:
-
-```ini
-# btop.conf
-custom_cpu_name = "AMD STRIX HALO"   # Custom CPU name in title
-custom_gpu_name0 = "AMD STRIX HALO"  # Custom GPU name
-gpu_mem_type = "gtt"                 # Show unified memory (~62GB) instead of VRAM carve-out
-show_net_ip = false                  # Hide IP address for privacy
-```
-
-### UI Customizations for Public Display
-
-Since this is a read-only public display, several interactive UI elements have been removed for a cleaner look:
-
-**src/btop_draw.cpp modifications:**
-
-1. **Box numbering removed** (line ~263)
-   - Removed superscript numbers (¹²³) from box titles
-   - `const string numbering = "";`
-
-2. **CPU box buttons disabled** (lines ~593-605)
-   - Removed: `menu` button
-   - Removed: `preset` button
-   - Removed: `- +` buttons around update interval
-   - Kept: Update interval display (e.g., "1000ms") without buttons
-
-3. **Network box buttons disabled** (lines ~1479-1496)
-   - Removed: `sync` button
-   - Removed: `auto` button  
-   - Removed: `zero` button
-   - Removed: Interface selector arrows (`←b` / `n→`)
-   - Kept: Interface name display (e.g., "enp191s0")
-
-## Theme Colors
-
-The `vedanta-lavender.theme` uses colors from the GitHub contribution graph lavender palette:
-
-| Variable | Color | Usage |
-|----------|-------|-------|
-| `main_fg` | `#7a5aaf` | General text |
-| `graph_text` | `#c9a0f0` | Uptime, network scaling |
-| `title` | `#a57fd8` | Box titles |
-| `hi_fg` | `#c9a0f0` | Keyboard shortcuts |
-| `inactive_fg` | `#3d2d5c` | Bar backgrounds |
-| Box outlines | `#5a4080` | CPU, mem, net boxes |
-| Gradients | `#7a5aaf` → `#a57fd8` → `#c9a0f0` | All graphs |
-
-## Known Issues
-
-**iGPU utilization bar reads 0% on Strix Halo under Vulkan workloads.**
-
-Symptom: GPU compute is clearly running (model is generating tokens, the
-power/clock/memory side of the GPU panel spikes, system temps rise), but
-btop's GPU utilization percentage bar stays pinned at 0%.
-
-Cause: btop reads the iGPU's busy percentage from ROCm SMI (which only
-counts HIP / ROCm queues, not Vulkan compute on gfx1151) and from the
-kernel's `/sys/class/drm/card*/device/gpu_busy_percent` sysfs counter,
-which is unreliable for Vulkan compute on Strix Halo APUs as of the
-6.x kernel series. The clock + memory panels read correctly because
-those come from different sysfs paths (`pp_dpm_sclk` / `pp_dpm_mclk`).
-
-This is a kernel/driver-side gap, not something the patches above can
-fix in btop itself. **For accurate iGPU utilization monitoring on
-joi, use [`amdgpu_top`](https://github.com/Umio-Yasuno/amdgpu_top)**:
-
-```bash
-# install (Cargo or pre-built release)
-cargo install amdgpu_top
-# or download the .deb from the GitHub releases page
-
-# live read of GFX / compute / decode / encode engine utilization
-amdgpu_top
-```
-
-`amdgpu_top` reads the per-engine ring busy counters directly from
-`/sys/kernel/debug/dri/*/amdgpu_*` (the kernel side btop doesn't
-plumb), and explicitly handles APU + Vulkan workloads correctly. It's
-the tool of record for any Strix Halo iGPU monitoring this stack
-doesn't surface.
-
-The CSS Grid rendering preserves fixed terminal-cell alignment on desktop and
-mobile.
+Source authority, the configurable public-display profile, legacy embedded
+patch history, theme colors, and the Strix Halo Vulkan-utilization limitation
+live in [btop source and public-display profile](./btop-source.md). Keep this
+document focused on deployment and transport.
 
 ## Legacy remote-node support
 
@@ -543,12 +411,12 @@ environment:
 
 When `BTOP_HOST` is not `local`, the container SSHes to the remote host and
 runs btop there. The dead joi services still use this mode. This mechanism is
-being removed; every node will run its own native agent and its control plane
-will consume that agent over private HTTP/SSE.
+being removed; every node will run its own native exporter and its control
+plane will consume that exporter over private HTTP/SSE.
 
 ## Relationship to Other Services
 
-The agent does not depend on Express to capture or encode btop. Its owning
+The exporter does not depend on Express to capture or encode btop. Its owning
 control plane is the only cross-node consumer and the only NATS publisher. The
 public browser depends on the Express BFF for same-origin SSE and never
 connects to NATS, a control plane, or a node directly. Prometheus remains the

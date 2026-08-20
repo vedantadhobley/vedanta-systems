@@ -10,6 +10,10 @@ tested in Chromium and iPhone-sized WebKit against the exact production clip.
 Those WebKit runs emulate iPhone Safari and Chrome input conditions; they are
 not physical-device certification.
 
+The later [full-project audit](./full-project-audit-2026-08-20.md) expands this
+scope and corrects the hover-variant claim below. This document remains the
+dated evidence from its original focused pass.
+
 ## Confirmed strengths
 
 - All audited routes stayed within the viewport at desktop and mobile widths.
@@ -75,12 +79,11 @@ such as timezone mode, above the router.
 
 ### P1 — The global input contract is only partially applied
 
-The navigation buttons correctly gate hover through `@media (hover: hover)`,
-and the new instrument CSS tightens that to `(hover: hover) and (pointer:
-fine)`. Elsewhere the production components contain 55 unscoped Tailwind
-`hover:` or `group-hover:` variants. The directory and resume views also
-duplicate manual mouse/touch suppression state, while
-`src/lib/use-touch-handlers.ts` is unused.
+Tailwind already enables `hoverOnlyWhenSupported`, so generated `hover:` and
+`group-hover:` variants are globally gated by `(hover: hover) and (pointer:
+fine)`. The original claim that 55 variants were unscoped was incorrect. The
+remaining issue is duplicated manual mouse/touch suppression state in the
+directory and resume views while `src/lib/use-touch-handlers.ts` is unused.
 
 The component system should expose one interaction contract:
 

@@ -436,7 +436,7 @@ runtime audit expanded the scope.
 7. Fold route-scoped wake/resume, network recovery, and timezone-boundary
    reconciliation into the Found Footy migration.
 8. Address the match-day navigation issue tracked in
-   [the todo list](../todo.md#found-footy--timezone-navigation-fold-into-the-frontend-rewrite).
+   [the todo list](../todo.md#found-footy--timezone-navigation-fold-into-the-re-foundation).
 9. Migrate other existing components incrementally. Revisit the application
    shell and navigation only after the shared component system is coherent.
 

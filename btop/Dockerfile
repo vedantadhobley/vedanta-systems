@@ -50,8 +50,9 @@ RUN mkdir -p /usr/share/fonts/nerd-fonts && \
     rm JetBrainsMono.zip && \
     fc-cache -fv
 
-# Pin the live-frame transport client. The nkeys extra supports the scoped
-# credentials required before joi or Nexus can reach the broker.
+# Legacy prototype dependency only. The direct exporter-to-NATS publisher is
+# superseded: owning control planes publish canonical frames. Remove this
+# dependency when the obsolete broadcaster publisher is deleted.
 RUN pip3 install --break-system-packages Pillow "nats-py[nkeys]==2.15.0"
 
 ENV LANG=en_US.UTF-8

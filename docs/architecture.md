@@ -20,7 +20,7 @@ browser
   → in-container nginx  (listening on :3000)
         ├─ /            and /assets/*   → /app/dist (Vite build, static)
         ├─ /api/*                       → vedanta-systems-prod-api:3001 (Express, project-internal network)
-        ├─ /api/*/refresh               → return 404 (internal-only webhook paths; bypassable from inside the docker network)
+        ├─ exact /api/*/refresh paths   → return 404 (current block misses trailing slashes; audit follow-up)
         ├─ /api/btop-{luv,joi}, .../    → return 404 (only /stream + /health exposed; standalone viewer not public)
         └─ User-Agent matches crawler   → error_page 418 → og-server.js on 127.0.0.1:3002 (dynamic OG meta tags)
 ```
@@ -127,40 +127,44 @@ This is the legacy path. The native multi-node migration now has a dormant
 consumer at `src/server/routes/btop.ts`:
 
 ```text
-node-local agent -> private HTTP/SSE on the compute network
+node-local exporter -> private HTTP/SSE on the compute network
   -> owning control-plane relay -> Core NATS btop.<node>.frame
   -> Express in-memory reconstruction
   -> /api/btop/<node>/{health,stream}
   -> browser
 ```
 
-The existing routes and containers stay active until the luv agent proves the
+The existing routes and containers stay active until the luv exporter proves the
 new path. The joi SSH collector is currently unavailable after joi's NixOS and
-network migration. The target has one native agent per physical node, no
+network migration. The target has one native exporter per physical node, no
 development/production duplication, and no browser-to-node or node-to-NATS
 connection. joi-control-plane relays joi; nexus-control-plane relays its
 workers. The luv path uses the same relay boundary locally. See the
 [btop integration contract](./btop.md).
 
-The BFF inventory comes from `BTOP_NODES` plus authenticated publisher
-discovery. This preserves explicit offline entries for powered-down nodes and
-rejects arbitrary public node names. `BTOP_NATS_CREDS` supplies the BFF's
-future subscribe-only credentials. NATS stays on luv's internal service
-network; node agents receive no broker credentials. The browser remains on
-same-origin SSE.
+The target BFF inventory is the explicit `BTOP_NODES` allowlist. This preserves
+offline entries for powered-down nodes and rejects arbitrary names at public
+routing and NATS ingest. Current source enforces the public-route check but
+still allocates any syntactically valid node received through NATS; fix that
+before deployment. `BTOP_NATS_CREDS` supplies the BFF's future subscribe-only
+credentials. The current broker is open mode, so publisher identity is not
+authenticated yet. NATS stays on luv's internal service network; exporters
+receive no broker credentials. The browser remains on same-origin SSE.
 
 ## Network model
 
 | Network | Purpose | Who's on it |
 |---|---|---|
 | `proxy` | HTTP ingress through workspace Caddy | `vs-prod`, `vs-dev`, `vs-dev-api` (NOT `vs-prod-api` — see below) |
-| `luv-prod` / `luv-dev` | Cross-project data plane (DB, internal API) | `vs-{env}-api`, `vs-{env}` (the frontend joins for cross-project reachability via nginx → api → other projects) |
+| `luv-prod` / `luv-dev` | Cross-project data plane (DB, internal API) | `vs-{env}-api`; current Compose also joins the frontend unnecessarily, queued for removal |
 | `vedanta-systems-prod` / `vedanta-systems-dev` | Project-internal | `vs-{env}` ↔ `vs-{env}-api` only |
 
 **Why `vs-prod-api` is NOT on `proxy`.** Intentional. In prod, the API is
 reached only via in-container nginx (`/api/*` → `vedanta-systems-prod-api:3001`)
-over the project-internal `vedanta-systems-prod` network. Same-origin,
-no CORS, no public Caddy hostname for the API. The dev API *is* on
+over the project-internal `vedanta-systems-prod` network. The browser path is
+same-origin and does not require CORS, although Express currently enables
+wildcard CORS globally. There is no public Caddy hostname for the production
+API. The dev API *is* on
 `proxy` because direct access via `vedanta-systems-dev-api.<base-domain>`
 is useful for poking endpoints with curl during development.
 

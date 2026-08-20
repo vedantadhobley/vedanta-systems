@@ -151,14 +151,3 @@ networks:
   proxy:
     name: proxy
     external: true
-
-# Example: Add your backend services here when ready
-# backend-service-1:
-#   build:
-#     context: ../path-to-service-1
-#     dockerfile: Dockerfile
-#   ports:
-#     - "8080:8080"
-#   environment:
-#     - ENV=development
-#   restart: unless-stopped

@@ -1,6 +1,9 @@
 # Timezone-Aware Fixture Scoping
 
-How Found Footy determines which fixtures a user can see, and how timezone mode affects that.
+How Found Footy determines which fixtures a user can see, how timezone mode
+affects that, and where the current implementation differs from the intended
+contract. Stream, sleep, reconnect, and midnight behavior lives in
+[Found Footy live data](./found-footy-live-data.md).
 
 ## Timezone Modes
 
@@ -14,7 +17,7 @@ When in Local mode (e.g. AEDT, UTC+11), the same fixture falls on `2026-02-21`.
 
 This single difference cascades through everything below.
 
-## The Visibility Rule
+## Intended visibility rule
 
 A user can see:
 
@@ -24,7 +27,20 @@ A user can see:
 3. **Today's staging fixtures** — upcoming fixtures whose date, in the user's timezone, is today.
 4. **One full future day of staging fixtures** — the *first* date after today (in the user's timezone) that has any fixtures at all. Not necessarily tomorrow — if tomorrow has no fixtures but the day after does, that day is the one shown.
 
-Nothing beyond that single future date is shown. The user cannot navigate to it and search will not return it.
+Nothing beyond that single future date is shown. The user cannot navigate to
+it and search will not return it.
+
+### Current carryover defect
+
+The production renderer does not yet satisfy item 2. It filters normal-browser
+active fixtures by the selected timezone-local kickoff date. The provider also
+opens SSE only when the literal selected date equals today. A fixture that
+starts before midnight and remains active after midnight can therefore be
+hidden from the new live day and frozen on the old day.
+
+This is a confirmed defect, not a change to the intended rule. The frontend
+re-foundation must represent live intent separately from the selected date and
+render every active carryover fixture in the live view.
 
 ### Why One Future Day?
 
@@ -78,7 +94,10 @@ Search results are re-processed client-side through the same scoping rule:
 4. **Staging fixtures** (status = `NS`) are dropped if their timezone-local date exceeds the cutoff.
 5. Surviving fixtures are regrouped by their **timezone-local date** (not the server's UTC grouping).
 
-This means search and normal browsing enforce the exact same boundary. A staging fixture that's invisible in date navigation is also invisible in search.
+Search and normal browsing enforce the same staging cutoff. Their current
+active-fixture behavior is not identical: search admits active fixtures
+without the staging cutoff, while normal browsing still applies the erroneous
+selected kickoff-date filter described above.
 
 ## Timezone Edge Cases
 

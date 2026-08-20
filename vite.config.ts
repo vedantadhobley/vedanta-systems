@@ -19,7 +19,9 @@ export default defineConfig({
       // Use the host that the browser connected to (works for Tailscale, local, etc.)
       // Setting host to true makes Vite use the browser's current host
       host: undefined,  // Let client determine host from window.location
-      clientPort: 4100, // External port (docker maps 4100 -> 3000)
+      // Audit follow-up: Compose/Caddy do not map 4100; verify HMR through the
+      // connected dev hostname and remove this override if it is unnecessary.
+      clientPort: 4100,
       overlay: false,   // Disable error overlay to reduce flicker
     },
     watch: {

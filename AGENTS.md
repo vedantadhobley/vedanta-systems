@@ -74,11 +74,13 @@ The proxy stack itself lives in `~/workspace/proxy/`; its
   credentials at `~/.cloudflared/`.
 - **btop monitor**: the live legacy path runs duplicate luv containers and
   luv-hosted SSH collectors for joi; joi is currently dead after its NixOS and
-  network migration. The replacement is one native agent per physical node;
+  network migration. The replacement is one native exporter per physical node;
   its owning control plane consumes a private HTTP/SSE stream and publishes
-  ordered frames through Core NATS to the BFF. The authoritative
-  modified source is `~/workspace/btop/src`; this repo's `btop/src` is the
-  stale public-display child used by the legacy image. See `docs/btop.md`.
+  ordered frames through Core NATS to the BFF. `~/workspace/btop/src` is the
+  intended modified-source authority, but its feature branch must be moved
+  from the temporary reconciliation checkout into a durable clean checkout
+  before packaging. This repo's `btop/src` is the stale public-display child
+  used by the legacy image. See `docs/btop.md`.
 
 ## Surfaced projects (vs-api integration status)
 
@@ -87,7 +89,7 @@ The proxy stack itself lives in `~/workspace/proxy/`; its
 | **found-footy** | **Pattern B, live both envs.** Proxies the Go read API (`found-footy-{env}-api:8081`) for fixtures/search/events (reshaped by the shim), plus a NATS live-feed bridge (`found-footy.<env>.>` → SSE) and share_id video re-proxy (302 → presigned Garage). Dev 2026-08-13, prod 2026-08-15. | Done — no direct mongo/minio peers. |
 | **spin-cycle** | Reads `spin-cycle-{env}-postgres` directly (Pattern A) | `spin-cycle-{env}-api:3000` already exists — vs-api just needs to swap from pg pool to HTTP proxy. |
 | **long-exposure** | Reads `long-exposure-{env}-postgres` directly (Pattern A, by design until LE grows its own API) | Pattern B once LE has a separate api service. The `caddy.d/long-exposure.caddy` file documents the current design. |
-| **btop-luv / btop-joi** | Legacy Express proxies `/api/btop-{luv,joi}/{health,stream}` to host ports; joi is currently unavailable. A dormant sequence-aware NATS consumer exists at `/api/btop/<node>/*`. | One native agent per node → private HTTP/SSE → owning control plane → Core NATS → BFF → browser SSE. |
+| **btop-luv / btop-joi** | Legacy Express proxies `/api/btop-{luv,joi}/{health,stream}` to host ports; joi is currently unavailable. A dormant sequence-aware NATS consumer exists at `/api/btop/<node>/*`. | One native exporter per node → private HTTP/SSE → owning control plane → Core NATS → BFF → browser SSE. |
 | **legal-tender** | Not surfaced. | Pattern B from day one when it lands. |
 
 Pattern A vs B is the central architectural call here — see
@@ -98,9 +100,11 @@ Pattern A vs B is the central architectural call here — see
 - @README.md — public-facing project description
 - @docs/design.md — **the living design brief**: confirmed clarity/response constraints, working BR2049 × lavender-phosphor direction, references, and open questions. References and existing code are not authority.
 - @docs/design-system.md — working two-plane interface contract: crisp container plane above luminous phosphor data, composite controls, reusable primitives, and progressive adoption from the current UI
-- @docs/plans/frontend-refoundation.md — **active frontend plan**: runtime correctness, route ownership, accessibility, component-system boundaries, and migration gates
+- @docs/plans/frontend-refoundation.md — approved frontend architecture and migration gates; implementation is paused during btop transport work and further design-language development
 - @docs/plans/frontend-redesign.md — historical shell studies and instrument workbench log; not the active migration plan
 - @docs/frontend-audit.md — dated evidence for lifecycle, input, accessibility, performance, and component-boundary problems
+- @docs/full-project-audit-2026-08-20.md — first whole-project audit across frontend, BFF, security, deployment, dependencies, runtime, and docs
+- @docs/found-footy-live-data.md — current NATS/SSE/REST behavior and target reconnect, wake, midnight, and carryover contract
 - @src/components/UI-PATTERNS.md — current production interaction and video behavior; migration evidence, not the new component API
 - @deploy/INFRA-NOTES.md — Caddy + Cloudflared bring-up reference for this repo's slice
 - @docs/architecture.md — request paths (prod via Caddy → in-container nginx → SPA / api / og-server; dev via Caddy → Vite proxy → api), network model, btop's network_mode:host exception
@@ -129,7 +133,11 @@ Pattern A vs B is the central architectural call here — see
   long-exposure route/BFF/type pattern and mount it in `src/server/index.ts`
   plus `src/App.tsx`. During the frontend re-foundation, also give the route a
   lazy surface and route-owned provider; do not add another global provider.
-- **Adding any route that writes / refreshes / triggers anything.** Add a `location = /api/<project>/<write-path> { return 404; }` block in `nginx.conf` so internet traffic can't reach it. Internal callers (other containers on `luv-prod`) hit `vedanta-systems-prod-api:3001` directly, bypassing nginx — they keep working.
+- **Adding any route that writes / refreshes / triggers anything.** Enforce
+  authorization or an internal network boundary in Express and block the full
+  public path family in nginx. An exact nginx location alone is insufficient
+  because Express accepts trailing slashes. Internal callers (other containers
+  on `luv-prod`) hit `vedanta-systems-prod-api:3001` directly, bypassing nginx.
 - **btop changes.** Hardware and profile source changes belong in the
   authoritative `~/workspace/btop/src` checkout. Transport and browser
   integration belong here. Do not add new patches to the stale embedded
@@ -138,11 +146,15 @@ Pattern A vs B is the central architectural call here — see
 
 ## Active state
 
-- **Frontend re-foundation active**: Found Footy is the first full route slice.
-  The production interface remains the behavior baseline. The active plan
-  combines wake/reconnect/date correctness, route ownership, accessible input
-  primitives, and the two-plane component system; the instrument workbench is
-  evidence only. See @docs/plans/frontend-refoundation.md.
+- **Audit containment and btop transport active**: contain the credential,
+  development-container, public HTTP, refresh-path, restart-storm, and memory
+  risks before another public deployment. This repo then owns the btop BFF and
+  browser migration; exporter, relay, NATS, and node-deployment work stays in
+  its cross-project owners. See @docs/todo.md.
+- **Frontend re-foundation paused**: the approved architecture still begins
+  with Found Footy's wake/reconnect/date correctness and route ownership. Do
+  not apply the two-plane visual system until its design is ready. Production
+  remains the behavior baseline. See @docs/plans/frontend-refoundation.md.
 - **found-footy Pattern B — live both envs (prod cutover 2026-08-15)**: `src/server/routes/found-footy.ts` shims the Go read API (`found-footy-{env}-api:8081`; fixtures/search/events reshaped to the legacy frontend shape) + a NATS→SSE bridge (env-scoped to `found-footy.<env>.>`) + share_id video/download re-proxy (302 → presigned `garage:3900`, streamed same-origin). **Load-bearing:** `found-footy-{env}-garage` must be aliased `garage` on `luv-{env}` or video 502s; the NATS broker is open mode (env isolation is by subject token, no creds). Dev landed 2026-08-13, prod verified end-to-end 2026-08-15 — see @docs/decisions.md.
 - **Caddy migration**: complete and load-bearing. cloudflared moved out of vs-prod into `~/workspace/proxy/` (commit `6c8c480`). Vite dev proxy target fixed to `vedanta-systems-dev-api:3001` (commit `62ba907`). Internal in-container nginx kept — it's not redundant with Caddy.
 - **Long Exposure surfaced**: the current browser includes date navigation,
@@ -155,9 +167,8 @@ Pattern A vs B is the central architectural call here — see
   because its legacy collector SSHes from luv into the pre-migration host.
   The dormant NATS consumer, shared frame schema, and current-upstream source
   profile have landed. The un-deployed direct agent publisher was a boundary
-  mistake and is superseded. Private agent endpoints and control-plane relay
+  mistake and is superseded. Private exporter endpoints and control-plane relay
   implementations are the next gate; see `docs/btop.md`.
-- **Open infra question**: `nginx.conf`'s `/btop-luv/` location block references `vedanta-systems-prod-btop` (singular) — predates the luv/joi split where the actual container is `vedanta-systems-prod-btop-luv`. Probably stale/dead; verify before pruning. Tracked in @docs/todo.md.
 
 ## Memory model (for me, the agent)
 

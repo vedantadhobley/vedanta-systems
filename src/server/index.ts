@@ -98,10 +98,11 @@ if (longExposureConfig.postgresUri) {
 // GitHub contribution calendar — fixed user, read-only, cached server-side.
 app.use('/api/github', createGitHubRouter(githubConfig))
 
-// Multi-node btop target path. Node-local agents publish canonical full/delta
-// frames to NATS; this bridge reconstructs each node and fans it to browser SSE.
-// The existing /api/btop-{luv,joi} HTTP proxies remain active until native
-// agents replace both legacy containers.
+// Multi-node btop target path. Node-local exporters expose private HTTP/SSE;
+// owning control planes publish canonical full/delta frames to NATS. This
+// bridge reconstructs each allowlisted node and fans it to browser SSE. The
+// existing /api/btop-{luv,joi} HTTP proxies remain active until native
+// exporters replace both legacy container pairs.
 app.use('/api/btop', createBtopRouter(btopConfig))
 
 // ============ BTOP PROXY ============

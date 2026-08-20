@@ -7,22 +7,80 @@ they're deleted from this file when the work lands.
 
 ---
 
-## Now — frontend re-foundation through Found Footy
+## Now — audit containment
 
-The [frontend re-foundation plan](./plans/frontend-refoundation.md) is the
-authoritative sequence. Begin with Found Footy's route-owned runtime: separate
-live intent from the selected date, reconcile REST after every disconnected
-interval, protect request ordering, and handle wake, page restore, network
-recovery, midnight, and timezone changes.
+The [2026-08-20 full-project audit](./full-project-audit-2026-08-20.md)
+is the evidence record. Contain these risks before new public deployment:
 
-Then land shared input, focus, dialog, disclosure, and media primitives with
-the first complete two-plane route slice. The
-[2026-08-19 frontend audit](./frontend-audit.md) owns the evidence; the plan
-owns implementation order. Do not duplicate their full finding lists here.
+- [ ] Rotate the Long Exposure database credential, require it in both Compose
+  files, and set the gitignored `.env` to mode `0600`.
+- [ ] Remove the Docker socket and host SSH mounts from the development
+  frontend. Restrict Vite's allowed hosts.
+- [ ] Change the public HTTP route to redirect to HTTPS and establish baseline
+  security headers at the owning ingress layer.
+- [ ] Block trailing-slash variants of internal refresh endpoints and enforce
+  the boundary in Express rather than relying only on nginx exact locations.
+- [ ] Disable the dead development and production joi SSH collectors so they
+  stop restart-looping.
+- [ ] Add container memory/PID limits and a Node heap ceiling from the workspace
+  memory budget.
+- [ ] Reconcile the public Git recovery branch without blindly pushing local
+  `main`. The revoked PAT remains public history until a deliberate coordinated
+  rewrite.
+
+Cross-project work belongs in dhobley's btop plan and the owning proxy, NATS,
+btop, joi, and Nexus repositories. In particular: scope NATS credentials,
+restrict exporter network access, make the btop source branch durable, and
+make public HTTP redirect at the proxy layer.
 
 ---
 
-## Now — long-exposure UI roadmap
+## Now — native multi-node btop consumer migration
+
+This repo owns only the browser-facing BFF and tile. Exporter packaging,
+control-plane relays, NATS authorization, firewall policy, and node deployment
+are routed through the cross-project
+[multi-node btop plan](../../../vedanta-dhobley/docs/plans/btop-multinode.md).
+
+- [x] Add the sequence-aware NATS frame store and
+  `/api/btop/<node>/{health,stream}` routes without replacing the live path.
+- [ ] Enforce `BTOP_NODES` as an allowlist before deploying the dormant route;
+  a valid frame must not allocate an arbitrary node.
+- [ ] Register SSE cleanup before awaited work, honor write backpressure, and
+  bound connection/memory use.
+- [ ] Point the luv tile at the new route after the native exporter and relay
+  prove startup, reconnect, sequence-gap, and periodic-full recovery.
+- [ ] Move joi only after its native NixOS exporter is healthy; do not revive
+  the SSH collector.
+- [ ] Make the browser monitor list data-driven before adding Nexus nodes.
+- [ ] Remove `mountBtopProxy`, both legacy btop Compose pairs, their host-port
+  exceptions, embedded source child, and obsolete broadcaster publisher after
+  cutover.
+
+The two-plane visual system is not part of this migration.
+
+---
+
+## Paused — frontend re-foundation through Found Footy
+
+The [frontend re-foundation plan](./plans/frontend-refoundation.md) remains the
+authoritative architecture and sequence, but implementation is paused while
+the two-plane design language is developed separately. When work resumes,
+begin with Found Footy's route-owned runtime: separate live intent from the
+selected date, retain active carryover fixtures, reconcile REST after every
+disconnected interval, protect request ordering, and handle wake, page
+restore, network recovery, midnight, and timezone changes.
+
+Then land shared input, focus, dialog, disclosure, and media primitives with
+the first complete two-plane route slice. The
+[2026-08-19 frontend audit](./frontend-audit.md) and
+[2026-08-20 full-project audit](./full-project-audit-2026-08-20.md) own the
+evidence; the plan owns implementation order. Do not duplicate their full
+finding lists here.
+
+---
+
+## Deferred — long-exposure UI roadmap
 
 Major v2 landed end of May (`5b53ea5` rich browser + `f798b8d` date
 navigator + week view + `3136387` day-arc timeline strip, plus
@@ -60,10 +118,14 @@ Long-exposure produces daily output (the nightly narration pipeline
 runs overnight). Right now the frontend fetches
 `/api/long-exposure/latest` on mount and never refetches — if the
 user keeps the page open across the nightly cycle they don't see
-the new day until manual refresh. Three options:
+the new day until manual refresh.
 
-- **(a) Do nothing.** Acceptable for a daily-cadence product;
-  manual refresh is a known workflow. Zero code change.
+The route must revalidate on route entry, wake, `pageshow`, and network
+recovery under the shared frontend lifecycle. To learn about a new nightly run
+while the route remains continuously visible, add one of these mechanisms:
+
+- **(a) Scheduled `/latest` check** after the expected nightly completion
+  window. On change, surface a notice or auto-update.
 - **(b) Periodic poll of `/latest`** (every 5–15 min). On change,
   surface a "new day available" toast or auto-update. Light touch,
   no upstream change.
@@ -73,13 +135,12 @@ the new day until manual refresh. Three options:
   SSE event. Most consistent with the other projects, but a notify
   hook in long-exposure's pipeline is overkill for daily cadence.
 
-Default lean: **(a)** for now. Revisit before quarterly lands —
-if quarterly grows an intra-day update pattern, the answer is
-probably (b) or (c).
+Default lean: **(a)** plus required resume/re-entry reconciliation. If
+quarterly grows an intra-day update pattern, use (b) or (c).
 
 ---
 
-## Now — spin-cycle maintenance posture
+## Deferred — spin-cycle maintenance posture
 
 spin-cycle is scheduled to come down for maintenance (out-of-band of
 this repo). The vs-api spin-cycle route is gated on
@@ -160,61 +221,17 @@ patching the legacy provider in isolation. The slice must address #1.
 
 ---
 
-## Active — native multi-node btop migration
+## Deferred runtime cleanup
 
-The cross-node deployment belongs to the workspace btop, joi, Nexus, NATS,
-and dhobley repos. This repo owns the browser-facing consumer:
-
-- [x] Add the sequence-aware NATS frame store and
-  `/api/btop/<node>/{health,stream}` routes without replacing the live path.
-- [x] Add the sequence-aware frame encoder prototype and versioned schema in
-  the shared NATS repo. Its disabled direct-agent publisher is superseded and
-  must not be deployed.
-- [x] Reconcile the public-display child against current upstream btop as
-  configurable operator/public profiles (`feature/vedanta-profiles`,
-  `6f76ec6`) and verify GPU plus non-GPU builds.
-- [ ] Move node-agent packaging to the authoritative `~/workspace/btop/src`
-  checkout and retire this repo's stale embedded `btop/src` child.
-- [ ] Remove the direct NATS publisher from the node agent and implement the
-  same private-stream relay contract in joi-control-plane and
-  nexus-control-plane. Give each relay publish rights only for its owned nodes.
-- [ ] Bind each agent's HTTP/SSE endpoint to the compute network and restrict
-  it to its owning control plane. NATS remains internal to luv.
-- [ ] Point the luv tile at the new route after the first native agent proves
-  startup, reconnect, sequence-gap, and periodic-full recovery.
-- [ ] Move joi only after its NixOS-hosted native agent is healthy; do not
-  revive the SSH collector.
-- [ ] Make the monitor list data-driven before adding Nexus nodes.
-- [ ] Remove `mountBtopProxy`, both btop Compose pairs, their host-port
-  exceptions, and the dead nginx viewer block after cutover.
-
-The two-plane visual system is not part of this migration.
-
----
-
-## Verify — `nginx.conf` cleanup
-
-`nginx.conf` is still load-bearing in prod (crawler routing to OG
-server, internal-only webhook 404s, SSE/range quirks, video
-streaming). One specific block looks stale:
-
-- The `/btop-luv/` location block sets `$btop_upstream` to
-  `vedanta-systems-prod-btop` — a container name that no longer
-  exists. The actual containers are `vedanta-systems-prod-btop-luv`
-  and `vedanta-systems-prod-btop-joi` (post luv/joi split), and they
-  both run `network_mode: host` so they're not reachable via docker
-  DNS anyway. Btop traffic goes through the Express API
-  (`/api/btop-{luv,joi}/*`), which reaches host ports via
-  `host-gateway`. The `/btop-luv/` block in `nginx.conf` appears
-  dead — verify and remove.
-
-Related minor cleanup: `og-server.js` is alive (serves dynamic OG
-meta tags for crawlers via the `error_page 418` path; `start.sh`
-launches it alongside nginx). But its second responsibility —
-  SSR-style data injection — is dead: the `$needs_footy_data` map in
-  `nginx.conf` is commented out (preload added 1.3MB and crashed
-  mobile). The dead code path in `og-server.js` could be trimmed; no
-behavior impact, just less surface area.
+- Remove the disabled OG data-injection path while retaining crawler metadata
+  generation.
+- Replace the global production CORS policy with route-specific behavior.
+- Add upstream request deadlines, SQL statement timeouts, consistent health
+  semantics, and generic public error bodies.
+- Remove unused `minio` and `mongodb` dependencies, upgrade Node from its
+  end-of-life release, and remediate the audited dependency advisories.
+- Move the API to a compiled production image with production-only
+  dependencies and a non-root runtime.
 
 ## Future projects in the portal
 
