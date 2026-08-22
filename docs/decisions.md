@@ -441,7 +441,8 @@ frontend has no Docker socket or host SSH mount and accepts an explicit
 gitignored hostname allowlist. Caddy redirects edge HTTP and sets the baseline
 response headers. nginx, Vite, and the direct dev-API Caddy route overwrite
 `X-Vedanta-Public: 1`; Express returns 404 for marked requests to internal
-refresh hooks. nginx retains a path-family block as an earlier defense.
+refresh hooks. The obsolete Found Footy webhook is removed because NATS now
+owns its refresh hints. nginx retains a path-family block as an earlier defense.
 
 Every portal container receives a memory, swap, and PID ceiling; Node runtimes
 also receive heap ceilings. The obsolete joi SSH collectors are opt-in through
