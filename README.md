@@ -57,7 +57,7 @@ docker compose -f docker-compose.yml up -d --build
 | **found-footy** | Automated football goal clip aggregator. Monitors live fixtures, detects goals, finds and archives video clips from social media. | [`vedantadhobley/found-footy`](https://github.com/vedantadhobley/found-footy) |
 | **spin-cycle** | News claim verification pipeline. Ingests transcripts, extracts claims, delivers structured verdicts with full evidence chains. | [`vedantadhobley/spin-cycle`](https://github.com/vedantadhobley/spin-cycle) |
 | **long-exposure** | A full day of IEX market activity, rendered into something you can read. Parses the exchange's order-by-order feed nightly, detects microstructure events, narrates them through a locally-hosted LLM. | [`vedantadhobley/long-exposure`](https://github.com/vedantadhobley/long-exposure) |
-| **btop-luv / btop-joi** | Real-time node monitor. luv still uses the legacy in-repo image; the joi SSH collector is unavailable. The target uses native exporters and owning control-plane relays. | Legacy image: [`btop/`](./btop); target contract: [`docs/btop.md`](./docs/btop.md) |
+| **btop-luv / btop-joi** | Real-time node monitor. luv still uses the legacy in-repo image; the failed joi SSH collectors are disabled. The target uses native exporters and owning control-plane relays. | Legacy image: [`btop/`](./btop); target contract: [`docs/btop.md`](./docs/btop.md) |
 
 ## Architecture + deep dives
 

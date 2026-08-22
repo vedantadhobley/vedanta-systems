@@ -1,6 +1,11 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
+const allowedHosts = (process.env.DEV_ALLOWED_HOSTS || '')
+  .split(',')
+  .map(host => host.trim())
+  .filter(Boolean)
+
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
@@ -14,14 +19,12 @@ export default defineConfig({
     strictPort: false,
     open: false,  // Don't auto-open browser on remote server
     host: '0.0.0.0',  // Bind to all interfaces for remote access
-    allowedHosts: true,  // Allow access from any hostname (Tailscale, etc.)
+    // Explicit host allowlist supplied by the gitignored Compose environment.
+    // Never use `true`: the dev server is reachable through workspace Caddy.
+    allowedHosts,
     hmr: {
-      // Use the host that the browser connected to (works for Tailscale, local, etc.)
-      // Setting host to true makes Vite use the browser's current host
-      host: undefined,  // Let client determine host from window.location
-      // Audit follow-up: Compose/Caddy do not map 4100; verify HMR through the
-      // connected dev hostname and remove this override if it is unnecessary.
-      clientPort: 4100,
+      // Use the connected Caddy hostname and port; there is no separate HMR
+      // host-port mapping.
       overlay: false,   // Disable error overlay to reduce flicker
     },
     watch: {
@@ -43,6 +46,9 @@ export default defineConfig({
       '/api': {
         target: 'http://vedanta-systems-dev-api:3001',
         changeOrigin: true,
+        // Mark browser-originated requests. Internal workers call the API
+        // container directly and omit this marker.
+        headers: { 'X-Vedanta-Public': '1' },
       },
     },
   },

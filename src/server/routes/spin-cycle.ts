@@ -1,5 +1,6 @@
 import { Router, Response, Request } from 'express'
 import { Pool } from 'pg'
+import { requireInternalRequest } from '../internal-only'
 
 /**
  * Spin Cycle API surface. Currently **Pattern A** — vs-api opens a
@@ -366,7 +367,7 @@ export function createSpinCycleRouter(config: SpinCycleConfig): Router {
   })
 
   // POST /refresh - called by spin-cycle backend after verification completes
-  router.post('/refresh', async (_req: Request, res: Response) => {
+  router.post('/refresh', requireInternalRequest, async (_req: Request, res: Response) => {
     broadcastRefresh()
     res.json({ success: true, clientsNotified: sseClients.size })
   })

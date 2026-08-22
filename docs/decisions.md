@@ -426,3 +426,35 @@ direct publisher in `broadcast-server.py` is a superseded prototype and must
 be removed before rollout.
 
 ---
+
+## 2026-08-22 — Contain the audited public and container boundaries
+
+**Context.** The full-project audit found a development frontend with host
+Docker and SSH access, unrestricted Vite host acceptance, browser-reachable
+refresh hooks protected only by exact nginx paths, plaintext edge HTTP,
+uncapped long-running containers, weak Long Exposure database defaults, and
+two failed joi SSH collectors in permanent restart loops.
+
+**Decision.** The frontend containers join only the project and ingress
+networks; only the BFF joins the cross-project data network. The development
+frontend has no Docker socket or host SSH mount and accepts an explicit
+gitignored hostname allowlist. Caddy redirects edge HTTP and sets the baseline
+response headers. nginx, Vite, and the direct dev-API Caddy route overwrite
+`X-Vedanta-Public: 1`; Express returns 404 for marked requests to internal
+refresh hooks. nginx retains a path-family block as an earlier defense.
+
+Every portal container receives a memory, swap, and PID ceiling; Node runtimes
+also receive heap ceilings. The obsolete joi SSH collectors are opt-in through
+the `legacy-joi` profile and remain stopped. Long Exposure credentials are
+required Compose inputs with no checked-in password fallback; the owning
+Long Exposure runtime also fails fast when its events password is absent.
+
+**Consequences.** A normal Compose start cannot silently restore the risky
+development mounts, restart the failed joi collectors, or connect Long
+Exposure with a known default. Browser traffic cannot invoke internal refresh
+hooks through any declared ingress path. Credential rotation still requires a
+coordinated database-role update and recreation of every consumer. Rewriting
+the public Git history that contains the revoked PAT remains a separate,
+deliberate recovery operation.
+
+---

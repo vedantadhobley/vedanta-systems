@@ -10,11 +10,15 @@ services:
         - VITE_SPIN_CYCLE_API_URL=https://vedanta.systems/api/spin-cycle
     container_name: vedanta-systems-prod
     restart: unless-stopped
+    mem_limit: 256m
+    memswap_limit: 256m
+    pids_limit: 128
+    environment:
+      - NODE_OPTIONS=--max-old-space-size=128
     volumes:
       - /home/vedanta/photos:/app/dist/photos:ro
     networks:
       - vedanta-systems-prod
-      - luv-prod
       - proxy
     depends_on:
       - api
@@ -28,6 +32,7 @@ services:
     # No ports exposed - only accessible via nginx proxy on internal network
     environment:
       - NODE_ENV=production
+      - NODE_OPTIONS=--max-old-space-size=384
       - API_PORT=3001
       # Server-only GitHub credential for the cached contribution calendar.
       - GITHUB_TOKEN=${GITHUB_TOKEN}
@@ -41,12 +46,15 @@ services:
       # Spin Cycle PostgreSQL - connects to spin-cycle-prod-postgres on luv-prod network
       - SPIN_CYCLE_POSTGRES_URI=postgresql://${SPIN_CYCLE_POSTGRES_USER}:${SPIN_CYCLE_POSTGRES_PASS}@spin-cycle-prod-postgres:5432/spincycle
       # Long Exposure PostgreSQL (TimescaleDB; narratives) - long-exposure-prod-postgres on luv-prod
-      - LONG_EXPOSURE_POSTGRES_URI=postgresql://${LONG_EXPOSURE_POSTGRES_USER:-leuser}:${LONG_EXPOSURE_POSTGRES_PASS:-lepass}@long-exposure-prod-postgres:5432/longexposure
+      - LONG_EXPOSURE_POSTGRES_URI=postgresql://${LONG_EXPOSURE_POSTGRES_USER:?set LONG_EXPOSURE_POSTGRES_USER in .env}:${LONG_EXPOSURE_POSTGRES_PASS:?set LONG_EXPOSURE_POSTGRES_PASS in .env}@long-exposure-prod-postgres:5432/longexposure
       # btop runs with network_mode:host, so reach it via host gateway
       - BTOP_HOST=host-gateway
     extra_hosts:
       - "host-gateway:host-gateway"
     restart: unless-stopped
+    mem_limit: 512m
+    memswap_limit: 512m
+    pids_limit: 128
     networks:
       - vedanta-systems-prod
       - luv-prod
@@ -59,6 +67,9 @@ services:
       context: ./btop
       dockerfile: Dockerfile
     restart: unless-stopped
+    mem_limit: 512m
+    memswap_limit: 512m
+    pids_limit: 64
     
     # Required for FULL host system visibility
     pid: host                    # See host processes
@@ -100,7 +111,13 @@ services:
     build:
       context: ./btop
       dockerfile: Dockerfile
+    # Obsolete SSH collector. Opt-in only while retained for rollback; the
+    # native joi exporter/control-plane relay replaces it.
+    profiles: ["legacy-joi"]
     restart: unless-stopped
+    mem_limit: 256m
+    memswap_limit: 256m
+    pids_limit: 64
     network_mode: host           # Required for Tailscale/LAN access to joi
 
     volumes:

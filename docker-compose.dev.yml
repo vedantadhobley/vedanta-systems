@@ -10,25 +10,25 @@ services:
     environment:
       - VITE_API_BASE_URL=http://localhost:8080
       - VITE_ENVIRONMENT=development
+      - DEV_ALLOWED_HOSTS=${DEV_ALLOWED_HOSTS:?set DEV_ALLOWED_HOSTS in .env}
+      - NODE_OPTIONS=--max-old-space-size=1536
       # Use localhost for browser access (frontend runs in browser, not in container)
       # Use relative URLs so dev works from any device (Tailscale, phone, etc.)
       # Vite proxy handles /api -> api:3001
       #- VITE_FOOTY_API_URL=http://localhost:4101/api/found-footy
       #- VITE_SPIN_CYCLE_API_URL=http://localhost:4101/api/spin-cycle
     restart: unless-stopped
+    mem_limit: 2g
+    memswap_limit: 2g
+    pids_limit: 256
     # Enable volumes for live development (Dev Containers)
     volumes:
       - .:/app
       - /app/node_modules
-      - /var/run/docker.sock:/var/run/docker.sock
-      - /home/vedanta/.ssh:/root/.ssh:ro
       - /home/vedanta/photos:/app/public/photos:ro  # Shared photos (read-only)
     command: npm run dev -- --host 0.0.0.0
-    extra_hosts:
-      - "host.docker.internal:host-gateway"  # For reaching host-network services (btop)
     networks:
       - vedanta-systems-dev
-      - luv-dev
       - proxy
     depends_on:
       - api
@@ -42,12 +42,13 @@ services:
     environment:
       - API_PORT=3001
       - NODE_ENV=development
+      - NODE_OPTIONS=--max-old-space-size=768
       # Server-only GitHub credential for the cached contribution calendar.
       - GITHUB_TOKEN=${GITHUB_TOKEN}
       # Spin Cycle PostgreSQL
       - SPIN_CYCLE_POSTGRES_URI=postgresql://${SPIN_CYCLE_POSTGRES_USER}:${SPIN_CYCLE_POSTGRES_PASS}@spin-cycle-dev-postgres:5432/spincycle
       # Long Exposure PostgreSQL (TimescaleDB; narratives table)
-      - LONG_EXPOSURE_POSTGRES_URI=postgresql://${LONG_EXPOSURE_POSTGRES_USER:-leuser}:${LONG_EXPOSURE_POSTGRES_PASS:-lepass}@long-exposure-dev-postgres:5432/longexposure
+      - LONG_EXPOSURE_POSTGRES_URI=postgresql://${LONG_EXPOSURE_POSTGRES_USER:?set LONG_EXPOSURE_POSTGRES_USER in .env}:${LONG_EXPOSURE_POSTGRES_PASS:?set LONG_EXPOSURE_POSTGRES_PASS in .env}@long-exposure-dev-postgres:5432/longexposure
       # btop proxy target (runs on host network)
       - BTOP_HOST=host.docker.internal
       # Found Footy — Pattern B: proxy the Go read API (reshaped to the legacy
@@ -60,6 +61,9 @@ services:
       - .:/app
     command: sh -c "npm install && npx tsx watch src/server/index.ts"
     restart: unless-stopped
+    mem_limit: 1g
+    memswap_limit: 1g
+    pids_limit: 256
     extra_hosts:
       - "host.docker.internal:host-gateway"  # For reaching btop on host network
     networks:
@@ -75,6 +79,9 @@ services:
       context: ./btop
       dockerfile: Dockerfile
     restart: unless-stopped
+    mem_limit: 512m
+    memswap_limit: 512m
+    pids_limit: 64
     
     # Required for FULL host system visibility
     pid: host                    # See host processes
@@ -116,7 +123,13 @@ services:
     build:
       context: ./btop
       dockerfile: Dockerfile
+    # Obsolete SSH collector. Opt-in only while retained for rollback; the
+    # native joi exporter/control-plane relay replaces it.
+    profiles: ["legacy-joi"]
     restart: unless-stopped
+    mem_limit: 256m
+    memswap_limit: 256m
+    pids_limit: 64
     network_mode: host
 
     volumes:

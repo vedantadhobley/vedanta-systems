@@ -16,13 +16,13 @@ is the evidence record. Contain these risks before new public deployment:
   files, and set the gitignored `.env` to mode `0600`.
 - [ ] Remove the Docker socket and host SSH mounts from the development
   frontend. Restrict Vite's allowed hosts.
-- [ ] Change the public HTTP route to redirect to HTTPS and establish baseline
+- [x] Change the public HTTP route to redirect to HTTPS and establish baseline
   security headers at the owning ingress layer.
-- [ ] Block trailing-slash variants of internal refresh endpoints and enforce
+- [x] Block trailing-slash variants of internal refresh endpoints and enforce
   the boundary in Express rather than relying only on nginx exact locations.
-- [ ] Disable the dead development and production joi SSH collectors so they
+- [x] Disable the dead development and production joi SSH collectors so they
   stop restart-looping.
-- [ ] Add container memory/PID limits and a Node heap ceiling from the workspace
+- [x] Add container memory/PID limits and a Node heap ceiling from the workspace
   memory budget.
 - [ ] Reconcile the public Git recovery branch without blindly pushing local
   `main`. The revoked PAT remains public history until a deliberate coordinated
@@ -30,8 +30,7 @@ is the evidence record. Contain these risks before new public deployment:
 
 Cross-project work belongs in dhobley's btop plan and the owning proxy, NATS,
 btop, joi, and Nexus repositories. In particular: scope NATS credentials,
-restrict exporter network access, make the btop source branch durable, and
-make public HTTP redirect at the proxy layer.
+restrict exporter network access, and make the btop source branch durable.
 
 ---
 

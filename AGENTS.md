@@ -72,9 +72,10 @@ The proxy stack itself lives in `~/workspace/proxy/`; its
 - **Cloudflared**: extracted to `~/workspace/proxy/` as a sibling of
   caddy in commit `6c8c480`. Tunnel name `vedanta-systems-prod`;
   credentials at `~/.cloudflared/`.
-- **btop monitor**: the live legacy path runs duplicate luv containers and
-  luv-hosted SSH collectors for joi; joi is currently dead after its NixOS and
-  network migration. The replacement is one native exporter per physical node;
+- **btop monitor**: the live legacy path still duplicates the luv collector by
+  environment. Both luv-hosted SSH collectors for joi are stopped and gated
+  behind the `legacy-joi` profile after joi's NixOS and network migration. The
+  replacement is one native exporter per physical node;
   its owning control plane consumes a private HTTP/SSE stream and publishes
   ordered frames through Core NATS to the BFF. `~/workspace/btop/src` is the
   intended modified-source authority, but its feature branch must be moved
@@ -89,7 +90,7 @@ The proxy stack itself lives in `~/workspace/proxy/`; its
 | **found-footy** | **Pattern B, live both envs.** Proxies the Go read API (`found-footy-{env}-api:8081`) for fixtures/search/events (reshaped by the shim), plus a NATS live-feed bridge (`found-footy.<env>.>` → SSE) and share_id video re-proxy (302 → presigned Garage). Dev 2026-08-13, prod 2026-08-15. | Done — no direct mongo/minio peers. |
 | **spin-cycle** | Reads `spin-cycle-{env}-postgres` directly (Pattern A) | `spin-cycle-{env}-api:3000` already exists — vs-api just needs to swap from pg pool to HTTP proxy. |
 | **long-exposure** | Reads `long-exposure-{env}-postgres` directly (Pattern A, by design until LE grows its own API) | Pattern B once LE has a separate api service. The `caddy.d/long-exposure.caddy` file documents the current design. |
-| **btop-luv / btop-joi** | Legacy Express proxies `/api/btop-{luv,joi}/{health,stream}` to host ports; joi is currently unavailable. A dormant sequence-aware NATS consumer exists at `/api/btop/<node>/*`. | One native exporter per node → private HTTP/SSE → owning control plane → Core NATS → BFF → browser SSE. |
+| **btop-luv / btop-joi** | Legacy Express proxies `/api/btop-{luv,joi}/{health,stream}` to host ports; joi's collectors are disabled. A dormant sequence-aware NATS consumer exists at `/api/btop/<node>/*`. | One native exporter per node → private HTTP/SSE → owning control plane → Core NATS → BFF → browser SSE. |
 | **legal-tender** | Not surfaced. | Pattern B from day one when it lands. |
 
 Pattern A vs B is the central architectural call here — see
@@ -163,8 +164,9 @@ Pattern A vs B is the central architectural call here — see
   handling, and quarterly-extensible primitives remain in @docs/todo.md.
 - **Spin-cycle**: route active. Project itself is scheduled for maintenance (out-of-band). vs-api spin-cycle route is gated on `SPIN_CYCLE_POSTGRES_URI` at startup but doesn't currently degrade gracefully if the upstream goes away mid-flight. Decide-during-maintenance is in @docs/todo.md.
 - **Legal Tender**: not surfaced. It must use Pattern B when it lands.
-- **btop**: luv remains on the legacy duplicate-container path; joi is down
-  because its legacy collector SSHes from luv into the pre-migration host.
+- **btop**: luv remains on the legacy duplicate-container path; joi's failed
+  legacy collectors are stopped and disabled because that path SSHes from luv
+  into the pre-migration host.
   The dormant NATS consumer, shared frame schema, and current-upstream source
   profile have landed. The un-deployed direct agent publisher was a boundary
   mistake and is superseded. Private exporter endpoints and control-plane relay

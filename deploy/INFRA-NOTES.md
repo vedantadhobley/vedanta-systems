@@ -26,18 +26,39 @@ Reference content (current source of truth is the files above):
 ```caddy
 # in caddy.d/public.caddy
 http://vedanta.systems, http://www.vedanta.systems {
-    reverse_proxy vedanta-systems-prod:3000
+    @edge_https header X-Forwarded-Proto https
+
+    handle @edge_https {
+        header {
+            -Server
+            Strict-Transport-Security "max-age=31536000; includeSubDomains"
+            X-Content-Type-Options "nosniff"
+            Referrer-Policy "strict-origin-when-cross-origin"
+            X-Frame-Options "DENY"
+            Permissions-Policy "camera=(), microphone=(), geolocation=()"
+        }
+        reverse_proxy vedanta-systems-prod:3000
+    }
+
+    handle {
+        redir https://{host}{uri} permanent
+    }
 }
 
 # in caddy.d/vedanta-systems.caddy
 http://vedanta-systems-dev.{$BASE_DOMAIN}     { reverse_proxy vedanta-systems-dev:3000 }
-http://vedanta-systems-dev-api.{$BASE_DOMAIN} { reverse_proxy vedanta-systems-dev-api:3001 }
+http://vedanta-systems-dev-api.{$BASE_DOMAIN} {
+    reverse_proxy vedanta-systems-dev-api:3001 {
+        header_up X-Vedanta-Public "1"
+    }
+}
 ```
 
-The audited public block serves plaintext HTTP instead of redirecting it. This
-is current state, not the desired security contract. Change the owning proxy
-route to redirect HTTP to HTTPS and add the agreed response headers before the
-next public deployment.
+Cloudflare supplies the visitor scheme in `X-Forwarded-Proto`. Caddy redirects
+edge-HTTP requests and serves edge-HTTPS requests with the baseline response
+headers. The dev API marker distinguishes browser ingress from direct
+service-to-service calls to internal webhook routes; Vite applies the same
+marker to its `/api` proxy.
 
 After editing either file, reload Caddy without restarting the container:
 

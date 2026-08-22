@@ -1,5 +1,6 @@
 import { Router, Response, Request } from 'express'
 import { Readable } from 'node:stream'
+import { requireInternalRequest } from '../internal-only'
 
 /**
  * Found Footy API surface — **Pattern B adapter (translation shim)**.
@@ -565,7 +566,7 @@ export function createFoundFootyRouter(config: FoundFootyConfig): Router {
 
   // POST /refresh - internal-only webhook; fan out a lightweight refresh signal.
   // (Legacy Pattern-A path; the live feed is now the NATS bridge above. Kept harmless.)
-  router.post('/refresh', (_req: Request, res: Response) => {
+  router.post('/refresh', requireInternalRequest, (_req: Request, res: Response) => {
     broadcastRefresh('webhook')
     res.json({ success: true, clientsNotified: sseClients.size })
   })

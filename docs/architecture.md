@@ -20,14 +20,15 @@ browser
   → in-container nginx  (listening on :3000)
         ├─ /            and /assets/*   → /app/dist (Vite build, static)
         ├─ /api/*                       → vedanta-systems-prod-api:3001 (Express, project-internal network)
-        ├─ exact /api/*/refresh paths   → return 404 (current block misses trailing slashes; audit follow-up)
+        ├─ /api/{found-footy,spin-cycle}/refresh[/...] → return 404
         ├─ /api/btop-{luv,joi}, .../    → return 404 (only /stream + /health exposed; standalone viewer not public)
         └─ User-Agent matches crawler   → error_page 418 → og-server.js on 127.0.0.1:3002 (dynamic OG meta tags)
 ```
 
 In prod, Caddy = outside vs-prod, nginx = inside vs-prod. Different
-jobs, not a duplicated layer. Caddy only knows host headers; nginx
-knows paths.
+jobs, not a duplicated layer. Caddy owns the edge-scheme redirect and baseline
+response headers. nginx owns application paths and marks every proxied API
+request as public before Express handles it.
 
 ### Dev — tailnet
 
@@ -41,7 +42,10 @@ browser
 
 Inside the dev frontend container, Vite's built-in proxy
 (`vite.config.ts`) maps `/api/*` → `vedanta-systems-dev-api:3001`,
-so the SPA stays same-origin. If `/api/*` 502s in dev, that proxy
+so the SPA stays same-origin. Vite and the direct dev-API Caddy route overwrite
+`X-Vedanta-Public: 1`; Express uses that marker to reject internal-only webhook
+routes. Shared-network service callers reach the API container directly and do
+not receive the marker. If `/api/*` 502s in dev, that proxy
 target is the first place to check — it was wrong recently (host
 port that didn't exist; fixed in commit `62ba907`).
 
@@ -134,9 +138,10 @@ node-local exporter -> private HTTP/SSE on the compute network
   -> browser
 ```
 
-The existing routes and containers stay active until the luv exporter proves the
-new path. The joi SSH collector is currently unavailable after joi's NixOS and
-network migration. The target has one native exporter per physical node, no
+The luv routes and collectors stay active until the native luv exporter proves
+the new path. Both legacy joi SSH collectors are stopped and gated behind the
+explicit `legacy-joi` Compose profile after joi's NixOS and network migration.
+Do not revive them. The target has one native exporter per physical node, no
 development/production duplication, and no browser-to-node or node-to-NATS
 connection. joi-control-plane relays joi; nexus-control-plane relays its
 workers. The luv path uses the same relay boundary locally. See the
@@ -156,7 +161,7 @@ receive no broker credentials. The browser remains on same-origin SSE.
 | Network | Purpose | Who's on it |
 |---|---|---|
 | `proxy` | HTTP ingress through workspace Caddy | `vs-prod`, `vs-dev`, `vs-dev-api` (NOT `vs-prod-api` — see below) |
-| `luv-prod` / `luv-dev` | Cross-project data plane (DB, internal API) | `vs-{env}-api`; current Compose also joins the frontend unnecessarily, queued for removal |
+| `luv-prod` / `luv-dev` | Cross-project data plane (DB, internal API) | `vs-{env}-api` only |
 | `vedanta-systems-prod` / `vedanta-systems-dev` | Project-internal | `vs-{env}` ↔ `vs-{env}-api` only |
 
 **Why `vs-prod-api` is NOT on `proxy`.** Intentional. In prod, the API is
@@ -174,7 +179,7 @@ is useful for poking endpoints with curl during development.
 vedanta-systems-{prod,dev}            frontend — nginx (prod only) + Vite-built SPA
 vedanta-systems-{prod,dev}-api        Express BFF
 vedanta-systems-{prod,dev}-btop-luv   patched btop + Python SSE, network_mode:host
-vedanta-systems-{prod,dev}-btop-joi   same image, SSH out to joi
+vedanta-systems-{prod,dev}-btop-joi   disabled legacy SSH collector (`legacy-joi` profile only)
 ```
 
 Per `~/workspace/proxy/CONVENTIONS.md`, the bare `vedanta-systems-{env}`
@@ -186,7 +191,7 @@ only frontend in the workspace.
 | Layer | File | Notes |
 |---|---|---|
 | Cloudflare tunnel ingress | `~/.cloudflared/config.yml` (host-side) | `vedanta.systems` → `http://proxy-caddy:80` |
-| Caddy public host | `~/workspace/proxy/caddy/caddy.d/public.caddy` | The `vedanta.systems` Cloudflare entry |
+| Caddy public host | `~/workspace/proxy/caddy/caddy.d/public.caddy` | Edge-scheme redirect, baseline response headers, then the `vedanta.systems` frontend |
 | Caddy dev tailnet hosts | `~/workspace/proxy/caddy/caddy.d/vedanta-systems.caddy` | `vedanta-systems-dev.<base-domain>` + `vedanta-systems-dev-api.<base-domain>` |
 | In-container nginx | `nginx.conf` | Crawler routing, internal webhook 404s, SSE/range quirks, btop legacy block (see todo) |
 | Express + project routers | `src/server/index.ts`, `src/server/routes/<project>.ts` | Per-project routers (found-footy Pattern B; spin-cycle/long-exposure Pattern A), legacy inline btop proxy, and the dormant NATS-backed btop router |
