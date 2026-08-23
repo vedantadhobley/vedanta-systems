@@ -86,17 +86,9 @@
           }
         });
         
-        // iOS-specific: When page is about to be suspended, clean up
+        // iOS-specific lifecycle diagnostics. The browser owns suspension of
+        // mounted media; React component cleanup owns released media.
         if (isIOS) {
-          window.addEventListener('pagehide', function(e) {
-            console.log('[Memory] iOS pagehide event');
-            // Pause all videos
-            document.querySelectorAll('video').forEach(function(v) {
-              v.pause();
-              v.src = '';
-            });
-          });
-          
           // Track freeze events (Page Lifecycle API)
           document.addEventListener('freeze', function() {
             console.log('[Memory] Page frozen by OS');

@@ -1395,18 +1395,28 @@ interface VideoModalProps {
   onClose: () => void
 }
 
-type PlaybackStatus = 'starting' | 'playing' | 'paused' | 'needs-action' | 'error'
+type PlaybackStatus =
+  | 'initializing'
+  | 'playing'
+  | 'paused'
+  | 'buffering'
+  | 'autoplay-blocked'
+  | 'false-playing'
+  | 'media-error'
 
 const MemoizedVideoModal = memo(function VideoModal({ url, title, subtitle, eventId, onClose }: VideoModalProps) {
   const [copied, setCopied] = useState(false)
   const [isMuted, setIsMuted] = useState(true) // Always start muted — never takes audio focus, never appears on lockscreen
-  const [playbackStatus, setPlaybackStatus] = useState<PlaybackStatus>('starting')
+  const [playbackStatus, setPlaybackStatus] = useState<PlaybackStatus>('initializing')
   const [controlsEnabled, setControlsEnabled] = useState(false)
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const mountedAtRef = useRef(performance.now())
   const lastCurrentTimeRef = useRef(0)
   const lastProgressAtRef = useRef(performance.now())
   const automaticRecoveryAttemptedRef = useRef(false)
+  const startupProgressObservedRef = useRef(false)
+  const bufferingRef = useRef(false)
+  const seekInProgressRef = useRef(false)
   const playAttemptIDRef = useRef(0)
 
   const invalidatePlaybackAttempts = useCallback(() => {
@@ -1427,7 +1437,7 @@ const MemoizedVideoModal = memo(function VideoModal({ url, title, subtitle, even
 
   const attemptPlayback = useCallback(async (video: HTMLVideoElement, trigger: string) => {
     const attemptID = ++playAttemptIDRef.current
-    setPlaybackStatus('starting')
+    setPlaybackStatus('initializing')
     try {
       await video.play()
     } catch (error) {
@@ -1444,7 +1454,7 @@ const MemoizedVideoModal = memo(function VideoModal({ url, title, subtitle, even
         networkState: video.networkState,
         muted: video.muted,
       })
-      setPlaybackStatus('needs-action')
+      setPlaybackStatus('autoplay-blocked')
     }
   }, [])
 
@@ -1458,16 +1468,22 @@ const MemoizedVideoModal = memo(function VideoModal({ url, title, subtitle, even
     video.defaultMuted = true
     video.muted = true
     setIsMuted(true)
-    setPlaybackStatus('starting')
+    setPlaybackStatus('initializing')
     setControlsEnabled(false)
     mountedAtRef.current = performance.now()
     lastCurrentTimeRef.current = 0
     lastProgressAtRef.current = performance.now()
     automaticRecoveryAttemptedRef.current = false
+    startupProgressObservedRef.current = false
+    bufferingRef.current = false
+    seekInProgressRef.current = false
     void attemptPlayback(video, 'mount')
 
-    // Save volume when user changes it (for when they unmute)
+    // Native controls and the custom unmute affordance share one mute state.
+    // Persist volume only while audible so a native mute does not overwrite the
+    // user's last useful volume.
     const handleVolumeChange = () => {
+      setIsMuted(video.muted)
       if (!video.muted) {
         localStorage.setItem('footy-video-volume', video.volume.toString())
       }
@@ -1483,29 +1499,57 @@ const MemoizedVideoModal = memo(function VideoModal({ url, title, subtitle, even
   }, [url, attemptPlayback, invalidatePlaybackAttempts])
 
   // Some browsers resolve play() and report `paused=false` without advancing
-  // the timeline. Detect that frozen state, perform the same pause/play reset
-  // users previously had to do manually once, then show a custom play action
-  // if the retry also makes no progress. Slow initial loads are excluded until
-  // the element has current media data.
+  // the timeline. Detect only that narrow startup failure. Normal buffering is
+  // excluded until future media is buffered and the network is no longer
+  // loading. Once playback advances or native controls are visible, the
+  // browser owns transport and this watchdog cannot mutate it.
   useEffect(() => {
     const watchdog = window.setInterval(() => {
       const video = videoRef.current
-      if (!video || document.hidden || video.ended || video.readyState < 2) return
+      if (!video || document.hidden || video.ended || controlsEnabled) return
 
       const now = performance.now()
-      // A paused timeline is obeying the user, not stalled. Refresh the
-      // baseline while paused/seeking so resuming does not inherit an expired
-      // watchdog deadline and immediately trigger recovery.
-      if (video.paused || video.seeking) {
-        lastCurrentTimeRef.current = video.currentTime
+      const currentTime = video.currentTime
+
+      // A paused timeline is obeying the user. Loading, buffering, and seeking
+      // are insufficient data, not playback failures. Reset the deadline so a
+      // later transition into an eligible state starts a fresh observation.
+      if (
+        video.paused ||
+        video.seeking ||
+        seekInProgressRef.current ||
+        bufferingRef.current ||
+        video.readyState < HTMLMediaElement.HAVE_FUTURE_DATA ||
+        video.networkState === HTMLMediaElement.NETWORK_LOADING
+      ) {
+        lastCurrentTimeRef.current = currentTime
         lastProgressAtRef.current = now
         return
       }
 
-      if (video.currentTime > lastCurrentTimeRef.current + 0.05) {
-        lastCurrentTimeRef.current = video.currentTime
+      if (currentTime > lastCurrentTimeRef.current + 0.05) {
+        lastCurrentTimeRef.current = currentTime
         lastProgressAtRef.current = now
+        startupProgressObservedRef.current = true
         setPlaybackStatus('playing')
+        return
+      }
+
+      // A readyState can still overstate usable data. Require a contiguous
+      // buffered range ahead of the playhead before calling a stationary
+      // startup false-playing.
+      let bufferedAhead = 0
+      for (let index = 0; index < video.buffered.length; index++) {
+        const start = video.buffered.start(index)
+        const end = video.buffered.end(index)
+        if (start <= currentTime + 0.05 && end >= currentTime) {
+          bufferedAhead = end - currentTime
+          break
+        }
+      }
+
+      if (bufferedAhead < 0.75 || startupProgressObservedRef.current) {
+        lastProgressAtRef.current = now
         return
       }
 
@@ -1519,11 +1563,15 @@ const MemoizedVideoModal = memo(function VideoModal({ url, title, subtitle, even
         return
       }
 
-      setPlaybackStatus(status => status === 'error' ? status : 'needs-action')
+      setPlaybackStatus(status =>
+        status === 'media-error' || status === 'autoplay-blocked'
+          ? status
+          : 'false-playing'
+      )
     }, 500)
 
     return () => window.clearInterval(watchdog)
-  }, [url, attemptPlayback])
+  }, [url, controlsEnabled, attemptPlayback])
   
   // Handle ESC key to close modal
   useEffect(() => {
@@ -1595,10 +1643,10 @@ const MemoizedVideoModal = memo(function VideoModal({ url, title, subtitle, even
     automaticRecoveryAttemptedRef.current = true
     lastCurrentTimeRef.current = video.currentTime
     lastProgressAtRef.current = performance.now()
-    if (video.error) video.load()
-    // Reset WebKit/Chromium media sessions that claim to be playing while the
-    // timeline is frozen. This call runs directly inside the user gesture.
-    video.pause()
+    if (playbackStatus === 'media-error') video.load()
+    // Reset only a session already proven false-playing. A rejected autoplay
+    // needs a direct gesture-bound play(), not another unconditional pause.
+    if (playbackStatus === 'false-playing') video.pause()
     void attemptPlayback(video, 'user-recovery')
   }
 
@@ -1713,21 +1761,50 @@ const MemoizedVideoModal = memo(function VideoModal({ url, title, subtitle, even
             onPointerMove={handlePointerMove}
             onFocus={() => setControlsEnabled(true)}
             onPlaying={() => {
+              bufferingRef.current = false
               lastCurrentTimeRef.current = videoRef.current?.currentTime ?? 0
               lastProgressAtRef.current = performance.now()
               setPlaybackStatus('playing')
             }}
             onTimeUpdate={e => {
+              bufferingRef.current = false
+              if (e.currentTarget.currentTime > lastCurrentTimeRef.current + 0.05) {
+                startupProgressObservedRef.current = true
+              }
               lastCurrentTimeRef.current = e.currentTarget.currentTime
               lastProgressAtRef.current = performance.now()
               setPlaybackStatus('playing')
             }}
             onPause={() => setPlaybackStatus(status =>
-              status === 'needs-action' || status === 'error' ? status : 'paused'
+              status === 'autoplay-blocked' || status === 'false-playing' || status === 'media-error'
+                ? status
+                : 'paused'
             )}
-            onWaiting={() => setPlaybackStatus(status =>
-              status === 'needs-action' || status === 'error' ? status : 'starting'
-            )}
+            onWaiting={e => {
+              bufferingRef.current = true
+              lastCurrentTimeRef.current = e.currentTarget.currentTime
+              lastProgressAtRef.current = performance.now()
+              setPlaybackStatus(status =>
+                status === 'autoplay-blocked' || status === 'false-playing' || status === 'media-error'
+                  ? status
+                  : 'buffering'
+              )
+            }}
+            onCanPlay={e => {
+              bufferingRef.current = false
+              lastCurrentTimeRef.current = e.currentTarget.currentTime
+              lastProgressAtRef.current = performance.now()
+            }}
+            onSeeking={e => {
+              seekInProgressRef.current = true
+              lastCurrentTimeRef.current = e.currentTarget.currentTime
+              lastProgressAtRef.current = performance.now()
+            }}
+            onSeeked={e => {
+              seekInProgressRef.current = false
+              lastCurrentTimeRef.current = e.currentTarget.currentTime
+              lastProgressAtRef.current = performance.now()
+            }}
             onError={e => {
               const mediaError = e.currentTarget.error
               console.error('[FoundFooty] video media error', {
@@ -1735,19 +1812,19 @@ const MemoizedVideoModal = memo(function VideoModal({ url, title, subtitle, even
                 message: mediaError?.message,
                 networkState: e.currentTarget.networkState,
               })
-              setPlaybackStatus('error')
+              setPlaybackStatus('media-error')
             }}
           />
-          {(playbackStatus === 'needs-action' || playbackStatus === 'error') && (
+          {(playbackStatus === 'autoplay-blocked' || playbackStatus === 'false-playing' || playbackStatus === 'media-error') && (
             <button
               onClick={handlePlayRecovery}
               onTouchStart={() => {}}
               className="absolute inset-0 z-10 flex items-center justify-center bg-black/20 text-corpo-text"
-              aria-label={playbackStatus === 'error' ? 'Retry video' : 'Play video'}
+              aria-label={playbackStatus === 'media-error' ? 'Retry video' : 'Play video'}
             >
               <span className="flex items-center gap-2 border border-corpo-border bg-black/80 px-3 py-2 font-mono text-sm text-corpo-text hover:border-lavender hover:text-lavender active:border-lavender active:text-lavender">
                 <RiPlayFill className="w-5 h-5" />
-                {playbackStatus === 'error' ? 'retry video' : 'play video'}
+                {playbackStatus === 'media-error' ? 'retry video' : 'play video'}
               </span>
             </button>
           )}

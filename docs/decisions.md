@@ -452,10 +452,37 @@ Long Exposure runtime also fails fast when its events password is absent.
 
 **Consequences.** A normal Compose start cannot silently restore the risky
 development mounts, restart the failed joi collectors, or connect Long
-Exposure with a known default. Browser traffic cannot invoke internal refresh
-hooks through any declared ingress path. Credential rotation still requires a
-coordinated database-role update and recreation of every consumer. Rewriting
-the public Git history that contains the revoked PAT remains a separate,
-deliberate recovery operation.
+Exposure through a checked-in fallback. Browser traffic cannot invoke internal
+refresh hooks through any declared ingress path. Credential rotation still
+requires a coordinated database-role update and recreation of every consumer.
+Rewriting the public Git history that contains the revoked PAT remains a
+separate, deliberate recovery operation.
+
+---
+
+## 2026-08-23 — Separate media buffering from playback failure
+
+**Context.** Found Footy's startup watchdog treated four seconds without
+timeline movement after `HAVE_CURRENT_DATA` as a stalled player. That state is
+also ordinary buffering, so the application could interrupt a healthy stream
+with pause/play and then cover native playback with a misleading **Play
+video** action. Global `touch-action: pan-y` and a page-level iOS `pagehide`
+handler also interfered with browser ownership of native media.
+
+**Decision.** Keep muted inline autoplay and one startup-only false-playing
+recovery. Require future buffered media, a non-loading network, no seek, no
+observed timeline progress, and hidden native controls before that recovery is
+eligible. A rejected `play()` exposes **Play video**; a media element error
+exposes **Retry video**; buffering exposes neither. Once controls appear, the
+browser owns play, pause, and seek. Remove the global touch-action restriction
+and the page-level code that cleared video sources. Synchronize custom mute
+state from native `volumechange`.
+
+**Consequences.** Normal startup delay and mid-play buffering no longer cause
+an application reset or recovery overlay. The old Safari false-playing case
+still has one automatic reset and a gesture-bound fallback. Physical iPhone
+Safari and Chrome tests remain the release gate for native scrubbing and page
+lifecycle behavior; this component is not yet the final reusable media
+primitive.
 
 ---

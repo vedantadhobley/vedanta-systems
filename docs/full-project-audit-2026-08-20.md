@@ -49,6 +49,13 @@ Required action:
 3. replace the Compose fallback with required `${VAR:?}` inputs;
 4. keep `.env` mode `0600` rather than its audited `0644`.
 
+**Resolution (2026-08-23).** The owner deliberately retained the private-node
+`leuser`/`lepass` convention. The credential is now explicit only in both
+gitignored environments, Compose has no fallback, both files are mode `0600`,
+and both portal API consumers were recreated. Pattern B will remove this
+database credential from the portal rather than treating this convention as
+suitable for a public or cross-node database.
+
 ### The development frontend has host-equivalent access
 
 The root-running Vite container mounts the Docker socket read-write and the

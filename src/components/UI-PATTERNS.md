@@ -146,23 +146,18 @@ the default, but autoplay is never assumed to succeed. A custom play action is
 reserved for a rejected playback request or a proven false-playing media
 session. Ordinary loading and buffering are not recovery states.
 
-**Known implementation defect (2026-08-23):** the current watchdog treats
-`readyState >= HAVE_CURRENT_DATA` plus four seconds without timeline movement
-as a frozen player. That state is also normal buffering. It can interrupt a
-healthy download with an automatic pause/play and then expose **Play video**.
-The watchdog also runs beside native iOS controls; while it ignores
-`video.seeking`, WebKit may not expose the entire finger-down scrub interval as
-`seeking`. A long scrub can therefore overlap recovery. The global
-`touch-action: pan-y` policy on `body` and `#root` is a second possible source
-of horizontal native-scrubber interference. Both require physical-device
-isolation; do not describe the current behavior as a finished reusable
-primitive. The complete behavior contract and acceptance matrix are in
-`docs/found-footy-media.md`; implementation is tracked in `docs/todo.md`.
+**Implementation status (2026-08-23):** the watchdog now distinguishes
+buffering from false-playing. Recovery requires future buffered media, an idle
+network, no seek, no observed startup progress, and hidden native controls.
+The global `touch-action: pan-y` restriction and page-level media mutation are
+removed. Physical iPhone Safari and Chrome verification remains required; do
+not describe this as a finished reusable primitive until the acceptance matrix
+in `docs/found-footy-media.md` passes.
 
 ### Implementation
 
 ```tsx
-const [playbackStatus, setPlaybackStatus] = useState('starting')
+const [playbackStatus, setPlaybackStatus] = useState('initializing')
 const [controlsEnabled, setControlsEnabled] = useState(false)
 
 // In the JSX:
@@ -181,7 +176,7 @@ const [controlsEnabled, setControlsEnabled] = useState(false)
   // ...
 />
 
-{playbackStatus === 'needs-action' && (
+{(playbackStatus === 'autoplay-blocked' || playbackStatus === 'false-playing') && (
   <button onClick={playVideo}>play video</button>
 )}
 ```

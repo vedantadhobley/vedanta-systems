@@ -61,45 +61,46 @@ Keep these states distinct:
 Stale play promises must not overwrite a newer state. Seeking, a deliberate
 pause, a hidden document, and an ended video are never false-playing evidence.
 
-## Confirmed defects
+## Implemented safeguards and remaining verification
 
-### Buffering is misclassified as frozen playback
+### Buffering is not recovery evidence
 
-The current watchdog accepts `readyState >= HAVE_CURRENT_DATA` as enough proof
-that playback should advance. That means only the current frame is available;
-future data can still be loading. After four stationary seconds it performs an
-automatic pause/play reset, then exposes **Play video** after another interval.
-This can interrupt a healthy progressive download and turns normal latency
-into an apparent failure.
+The previous watchdog accepted `readyState >= HAVE_CURRENT_DATA` as enough
+proof that playback should advance. That state only guarantees the current
+frame and caused normal progressive-download latency to trigger recovery.
 
-Require buffered time ahead of `currentTime`, a non-loading network state, and
-the absence of a seek before classifying false-playing. Prefer disabling
-automatic recovery once native controls have been revealed.
+The 2026-08-23 implementation classifies a stationary startup as false-playing
+only when at least 0.75 seconds is buffered ahead of `currentTime`, the network
+is not loading, the element is not paused or seeking, and no startup progress
+has ever been observed. Loading or buffering resets the observation deadline.
+The one automatic pause/play reset is startup-only. The watchdog stops when
+native controls appear, so it cannot interfere with deliberate playback or a
+native seek.
 
-### Native iOS scrubbing may overlap recovery
+### Native iOS scrubbing requires device verification
 
 The application does not implement a seek bar and does not assign
-`video.currentTime`. It currently checks `video.seeking`, but WebKit may not
-expose the whole finger-down native-control interaction as a seeking interval.
-A scrub lasting longer than the watchdog threshold can therefore overlap a
-programmatic pause/play reset. This must be reproduced on a physical iPhone.
+`video.currentTime`. Explicit `seeking`/`seeked` guards remain, and revealing
+native controls disables automatic recovery entirely. This must still be
+verified on a physical iPhone.
 
-The app also applies `touch-action: pan-y` to both `body` and `#root`. That
-ancestor gesture restriction is a separate hypothesis for a horizontal native
-scrubber that visually lags the finger and commits on release. Remove or narrow
-the global policy during isolation; media controls must retain browser-default
-touch behavior.
+The former `touch-action: pan-y` declarations on `body` and `#root` were
+removed so native media controls receive browser-default touch behavior.
+On-device isolation must confirm whether that resolves the scrubber that
+visually lagged the finger and committed on release.
 
-### Page lifecycle mutates media outside React
+### Page lifecycle is browser-owned
 
-The inline iOS `pagehide` handler pauses every video and clears its `src`.
-React still owns the old `src` prop, so a back-forward-cache restore can retain
-an empty element. The media component must own suspension and restoration.
+The inline iOS `pagehide` handler previously paused every video and cleared its
+`src` while React still owned the old prop. It is removed. The browser owns
+suspension for a mounted player; React cleanup pauses media when the modal
+actually unmounts. Background, foreground, and back-forward restore remain
+physical-device acceptance cases.
 
-### Native volume and React mute state can disagree
+### Native volume and React mute state stay synchronized
 
-Native `volumechange` persists volume but does not update React's `isMuted`.
-The custom unmute control can therefore disagree with the actual media state.
+Native `volumechange` now updates React's `isMuted` as well as preserving the
+last audible volume. The custom unmute control follows native mute changes.
 
 ## Acceptance matrix
 
