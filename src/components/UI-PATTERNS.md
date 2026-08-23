@@ -135,15 +135,29 @@ assumed its one-shot autoplay call succeeded, which caused:
 - Chromecast button appearing/disappearing inconsistently
 - Touch events behaving differently than expected
 
-### The Solution: Muted Autoplay, On-Demand Controls, Explicit Recovery
+### Target Contract: Muted Autoplay, On-Demand Controls, Explicit Recovery
 
 **Location:** `VideoModal` component in `/src/components/found-footy-browser.tsx`
 
 **Key insight:** Native controls start disabled. A real mouse movement over the
 video reveals them on desktop; a deliberate tap reveals them on touch input;
 keyboard focus reveals them without requiring pointer input. Muted autoplay is
-the default, but autoplay is never assumed to succeed. A custom play action
-appears only when the browser rejects playback or the timeline stops advancing.
+the default, but autoplay is never assumed to succeed. A custom play action is
+reserved for a rejected playback request or a proven false-playing media
+session. Ordinary loading and buffering are not recovery states.
+
+**Known implementation defect (2026-08-23):** the current watchdog treats
+`readyState >= HAVE_CURRENT_DATA` plus four seconds without timeline movement
+as a frozen player. That state is also normal buffering. It can interrupt a
+healthy download with an automatic pause/play and then expose **Play video**.
+The watchdog also runs beside native iOS controls; while it ignores
+`video.seeking`, WebKit may not expose the entire finger-down scrub interval as
+`seeking`. A long scrub can therefore overlap recovery. The global
+`touch-action: pan-y` policy on `body` and `#root` is a second possible source
+of horizontal native-scrubber interference. Both require physical-device
+isolation; do not describe the current behavior as a finished reusable
+primitive. The complete behavior contract and acceptance matrix are in
+`docs/found-footy-media.md`; implementation is tracked in `docs/todo.md`.
 
 ### Implementation
 
@@ -179,8 +193,9 @@ const [controlsEnabled, setControlsEnabled] = useState(false)
 2. **Playback is observed:** `playing` and `timeupdate` prove the timeline is
    advancing. A resolved `play()` promise alone is insufficient. A paused or
    seeking timeline is not classified as stalled.
-3. **Frozen playback gets one automatic reset:** the modal performs one muted
-   pause/play cycle when the browser claims to play without advancing.
+3. **Frozen playback gets one automatic reset:** only when the browser claims
+   to play, buffered media exists ahead of `currentTime`, the network is not
+   merely loading, and no native seek interaction is active.
 4. **Failure remains recoverable:** a custom play button calls `play()`
    directly inside the user's tap. It is not a native video control bar.
 5. **Controls follow the active input:** real mouse movement over the video
@@ -192,6 +207,10 @@ const [controlsEnabled, setControlsEnabled] = useState(false)
    remains paused.
 6. **Failures stay visible:** rejected promises and media errors include the
    trigger plus media state in the console.
+7. **Native scrubbing is browser-owned:** application gesture policy and
+   recovery logic must not intercept or reinterpret the native timeline. Test
+   the complete drag, precision adjustment, release, and resumed-play sequence
+   on WebKit rather than inferring it from desktop events.
 
 ---
 

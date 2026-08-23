@@ -21,6 +21,9 @@ Use this index to route project work before searching the full docs tree.
 - [Found Footy live data](./found-footy-live-data.md) — current NATS/SSE/REST
   lifecycle, disconnect gaps, carryover behavior, and target reconciliation
   contract.
+- [Found Footy media playback](./found-footy-media.md) — delivery path,
+  autoplay and buffering states, native-control ownership, iOS scrubbing risks,
+  and the physical-device acceptance matrix.
 - [Plans](./plans/README.md) — routing index for active and historical plans.
 - [Frontend re-foundation](./plans/frontend-refoundation.md) — active runtime,
   component-system, accessibility, and route-migration plan.

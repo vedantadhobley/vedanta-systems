@@ -12,8 +12,9 @@ they're deleted from this file when the work lands.
 The [2026-08-20 full-project audit](./full-project-audit-2026-08-20.md)
 is the evidence record. Contain these risks before new public deployment:
 
-- [ ] Rotate the Long Exposure database credential, require it in both Compose
-  files, and set the gitignored `.env` to mode `0600`.
+- [ ] Make the existing private Long Exposure database credential explicit in
+  both gitignored environments, require it in Compose, and keep both `.env`
+  files at mode `0600`. Pattern B removes the credential from this portal.
 - [ ] Remove the Docker socket and host SSH mounts from the development
   frontend. Restrict Vite's allowed hosts.
 - [x] Change the public HTTP route to redirect to HTTPS and establish baseline
@@ -31,6 +32,40 @@ is the evidence record. Contain these risks before new public deployment:
 Cross-project work belongs in dhobley's btop plan and the owning proxy, NATS,
 btop, joi, and Nexus repositories. In particular: scope NATS credentials,
 restrict exporter network access, and make the btop source branch durable.
+
+---
+
+## Now — Found Footy presentation and media correctness
+
+These are production behavior defects. Fix them independently of the paused
+visual redesign.
+
+- [ ] Separate fixture processing state from display state. `PST` remains
+  monitoring-active so Found Footy can detect a same-fixture reschedule, but it
+  must render in a deferred group after playing, finished, and upcoming
+  fixtures. It must not participate in activity ordering or the competition's
+  live count. Apply the same explicit presentation taxonomy to `CANC`, `SUSP`,
+  `INT`, and `ABD` instead of inheriting a backend lifecycle bucket.
+- [ ] Replace the video watchdog's `readyState >= 2` heuristic. Ordinary
+  loading/buffering must never trigger pause/play recovery or the custom play
+  overlay. A rejected `play()` may show **Play video**; a confirmed media error
+  may show **Retry video**; a false-playing recovery requires buffered media
+  ahead of `currentTime`, a non-loading network state, and no active user seek.
+- [ ] Reproduce native-control scrubbing on physical iPhone Safari and Chrome.
+  The player does not assign `currentTime`, but a long native scrub can overlap
+  the four-second watchdog, and the app-wide `touch-action: pan-y` policy may
+  constrain the horizontal control gesture. Prove each independently. No
+  programmatic pause/play/load operation may run during a native seek gesture.
+- [ ] Remove the page-level iOS `pagehide` mutation that pauses every video and
+  clears its `src` behind React. Give the media component an explicit
+  suspend/restore lifecycle that survives the back-forward cache.
+- [ ] Synchronize React mute state with native `volumechange`; the custom
+  unmute affordance must not disagree with native controls.
+- [ ] Add a physical-device playback matrix covering ordinary clip clicks and
+  shared links, Safari and Chrome on iPhone, desktop Chrome, slow startup,
+  mid-play buffering, long/precision scrubs, deliberate pause, background and
+  foreground, page restore, autoplay rejection, range seeking, and real media
+  errors. Both entry paths must converge on one player contract.
 
 ---
 
