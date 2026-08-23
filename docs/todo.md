@@ -40,7 +40,7 @@ restrict exporter network access, and make the btop source branch durable.
 These are production behavior defects. Fix them independently of the paused
 visual redesign.
 
-- [ ] Separate fixture processing state from display state. `PST` remains
+- [x] Separate fixture processing state from display state. `PST` remains
   monitoring-active so Found Footy can detect a same-fixture reschedule, but it
   must render in a deferred group after playing, finished, and upcoming
   fixtures. It must not participate in activity ordering or the competition's

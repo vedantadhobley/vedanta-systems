@@ -33,6 +33,12 @@ The BFF subscribes to `found-footy.<env>.>` and maps events as follows:
 Fixture and video refreshes share a roughly 250 ms coalescing window. Clock
 events are deliberately ephemeral display ticks.
 
+The BFF preserves Found Footy's `staging`, `active`, and `completed` process
+states in fixture snapshots. The browser independently derives playing,
+finished, upcoming, and deferred presentation states from provider status.
+The process `active` bucket therefore does not imply a live badge: a monitored
+postponed fixture can remain active while rendering after real matches.
+
 A new browser SSE connection receives `connected`, one upstream `health`
 payload, and periodic `heartbeat` messages. It does not receive a replay or an
 initial fixture snapshot. The current BFF does not emit SSE event IDs.
@@ -50,7 +56,7 @@ On initial provider mount, the browser:
 While connected:
 
 - `refresh` triggers the same three-date snapshot;
-- `clock` patches active fixture minutes directly;
+- `clock` patches fixtures in the active process bucket directly;
 - `heartbeat` has no data effect;
 - `health` is currently ignored by the provider;
 - an EventSource error closes and retries with exponential backoff.
@@ -78,7 +84,7 @@ pinned yesterday.
 
 ### Carryover fixtures are filtered by kickoff date
 
-The browser filters active fixtures to the selected timezone-local kickoff
+The browser filters playing fixtures to the selected timezone-local kickoff
 date. A match that began yesterday and remains active after midnight is hidden
 from the new live day. If yesterday stays selected, SSE is disconnected
 because yesterday is no longer today, so the match also freezes.
@@ -150,13 +156,13 @@ to overwrite newer state.
 
 The live view renders:
 
-- every active fixture in the API window, including a previous-day carryover;
+- every playing fixture in the API window, including a previous-day carryover;
 - staging and completed fixtures belonging to the selected live date;
 - the current active-timezone date in navigation.
 
 At midnight, it advances once to the new date and reconciles. Carryover
-fixtures remain visible until the upstream marks them completed or otherwise
-inactive.
+fixtures remain visible until provider status leaves the playing presentation
+state.
 
 ### Pinned mode
 

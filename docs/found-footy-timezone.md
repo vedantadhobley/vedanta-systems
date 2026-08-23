@@ -21,11 +21,23 @@ This single difference cascades through everything below.
 
 A user can see:
 
-1. **All completed fixtures in the current API window** — history is not
+1. **All finished fixtures in the current API window** — history is not
    removed by the staging-preview cutoff.
-2. **All active fixtures** — any fixture currently in `fixtures_active` (in-play right now). Always visible.
-3. **Today's staging fixtures** — upcoming fixtures whose date, in the user's timezone, is today.
-4. **One full future day of staging fixtures** — the *first* date after today (in the user's timezone) that has any fixtures at all. Not necessarily tomorrow — if tomorrow has no fixtures but the day after does, that day is the one shown.
+2. **All playing fixtures** — derived from match status, not Found Footy's
+   monitor bucket. Always visible in the target live view.
+3. **Today's upcoming fixtures** — scheduled fixtures whose date, in the
+   user's timezone, is today.
+4. **One full future day of upcoming fixtures** — the *first* date after today
+   (in the user's timezone) that has any fixtures at all. Not necessarily
+   tomorrow — if tomorrow has no fixtures but the day after does, that day is
+   the one shown.
+
+Found Footy's `staging`, `active`, and `completed` states control processing.
+They do not control presentation. The browser classifies provider statuses as
+playing, finished, upcoming, or deferred. `PST`, `CANC`, `SUSP`, `INT`, and
+`ABD` are deferred after the first three groups and never increase the live
+count. This keeps a postponed fixture on the fast monitor path without showing
+it as a live match.
 
 Nothing beyond that single future date is shown. The user cannot navigate to
 it and search will not return it.
@@ -33,14 +45,14 @@ it and search will not return it.
 ### Current carryover defect
 
 The production renderer does not yet satisfy item 2. It filters normal-browser
-active fixtures by the selected timezone-local kickoff date. The provider also
+playing fixtures by the selected timezone-local kickoff date. The provider also
 opens SSE only when the literal selected date equals today. A fixture that
 starts before midnight and remains active after midnight can therefore be
 hidden from the new live day and frozen on the old day.
 
 This is a confirmed defect, not a change to the intended rule. The frontend
 re-foundation must represent live intent separately from the selected date and
-render every active carryover fixture in the live view.
+render every playing carryover fixture in the live view.
 
 ### Why One Future Day?
 
@@ -90,12 +102,13 @@ Search results are re-processed client-side through the same scoping rule:
 1. Each fixture's date is converted to the user's timezone via `getDateForTimestamp`.
 2. The cutoff date is computed from the newest date in `navigableDates` (the
    same list used for normal navigation).
-3. **Completed/active fixtures** (status ≠ `NS`) pass through unconditionally.
-4. **Staging fixtures** (status = `NS`) are dropped if their timezone-local date exceeds the cutoff.
+3. **Finished, playing, and deferred fixtures** pass through unconditionally.
+4. **Upcoming fixtures** (`NS` or `TBD`) are dropped if their
+   timezone-local date exceeds the cutoff.
 5. Surviving fixtures are regrouped by their **timezone-local date** (not the server's UTC grouping).
 
 Search and normal browsing enforce the same staging cutoff. Their current
-active-fixture behavior is not identical: search admits active fixtures
+playing-fixture behavior is not identical: search admits playing fixtures
 without the staging cutoff, while normal browsing still applies the erroneous
 selected kickoff-date filter described above.
 
@@ -131,5 +144,6 @@ browser's final bucketing. This is tracked in the todo list.
 |------|------|
 | `src/contexts/timezone-context.tsx` | `getToday()`, `getDateForTimestamp()`, timezone toggle state |
 | `src/contexts/FootyStreamContext.tsx` | Fetches `/dates`, derives `navigableDates`, manages route data and search state |
-| `src/components/found-footy-browser.tsx` | Applies the `filteredSearchResults` staging cutoff and renders navigation |
+| `src/components/found-footy-browser.tsx` | Applies the search cutoff and renders navigation |
+| `src/lib/found-footy-presentation.ts` | Owns match-status presentation categories, ordering, and terminal deferred labels |
 | `src/server/routes/found-footy.ts` | `/dates` fixed-offset bucketing; `/search` UTC grouping; `/fixtures` UTC date filter |

@@ -486,3 +486,27 @@ lifecycle behavior; this component is not yet the final reusable media
 primitive.
 
 ---
+
+## 2026-08-23 — Separate fixture process state from presentation state
+
+**Context.** Found Footy activates fixtures before kickoff and keeps some
+postponed or interrupted fixtures active so the monitor can poll them quickly.
+The portal treated that process bucket as a display category and live-count
+source. A postponed match with a recent activation timestamp could therefore
+sit above matches with real events and show as live.
+
+**Decision.** Preserve the Go API's `staging`, `active`, and `completed`
+process buckets through the BFF. In the browser, classify provider statuses as
+playing, finished, upcoming, or deferred. Render in that order within each
+competition. Derive live counts only from playing statuses. Put `PST`, `CANC`,
+`SUSP`, `INT`, and `ABD` in deferred presentation; keep `SUSP` and `INT`
+expandable because they may already contain scores and events. Unknown statuses
+fail closed into deferred instead of creating false live state.
+
+**Consequences.** Monitoring behavior does not change. A postponed fixture can
+remain on Found Footy's fast poll path while its activation timestamp no longer
+affects visible ordering or live counts. The presentation taxonomy is a tested
+domain policy shared by normal browsing and search. Carryover visibility and
+wake/reconciliation remain separate frontend re-foundation work.
+
+---
