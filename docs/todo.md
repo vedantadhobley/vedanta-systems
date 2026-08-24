@@ -66,10 +66,14 @@ visual redesign.
   foreground, page restore, autoplay rejection, range seeking, and real media
   errors. Both entry paths must converge on one player contract.
 
-  **Current test blocker (2026-08-23):** the Found Footy development API and
-  Garage containers are not running. The dev UI route is healthy, but its BFF
-  returns `502` for fixture and ranged-video requests. Restore the owning dev
-  stack or use a deliberate production canary before running this matrix.
+  **Current test blocker (2026-08-23):** the retained Found Footy development
+  database predates the checked-in additive `hash_version` migration. Its API
+  correctly refuses the old schema stamp, so the dev BFF returns `502` for
+  fixture and ranged-video requests. The database still has fixture, event,
+  asset, and share data worth preserving. Apply only the owning repo's
+  `20260817_01_add_video_asset_hash_version.sql` migration with explicit
+  approval, then start its Postgres, Garage, and API services without workers
+  or Twitter. A production canary is the alternative.
 
 ---
 
