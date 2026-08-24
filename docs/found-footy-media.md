@@ -102,6 +102,21 @@ physical-device acceptance cases.
 Native `volumechange` now updates React's `isMuted` as well as preserving the
 last audible volume. The custom unmute control follows native mute changes.
 
+### Automated development verification
+
+An instrumented headless Firefox pass on 2026-08-24 exercised both a retained
+shared link and an ordinary clip-button opening through the development BFF.
+In both paths, the video started muted and inline with controls hidden, advanced
+about four seconds without a recovery action, and exposed the custom unmute
+control. Unmute preserved playback. Actual mouse pointer movement over the
+video enabled native controls. A deliberate pause remained paused for five
+seconds without watchdog interference, and a programmatic range seek resumed
+past the requested timestamp.
+
+This verifies the player state and delivery contract in one desktop engine. A
+programmatic range seek does not certify a native scrubber gesture. Desktop
+Chrome and both physical iPhone browsers remain required acceptance targets.
+
 ## Acceptance matrix
 
 Test both ordinary clicks and shared links with the same clips:
