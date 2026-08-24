@@ -66,14 +66,13 @@ visual redesign.
   foreground, page restore, autoplay rejection, range seeking, and real media
   errors. Both entry paths must converge on one player contract.
 
-  **Current test blocker (2026-08-23):** the retained Found Footy development
-  database predates the checked-in additive `hash_version` migration. Its API
-  correctly refuses the old schema stamp, so the dev BFF returns `502` for
-  fixture and ranged-video requests. The database still has fixture, event,
-  asset, and share data worth preserving. Apply only the owning repo's
-  `20260817_01_add_video_asset_hash_version.sql` migration with explicit
-  approval, then start its Postgres, Garage, and API services without workers
-  or Twitter. A production canary is the alternative.
+  **Development path restored (2026-08-24):** the owning repo's checked-in
+  additive `20260817_01_add_video_asset_hash_version.sql` migration is applied
+  to the retained development database. Found Footy Postgres, Garage, and the
+  read API are running; workers, Temporal, and Twitter remain stopped. The Go
+  API and vedanta-systems BFF fixture routes return `200`, and a retained clip
+  returns a valid `206 Partial Content` range through the BFF. Physical-device
+  interaction testing remains the release gate.
 
 ---
 
