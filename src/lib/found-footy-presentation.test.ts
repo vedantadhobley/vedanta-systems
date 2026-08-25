@@ -76,6 +76,24 @@ test('keeps deferred fixtures behind playing, finished, and upcoming fixtures', 
   )
 })
 
+test('keeps terminal fixtures stable when the producer retires its process row', () => {
+  const terminalObservedAt = '2026-08-23T13:00:00Z'
+  const otherFinished = fixture(2, 'FT', '2026-08-23T10:00:00Z', '2026-08-23T12:30:00Z')
+  const activeBucketSnapshot = fixture(1, 'FT', '2026-08-23T11:00:00Z', terminalObservedAt)
+  const completedBucketSnapshot = fixture(1, 'FT', '2026-08-23T11:00:00Z', terminalObservedAt)
+
+  assert.equal(getFixturePresentationState(activeBucketSnapshot), 'finished')
+  assert.equal(getFixturePresentationState(completedBucketSnapshot), 'finished')
+  assert.deepEqual(
+    orderFixturesForPresentation([activeBucketSnapshot, otherFinished]).map(item => item._id),
+    [1, 2],
+  )
+  assert.deepEqual(
+    orderFixturesForPresentation([otherFinished, completedBucketSnapshot]).map(item => item._id),
+    [1, 2],
+  )
+})
+
 test('shows terminal deferred labels without flattening suspended fixtures', () => {
   assert.equal(getTerminalDeferredLabel(fixture(1, 'PST', '2026-08-23T12:00:00Z')), 'Postponed')
   assert.equal(getTerminalDeferredLabel(fixture(2, 'CANC', '2026-08-23T12:00:00Z')), 'Cancelled')

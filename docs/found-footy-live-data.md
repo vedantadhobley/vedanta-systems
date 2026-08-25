@@ -39,6 +39,15 @@ finished, upcoming, and deferred presentation states from provider status.
 The process `active` bucket therefore does not imply a live badge: a monitored
 postponed fixture can remain active while rendering after real matches.
 
+When an actively monitored fixture first enters a terminal status, Found Footy
+keeps it in `active` for a one-hour observation grace while late provider events
+settle. Fresh terminal ingests retain their direct-complete path. The frontend
+renders `FT`, `AET`, `PEN`, `AWD`, and `WO` as finished regardless of that
+process bucket. Its recency key uses the producer's first terminal observation,
+not the later `active` to `completed` transition, so retirement does not reorder
+an already-finished fixture. Historical and direct-complete rows without a
+terminal-observation timestamp fall back to their completion timestamp.
+
 A new browser SSE connection receives `connected`, one upstream `health`
 payload, and periodic `heartbeat` messages. It does not receive a replay or an
 initial fixture snapshot. The current BFF does not emit SSE event IDs.

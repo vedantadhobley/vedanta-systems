@@ -23,7 +23,7 @@ function close(server: Server): Promise<void> {
   })
 }
 
-function goFixture(id: number, state: string, status: string) {
+function goFixture(id: number, state: string, status: string, lastActivityAt: string | null = null) {
   return {
     id,
     state,
@@ -33,7 +33,7 @@ function goFixture(id: number, state: string, status: string) {
     away: { id: id * 2 + 1, name: 'Away', score: null, winner: null },
     status: { short: status, long: status, elapsed: null, extra: null },
     penalty: null,
-    last_activity_at: null,
+    last_activity_at: lastActivityAt,
     events: [],
   }
 }
@@ -43,6 +43,8 @@ test('fixtures endpoint preserves monitor process buckets regardless of match st
     goFixture(1, 'active', 'pst'),
     goFixture(2, 'active', 'ns'),
     goFixture(3, 'completed', '2h'),
+    goFixture(4, 'active', 'ft', '2026-08-23T13:00:00Z'),
+    goFixture(5, 'completed', 'ft', '2026-08-23T13:00:00Z'),
   ]
   const upstream = createServer((request, response) => {
     if (request.url?.startsWith('/api/v1/fixtures')) {
@@ -69,11 +71,17 @@ test('fixtures endpoint preserves monitor process buckets regardless of match st
   assert.equal(response.status, 200)
   const body = await response.json() as {
     staging: Array<{ _id: number }>
-    active: Array<{ _id: number }>
-    completed: Array<{ _id: number }>
+    active: Array<{ _id: number; _last_activity?: string; fixture: { status: { short: string } } }>
+    completed: Array<{ _id: number; _last_activity?: string; fixture: { status: { short: string } } }>
   }
 
   assert.deepEqual(body.staging.map(fixture => fixture._id), [])
-  assert.deepEqual(body.active.map(fixture => fixture._id), [1, 2])
-  assert.deepEqual(body.completed.map(fixture => fixture._id), [3])
+  assert.deepEqual(body.active.map(fixture => fixture._id), [1, 2, 4])
+  assert.deepEqual(body.completed.map(fixture => fixture._id), [3, 5])
+  const terminalActive = body.active.find(fixture => fixture._id === 4)
+  const terminalCompleted = body.completed.find(fixture => fixture._id === 5)
+  assert.equal(terminalActive?.fixture.status.short, 'FT')
+  assert.equal(terminalCompleted?.fixture.status.short, 'FT')
+  assert.equal(terminalActive?._last_activity, '2026-08-23T13:00:00Z')
+  assert.equal(terminalCompleted?._last_activity, '2026-08-23T13:00:00Z')
 })
