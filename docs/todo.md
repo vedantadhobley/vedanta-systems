@@ -165,10 +165,11 @@ Next:
 - [x] extract a visually unchanged `AppShell` and centralize bottom occlusion;
 - [ ] prototype the contained desktop and standalone scroll surface;
 - [ ] replace Found Footy's transient spacer with a shared layout transaction;
-- [ ] preserve an expanded competition only while its semantic ID survives
-  consecutive date snapshots; clear nested fixture/event state on canonical
-  date changes, with locked finals and explicit shared links as the only
-  current auto-open policies; and
+- [x] reset competition, fixture, and event disclosure on every canonical date
+  change, including skipped empty dates. The current frontend already does
+  this; locked finals and explicit shared links remain the only auto-open
+  policies. Any future cross-date competition focus must be explicit and
+  visible rather than hidden accordion memory; and
 - [ ] validate Safari, Chrome, and standalone behavior on a physical iPhone.
 
 ---

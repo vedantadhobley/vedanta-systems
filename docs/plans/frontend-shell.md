@@ -174,7 +174,7 @@ respond afterward without owning layout.
 Use the most specific surviving anchor:
 
 1. the active or focused control when preserving it is valid;
-2. a semantic item present in both views, such as a competition ID;
+2. a semantic item present in both layouts of the same committed view;
 3. the stable dynamic-region boundary; or
 4. the scroll position plus retained local extent when no semantic element
    survives.
@@ -185,22 +185,19 @@ chrome from moving as a side effect.
 
 ## Disclosure persistence
 
-Disclosure state is current-view state keyed by semantic identity. It is not
-an unbounded memory of everything the user previously opened.
+Disclosure state belongs to one canonical selected date. A date change clears
+the expanded competition, fixture, and event before applying explicit opening
+policies to the newly committed view.
 
 For a Found Footy date transition:
 
-- MLS open on day 1 and present on day 2: keep MLS open on day 2.
-- MLS open on day 1 and absent on day 2: clear that disclosure identity.
-- MLS then present on day 3: show it closed.
-- A different competition occupying the same list index never inherits the
-  old state.
-
-The competition key is reconciled after the new date snapshot commits. Nested
-fixture and event disclosure state clears when the canonical selected date
-changes; those details belong to the outgoing date. Skipping an empty date,
-manual navigation, live midnight rollover, and timezone-driven date changes
-all use this same rule.
+- La Liga open on day 1 and present on day 2: day 2 starts closed.
+- La Liga open on day 1, absent on day 2, and present on day 3: day 3 also
+  starts closed.
+- Skipping an empty date, manual navigation, live midnight rollover, and a
+  timezone-driven date change all reset the same state.
+- A competition, fixture, or event on the new date never inherits disclosure
+  merely because an ID or list position happens to match.
 
 Automatic opening is explicit, not a general post-navigation heuristic:
 
@@ -211,10 +208,11 @@ Automatic opening is explicit, not a general post-navigation heuristic:
 No other competition or fixture opens merely because it is first, live, or the
 only item on the new date unless a later product decision adds that behavior.
 
-This is **survival persistence**: state survives only while the keyed entity
-exists across consecutive committed views. Back/forward navigation may restore
-a prior view from explicit history state, but that is a separate contract and
-must not rely on hidden route memory.
+This avoids hidden accordion state surviving through dates where the
+competition is absent. If persistent competition navigation becomes useful,
+model it as an explicit competition focus or filter with visible state and URL
+semantics, not as retained disclosure state. Back/forward navigation may
+restore explicit history state under its own contract.
 
 The one-open-at-a-time Found Footy policy remains until a product requirement
 changes it.
@@ -260,7 +258,8 @@ types, fixture status logic, or a specific icon library.
   surface.
 - Move expand, collapse, date replacement, search replacement, and reconnect
   snapshots through announced transactions.
-- Implement survival persistence by competition ID.
+- Reset competition, fixture, and event disclosure on canonical date changes,
+  then apply only the explicit final and shared-link opening policies.
 - Delete `useTransientScrollSpace` after equivalent and additional tests pass.
 
 ### 4. Migrate other structural changes
@@ -312,5 +311,5 @@ types, fixture status logic, or a specific icon library.
 - A device-model or user-agent table.
 - A custom simulated scrollbar.
 - A body-level height maximum retained across route states.
-- Keeping a disclosure open after its semantic entity disappears.
+- Keeping date-scoped disclosure state across a canonical date change.
 - Combining this work with a React, Vite, router, Tailwind, or shadcn migration.

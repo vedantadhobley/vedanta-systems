@@ -255,8 +255,8 @@ causes scroll lag or keeps the mobile radio awake fails the gate.
 - Add the viewport diagnostic and browser-mode acceptance harness.
 - Replace Found Footy's route-local transient spacer with the shared dynamic
   region and layout transaction.
-- Preserve disclosures by semantic identity only while the item survives
-  consecutive committed views.
+- Reset competition, fixture, and event disclosure on every canonical date
+  change; then apply only locked-final and explicit shared-link opening.
 
 ### 3. Establish behavior primitives
 
