@@ -575,7 +575,12 @@ response to document scroll, but a normal tab cannot command or permanently
 hide that UI. An installed home-screen app has no browser toolbar, while the
 iOS status bar remains and is accommodated by the shell. The obsolete
 render-phase height measurement, keyboard `scrollTop` timer, and phantom
-spacer are removed. Physical iPhone testing remains the deployment gate for
+spacer are removed. Physical iPhone testing remains the acceptance gate for
 dynamic bars, installation, disclosure context, and keyboard behavior.
+
+**Deployment status (2026-08-30).** The owner authorized production deployment
+before the physical-device pass. Production runs frontend source `2ef3ba5`
+with bundle `index-zClZ8SA7.js`. The portal, manifest, API, and Found Footy
+health checks pass; physical iPhone behavior is validating.
 
 ---

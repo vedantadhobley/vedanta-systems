@@ -123,10 +123,10 @@ the first complete two-plane route slice. The
 evidence; the plan owns implementation order. Do not duplicate their full
 finding lists here.
 
-The current branch also contains the mobile shell correction: document-owned
-scroll, safe-area-aware header and bottom navigation, standalone manifest,
-browser zoom, and removal of the persistent phantom-height stabilizer. Before
-deployment, verify on a physical iPhone that:
+Production contains the mobile shell correction: document-owned scroll,
+safe-area-aware header and bottom navigation, standalone manifest, browser
+zoom, and removal of the persistent phantom-height stabilizer. Before marking
+the behavior validated, verify on a physical iPhone that:
 
 - Safari and Chrome minimize their browser bars during ordinary document
   scroll;

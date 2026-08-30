@@ -14,11 +14,11 @@ The later [full-project audit](./full-project-audit-2026-08-20.md) expands this
 scope and corrects the hover-variant claim below. This document remains the
 dated evidence from its original focused pass.
 
-**Follow-up (2026-08-30).** The active branch restores browser zoom, applies
-safe-area insets, adds a standalone manifest, makes the document the only page
-scroll owner, and removes the unbounded phantom-height stabilizer. Physical
-iPhone Safari, Chrome, and installed-home-screen verification remains required
-before deployment.
+**Follow-up (2026-08-30).** Production restores browser zoom, applies safe-area
+insets, adds a standalone manifest, makes the document the only page scroll
+owner, and removes the unbounded phantom-height stabilizer. Physical iPhone
+Safari, Chrome, and installed-home-screen verification remains required before
+the mobile shell is considered validated.
 
 ## Confirmed strengths
 
