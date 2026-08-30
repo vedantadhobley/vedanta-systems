@@ -57,10 +57,15 @@ It must also distinguish unavailable media from a retryable media failure,
 keep the fixture/event context open, and display **video no longer available**
 instead of a player retry loop.
 
-A separate Found Footy-owned share-context resource remains the preferred
-long-term contract. It allows the share ID to resolve both context and media
-availability without changing media delivery semantics. The public projection
-should expose frontend meaning rather than storage or supersession mechanics:
+A new Found Footy context endpoint is not required for current portal links.
+The existing `v=<event-id>` identifies the retained event, and the existing
+targeted event and fixture reads provide its history. The BFF must preserve
+that projection instead of reducing it to a date.
+
+React still needs authoritative media availability before it can distinguish
+retention from a retryable player error. The BFF can derive that from the
+existing media endpoint without following its `302` redirect and expose a
+small frontend projection without changing Found Footy's API:
 
 ```json
 {
@@ -74,13 +79,11 @@ should expose frontend meaning rather than storage or supersession mechanics:
 `media_state` should be `available` or `removed`; active versus superseded is
 not a frontend distinction because both play through the stable media URL. A
 known removed share returns this representation successfully. An unknown share
-returns `404`. If Found Footy adds this endpoint, the BFF combines the returned
-IDs with targeted fixture/event reads. React resolves that historical
-projection before opening media. When the current URL already contains `v`,
-the same BFF path can use that event ID directly and consult the share resource
-only for authoritative media state. A later canonical share URL may then use
-only the share ID. The OG server must omit `og:video` for removed media while
-retaining historical page metadata.
+returns `404`. The BFF combines this status with the targeted fixture/event
+projection before React opens media. A future share-only canonical URL would
+require a Found Footy-owned share-to-event lookup, but that is not required for
+the current `v` plus `s` contract. The OG server must omit `og:video` for
+removed media while retaining historical page metadata.
 
 ## Required interaction contract
 

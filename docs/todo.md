@@ -77,10 +77,11 @@ visual redesign.
   returns a valid `206 Partial Content` range through the BFF. Physical-device
   interaction testing remains the release gate.
 
-- [ ] Coordinate a Found Footy share-context read contract that returns
-  `media_state`, `fixture_id`, and `event_id` for a known share without changing
-  `/api/v1/videos/<share-id>` media semantics. Known reclaimed or removed media
-  remains `410` on the media route; unknown shares remain `404`.
+- [ ] Add a BFF historical-share projection for the current `v` plus `s` URL.
+  Preserve the targeted fixture/event instead of reducing it to a date, and
+  derive `media_state` from the existing Found Footy media response without
+  following an available share's `302`. No new Found Footy endpoint is needed
+  unless a later canonical URL removes `v` and keeps only the share ID.
 - [ ] Make retained GUI share links open their historical fixture/event and
   show **video no longer available** for authoritative removed media. Do not
   classify that terminal state as autoplay failure or a retryable media error.
