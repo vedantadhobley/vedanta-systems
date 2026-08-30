@@ -673,6 +673,13 @@ behavior.
 **Consequences.** Desktop scrolling works again. Short-route elastic movement
 remains an explicit shell redesign concern rather than a global CSS side effect.
 
-**Deployment status.** Staged, not deployed.
+**Deployment status (2026-08-30).** Production runs frontend source `ab3ff4c`
+from image `sha256:753881c2eae41c7680e2344532139c7ed1d66f747132e578a7a4dcd84ab74f89`
+and serves bundle `index-BRDYljc1.js`. Only the frontend container was
+recreated with `--no-deps`; the API retained its existing image and start
+time. Trusted desktop Chrome wheel tests pass in both directions across
+disclosure and date transitions. The public portal, API, and Found Footy
+health checks pass. Physical iPhone browser and standalone behavior remains
+validating.
 
 ---
