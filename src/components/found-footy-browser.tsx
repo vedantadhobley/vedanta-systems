@@ -3,6 +3,7 @@ import { RiCloseLine, RiCloseFill, RiShareBoxLine, RiShareBoxFill, RiDownload2Li
 import type { Fixture, GoalEvent, RankedVideo, SearchDateGroup } from '@/types/found-footy'
 import { cn } from '@/lib/utils'
 import { useTimezone } from '@/contexts/timezone-context'
+import { useTransientScrollSpace } from '@/lib/use-transient-scroll-space'
 import {
   getFixturePresentationState,
   orderFixturesForPresentation,
@@ -231,6 +232,7 @@ export function FoundFootyBrowser({
   const initialVideoProcessed = useRef(false)
   const initialVideoNavigated = useRef(false)  // Track if we've navigated to the event's date
   const searchInputRef = useRef<HTMLInputElement>(null)
+  const { spacerRef, preserveThroughNextLayout } = useTransientScrollSpace()
   
   const { mode, formatTime, getTimezoneAbbr, getDateForTimestamp, getToday } = useTimezone()
   
@@ -315,23 +317,26 @@ export function FoundFootyBrowser({
 
   // Toggle fixture - close others
   const toggleFixture = useCallback((fixtureId: number) => {
+    preserveThroughNextLayout()
     setExpandedFixture(prev => prev === fixtureId ? null : fixtureId)
     setExpandedEvent(null) // Close any open event
-  }, [])
+  }, [preserveThroughNextLayout])
 
   // Toggle event - close others
   const toggleEvent = useCallback((eventId: string) => {
+    preserveThroughNextLayout()
     setExpandedEvent(prev => prev === eventId ? null : eventId)
-  }, [])
+  }, [preserveThroughNextLayout])
 
   // Toggle competition — one league open at a time (same accordion rule as fixtures/events).
   // Switching leagues resets the inner fixture/event accordion; their path belongs to the
   // league being collapsed.
   const toggleCompetition = useCallback((leagueId: number) => {
+    preserveThroughNextLayout()
     setExpandedCompetition(prev => prev === leagueId ? null : leagueId)
     setExpandedFixture(null)
     setExpandedEvent(null)
-  }, [])
+  }, [preserveThroughNextLayout])
 
   // Handle navigating to the correct date for shared video links
   useEffect(() => {
@@ -785,6 +790,8 @@ export function FoundFootyBrowser({
           )}
         </div>
       )}
+
+      <div ref={spacerRef} aria-hidden="true" />
 
       {/* Video Modal */}
       {videoModal && (

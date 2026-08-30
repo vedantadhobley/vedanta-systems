@@ -584,3 +584,31 @@ with bundle `index-zClZ8SA7.js`. The portal, manifest, API, and Found Footy
 health checks pass; physical iPhone behavior is validating.
 
 ---
+
+## 2026-08-30 — Preserve disclosure position with transient scroll space
+
+**Context.** The preceding mobile-shell change correctly removed the fixed
+inner scroll container and the route-lifetime content-height maximum. It also
+removed an intentional interaction: a collapse left temporary dead space so
+the browser did not clamp the page or snap the user's viewport. Native scroll
+anchoring does not provide that contract.
+
+**Decision.** Keep the document as the sole scroll owner. Before an explicit
+Found Footy or Spin Cycle disclosure change, capture the real document height
+and scroll position. After React commits the change, retain exactly the height
+removed by that transition and restore the captured position before paint. Do
+not trim that space during the transition. On later document scroll events,
+reduce it to only the portion still required by the current viewport; expansion
+may also consume it. Do not use a route-lifetime high-water mark, render-phase
+measurement, or unannounced spacer growth.
+
+**Consequences.** Collapse keeps the page visually stationary and the resulting
+dead space disappears as the user scrolls away. The mechanism remains compatible
+with iOS document scrolling and cannot accumulate the largest height seen across
+unrelated route states. This supersedes only the native-anchoring disclosure
+clause of the preceding decision; its viewport, safe-area, zoom, and manifest
+choices remain in force. Physical iPhone verification remains required.
+
+**Deployment status.** Staged, not deployed.
+
+---

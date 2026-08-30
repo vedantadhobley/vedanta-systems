@@ -190,8 +190,10 @@ and live-data ownership when testing shows the stream can remain open.
   restoration.
 - Preserve browser zoom. Meet focus, accessible-name, and list-structure
   requirements before a component enters the shared system.
-- Keep one document scroll owner. Apply safe-area insets at the shell boundary
-  and do not use persistent spacer height to emulate scroll stability.
+- Keep one document scroll owner. Apply safe-area insets at the shell boundary.
+  Disclosure collapse may retain exactly the removed height until the user
+  scrolls away; do not use a route-lifetime height maximum or let that temporary
+  space grow outside an announced transition.
 - `prefers-reduced-motion` removes spatial sequencing and persistence while
   preserving state, hierarchy, and settled readability.
 

@@ -125,8 +125,10 @@ finding lists here.
 
 Production contains the mobile shell correction: document-owned scroll,
 safe-area-aware header and bottom navigation, standalone manifest, browser
-zoom, and removal of the persistent phantom-height stabilizer. Before marking
-the behavior validated, verify on a physical iPhone that:
+zoom, and removal of the persistent phantom-height stabilizer. A follow-up is
+staged to restore the intended no-pop disclosure behavior with exact,
+transition-scoped retained space that is consumed by later scrolling. Before
+marking the behavior validated, verify on a physical iPhone that:
 
 - Safari and Chrome minimize their browser bars during ordinary document
   scroll;
@@ -134,8 +136,9 @@ the behavior validated, verify on a physical iPhone that:
   status bar or Dynamic Island;
 - the bottom navigation clears both browser chrome and the home indicator as
   their safe areas change;
-- Found Footy and Spin Cycle disclosures retain useful context without blank
-  height growth;
+- Found Footy and Spin Cycle collapses leave the viewport in place, preserve
+  the resulting dead space until the user scrolls away, and never accumulate
+  unrelated blank height;
 - Found Footy search remains stable while the keyboard opens and closes.
 
 ---

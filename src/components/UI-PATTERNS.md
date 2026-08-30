@@ -223,10 +223,12 @@ anchoring to document scroll.
 - Use a `standalone` web app manifest for the installed experience. A normal
   browser tab cannot force browser chrome to stay hidden.
 - Preserve browser zoom and text selection.
-- Start with native scroll anchoring for disclosures. If physical-device
-  testing finds a remaining context jump, anchor the interacted control for
-  that one transition. Never retain a route-lifetime high-water height or
-  unbounded phantom spacer.
+- A disclosure collapse must not clamp or jump the current viewport. Capture
+  the document height and scroll position before that interaction, retain the
+  exact removed height as temporary space before paint, and consume that space
+  only as the user later scrolls away from it. Expansion may consume retained
+  space. Never retain a route-lifetime high-water height or let temporary space
+  grow in response to unrelated renders.
 - Let the browser own keyboard viewport changes. Do not restore `scrollTop` on
   a timer while an iOS keyboard is closing.
 

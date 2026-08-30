@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, useRef } from 'react'
 import { RiExpandUpDownLine, RiExpandUpDownFill, RiContractUpDownLine, RiContractUpDownFill, RiExternalLinkLine, RiExternalLinkFill, RiFileTextLine, RiFileTextFill, RiChat1Line, RiChat1Fill, RiLoader4Line } from '@remixicon/react'
 import type { Transcript, TranscriptClaim, ClaimDetail, SubClaim as SubClaimType, Evidence, SpeakerEntry } from '@/types/spin-cycle'
 import { cn } from '@/lib/utils'
+import { useTransientScrollSpace } from '@/lib/use-transient-scroll-space'
 
 // ============ VERDICT COLORS ============
 
@@ -109,11 +110,13 @@ export function SpinCycleBrowser({
   const [claimDetails, setClaimDetails] = useState<Map<string, ClaimDetail>>(new Map())
   const [loadingClaims, setLoadingClaims] = useState<Set<string>>(new Set())
   const [viewModes, setViewModes] = useState<Map<string, 'claims' | 'fulltext'>>(new Map())
+  const { spacerRef, preserveThroughNextLayout } = useTransientScrollSpace()
 
   const toggleTranscript = useCallback((id: string) => {
+    preserveThroughNextLayout()
     setExpandedTranscript(prev => prev === id ? null : id)
     setExpandedClaim(null)
-  }, [])
+  }, [preserveThroughNextLayout])
 
   // Get cached claim detail from component state
   const getClaimDetail = useCallback((claimId: string): ClaimDetail | undefined => {
@@ -121,6 +124,7 @@ export function SpinCycleBrowser({
   }, [claimDetails])
 
   const toggleClaim = useCallback(async (transcriptClaimId: string, claimId: string | null) => {
+    preserveThroughNextLayout()
     if (expandedClaim === transcriptClaimId) {
       setExpandedClaim(null)
       expandedClaimIdRef.current = null
@@ -143,7 +147,7 @@ export function SpinCycleBrowser({
         return next
       })
     }
-  }, [expandedClaim, fetchClaimDetail])
+  }, [expandedClaim, fetchClaimDetail, preserveThroughNextLayout])
 
   // Track the claim_id of the currently expanded claim for auto-refresh
   const expandedClaimIdRef = useRef<string | null>(null)
@@ -163,13 +167,14 @@ export function SpinCycleBrowser({
   }, [transcripts, fetchClaimDetail])
 
   const toggleViewMode = useCallback((transcriptId: string) => {
+    preserveThroughNextLayout()
     setViewModes(prev => {
       const next = new Map(prev)
       const current = next.get(transcriptId) || 'claims'
       next.set(transcriptId, current === 'fulltext' ? 'claims' : 'fulltext')
       return next
     })
-  }, [])
+  }, [preserveThroughNextLayout])
 
   const getViewMode = useCallback((transcriptId: string): 'claims' | 'fulltext' => {
     return viewModes.get(transcriptId) || 'fulltext'
@@ -232,6 +237,8 @@ export function SpinCycleBrowser({
           ))
         )}
       </div>
+
+      <div ref={spacerRef} aria-hidden="true" />
 
     </div>
   )
