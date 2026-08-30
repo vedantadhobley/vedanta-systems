@@ -2,7 +2,6 @@ import { useState, useCallback, useEffect, useRef } from 'react'
 import { RiExpandUpDownLine, RiExpandUpDownFill, RiContractUpDownLine, RiContractUpDownFill, RiExternalLinkLine, RiExternalLinkFill, RiFileTextLine, RiFileTextFill, RiChat1Line, RiChat1Fill, RiLoader4Line } from '@remixicon/react'
 import type { Transcript, TranscriptClaim, ClaimDetail, SubClaim as SubClaimType, Evidence, SpeakerEntry } from '@/types/spin-cycle'
 import { cn } from '@/lib/utils'
-import { useScrollStabilizer } from '@/lib/use-scroll-stabilizer'
 
 // ============ VERDICT COLORS ============
 
@@ -110,16 +109,6 @@ export function SpinCycleBrowser({
   const [claimDetails, setClaimDetails] = useState<Map<string, ClaimDetail>>(new Map())
   const [loadingClaims, setLoadingClaims] = useState<Set<string>>(new Set())
   const [viewModes, setViewModes] = useState<Map<string, 'claims' | 'fulltext'>>(new Map())
-
-  // Scroll stabilizer
-  const scrollContainerRef = useRef<HTMLElement | null>(null)
-  useEffect(() => {
-    scrollContainerRef.current = document.querySelector('.content-scroll')
-  }, [])
-  const scrollSpacerRef = useScrollStabilizer(
-    scrollContainerRef,
-    [expandedTranscript, expandedClaim]
-  )
 
   const toggleTranscript = useCallback((id: string) => {
     setExpandedTranscript(prev => prev === id ? null : id)
@@ -244,7 +233,6 @@ export function SpinCycleBrowser({
         )}
       </div>
 
-      <div ref={scrollSpacerRef} aria-hidden="true" />
     </div>
   )
 }

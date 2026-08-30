@@ -209,6 +209,32 @@ const [controlsEnabled, setControlsEnabled] = useState(false)
 
 ---
 
+## Mobile viewport and scrolling
+
+The document is the portal's sole vertical scroll owner. Do not recreate a
+page-sized fixed overflow container. Mobile WebKit relates its dynamic browser
+bars, visual viewport, keyboard, history restoration, and native scroll
+anchoring to document scroll.
+
+- Keep `viewport-fit=cover`, then apply every relevant
+  `env(safe-area-inset-*)` value at the shell boundary.
+- Size the fixed bottom navigation from its base height plus the bottom safe
+  area. Give document content the same terminal padding.
+- Use a `standalone` web app manifest for the installed experience. A normal
+  browser tab cannot force browser chrome to stay hidden.
+- Preserve browser zoom and text selection.
+- Start with native scroll anchoring for disclosures. If physical-device
+  testing finds a remaining context jump, anchor the interacted control for
+  that one transition. Never retain a route-lifetime high-water height or
+  unbounded phantom spacer.
+- Let the browser own keyboard viewport changes. Do not restore `scrollTop` on
+  a timer while an iOS keyboard is closing.
+
+Physical iPhone Safari, Chrome, and installed-home-screen verification is the
+acceptance gate for changes to this contract.
+
+---
+
 ## 📝 General Principles
 
 1. **Prefer CSS over JavaScript for interaction states** - More reliable, less code, better performance

@@ -549,3 +549,33 @@ browser-owned provider taxonomy in the 2026-08-23 decision while retaining its
 separation between processing and presentation state.
 
 ---
+
+## 2026-08-30 — Make the document the mobile scroll and viewport owner
+
+**Context.** The portal locked `html` and `body` to the dynamic viewport and
+scrolled a fixed inner container. This prevented mobile browser chrome from
+following ordinary page scroll. `viewport-fit=cover` exposed the physical
+screen but the shell applied no safe-area insets, so an installed iPhone app
+could place its header beneath the status bar or Dynamic Island. Found Footy
+and Spin Cycle also retained their largest historical content height through a
+phantom spacer. That height had no bounded lifetime and could leave growing
+blank scroll range.
+
+**Decision.** Use normal document scrolling as the sole page scroll boundary.
+Let native scroll anchoring handle disclosure changes first; any future custom
+anchoring must be scoped to one interaction and must not preserve impossible
+empty height. Apply CSS safe-area environment values to the header, content
+gutters, fixed bottom navigation, and document terminus. Restore browser zoom
+and selection. Publish a web app manifest with `display: standalone`; retain a
+black full-bleed background while keeping interactive content inside the safe
+area.
+
+**Consequences.** iOS Safari and Chrome may minimize their browser UI in
+response to document scroll, but a normal tab cannot command or permanently
+hide that UI. An installed home-screen app has no browser toolbar, while the
+iOS status bar remains and is accommodated by the shell. The obsolete
+render-phase height measurement, keyboard `scrollTop` timer, and phantom
+spacer are removed. Physical iPhone testing remains the deployment gate for
+dynamic bars, installation, disclosure context, and keyboard behavior.
+
+---

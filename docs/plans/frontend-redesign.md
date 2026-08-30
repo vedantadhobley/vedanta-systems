@@ -187,7 +187,8 @@ Preserve the existing interaction work:
 - hover styles only on devices that support hover;
 - touch-safe `:active` behavior on iOS;
 - immediate accordion state changes;
-- scroll stabilization when expanded content shrinks;
+- stable disclosure context through document scrolling and native anchoring,
+  without retaining phantom page height;
 - native browser video controls after the existing bleed-through guard.
 
 ### Current dependency seams

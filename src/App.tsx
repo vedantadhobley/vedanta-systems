@@ -155,18 +155,6 @@ function DirectoryListing() {
     <>
       <div 
         className="content-scroll" 
-        style={{ 
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          overflowY: 'auto',
-          overflowX: 'hidden',
-          touchAction: 'pan-y',
-          WebkitOverflowScrolling: 'touch',
-          backgroundColor: 'transparent',
-          zIndex: 10
-        }}
       >
         <Header currentPath={currentPath} onNavigate={handleNavigate} />
       
@@ -175,7 +163,7 @@ function DirectoryListing() {
           <GitHubContributionGraph username="vedantadhobley" />
         </div>
         
-        <div className="w-full max-w-[1140px] mx-auto px-4 md:px-8 pt-4 pb-8">
+        <div className="portal-content w-full max-w-[1140px] mx-auto pt-4 pb-8">
           {/* Found Footy Browser - ~/workspace/found-footy */}
           {fsPath === '~/workspace/found-footy' && (
             <FoundFootyContent />

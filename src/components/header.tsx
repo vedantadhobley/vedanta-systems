@@ -69,13 +69,13 @@ export function Header({ onNavigate }: HeaderProps) {
 
   return (
     <header 
-      className="w-full" 
+      className="site-header w-full"
       style={{ 
         flexShrink: 0,
         backgroundColor: 'transparent'
       }}
     >
-      <div className="max-w-[1140px] mx-auto px-4 md:px-8 h-12 md:h-14 flex items-center justify-between relative">
+      <div className="site-header-content max-w-[1140px] mx-auto h-12 md:h-14 flex items-center justify-between relative">
         <button
           onClick={() => onNavigate('~')}
           onTouchStart={() => {}} // Required for iOS :active to work
@@ -136,10 +136,7 @@ export function BottomNav({ currentPath, onNavigate }: HeaderProps) {
   }, [])
 
   const scrollToTop = () => {
-    const scrollContainer = document.querySelector('.content-scroll')
-    if (scrollContainer) {
-      scrollContainer.scrollTo({ top: 0, behavior: 'smooth' })
-    }
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   return (
@@ -147,14 +144,14 @@ export function BottomNav({ currentPath, onNavigate }: HeaderProps) {
       {/* Global nav-btn styles */}
       <style dangerouslySetInnerHTML={{ __html: navButtonStyles }} />
       <nav 
-        className="fixed bottom-0 left-0 right-0 border-t border-corpo-border bg-black h-12 md:h-14"
+        className="site-bottom-nav fixed bottom-0 left-0 right-0 border-t border-corpo-border bg-black"
         style={{ 
           zIndex: 9999,
           WebkitTextSizeAdjust: '100%',
           textSizeAdjust: '100%'
         }}
       >
-        <div className="max-w-[1140px] mx-auto px-4 md:px-8 h-full flex items-center justify-between">
+        <div className="site-bottom-nav-content max-w-[1140px] mx-auto flex items-center justify-between">
           <FileSystemNav currentPath={currentPath} onNavigate={onNavigate} />
           
           <button

@@ -3,15 +3,13 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/og-image.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#000000" />
+    <link rel="manifest" href="/app.webmanifest" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    
-    <!-- Preconnect to API for faster data loading -->
-    <link rel="preconnect" href="/api" />
-    <link rel="dns-prefetch" href="/api" />
-    
+
     <!-- Open Graph / Social Sharing -->
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Vedanta Systems" />
@@ -26,252 +24,18 @@
     <meta name="twitter:title" content="Vedanta Systems" />
     <meta name="twitter:image" content="https://vedanta.systems/og-image.png?v=3" />
     <style>
-      * { 
-        -webkit-user-select: none;
-        -webkit-touch-callout: none;
-        -webkit-tap-highlight-color: transparent;
-      }
-      
-      /* Prevent flash of unstyled content */
+      /* Match the application shell before its stylesheet arrives. */
       html, body {
         background-color: #000000 !important;
         color: #a8a8a8;
       }
-      
-      /* Hide content until font is loaded - prevents layout shift */
-      /* Only applies on initial load, not when returning from sleep */
-      #root {
-        opacity: 0;
-        transition: opacity 0.05s ease-in;
-      }
-      
-      /* Show content once font is loaded (or was already shown) */
-      html.fonts-loaded #root,
-      html.content-shown #root {
-        opacity: 1;
-      }
-      
-      /* Prevent font loading shift */
+
       body {
+        margin: 0;
         font-family: 'GT Pressura Mono', ui-monospace, monospace;
       }
-      
-      /* Match GT Pressura Mono metrics with fallback to prevent layout shift */
-      @font-face {
-        font-family: 'GT Pressura Mono Fallback';
-        src: local('Courier New'), local('monospace');
-        size-adjust: 95%;
-        ascent-override: 95%;
-        descent-override: 25%;
-        line-gap-override: 0%;
-      }
     </style>
-    <script>
-      // iOS memory pressure detection and mitigation
-      (function() {
-        // Track if we're on iOS
-        var isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
-                    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-        
-        // When tab becomes hidden, aggressively free resources
-        document.addEventListener('visibilitychange', function() {
-          if (document.hidden) {
-            console.log('[Memory] Tab hidden, freeing resources');
-            // Trigger garbage collection hint
-            if (window.gc) window.gc();
-            // Clear any image data URLs from memory
-            document.querySelectorAll('img[src^="data:"]').forEach(function(img) {
-              img.src = '';
-            });
-          }
-        });
-        
-        // iOS-specific lifecycle diagnostics. The browser owns suspension of
-        // mounted media; React component cleanup owns released media.
-        if (isIOS) {
-          // Track freeze events (Page Lifecycle API)
-          document.addEventListener('freeze', function() {
-            console.log('[Memory] Page frozen by OS');
-          });
-          
-          document.addEventListener('resume', function() {
-            console.log('[Memory] Page resumed from frozen state');
-          });
-        }
-        
-        // Log memory info if available (Chrome only)
-        if (performance.memory) {
-          setInterval(function() {
-            if (!document.hidden) {
-              var used = Math.round(performance.memory.usedJSHeapSize / 1048576);
-              var total = Math.round(performance.memory.totalJSHeapSize / 1048576);
-              if (used > 100) { // Log if over 100MB
-                console.log('[Memory] JS Heap: ' + used + 'MB / ' + total + 'MB');
-              }
-            }
-          }, 30000);
-        }
-      })();
-      
-      // Debug: Log page loads to help diagnose random refresh issues
-      (function() {
-        var loadTime = new Date().toISOString();
-        var navEntry = performance.getEntriesByType('navigation')[0];
-        var navType = navEntry?.type || 'unknown';
-        var wasRefresh = navType === 'reload';
-        
-        // Check referrer - can help identify navigation source
-        var referrer = document.referrer || 'none';
-        var isSameOrigin = referrer.includes(location.origin);
-        
-        // Check if this is a "fresh" session (sessionStorage was cleared = tab was killed)
-        var hadHistory = sessionStorage.getItem('page-load-history') !== null;
-        var sessionStart = sessionStorage.getItem('session-start');
-        var lastBeforeUnload = localStorage.getItem('last-beforeunload');
-        if (!sessionStart) {
-          sessionStart = loadTime;
-          sessionStorage.setItem('session-start', sessionStart);
-        }
-        
-        // Calculate time since last beforeunload (if any)
-        var timeSinceUnload = lastBeforeUnload ? 
-          Math.round((Date.now() - new Date(lastBeforeUnload).getTime()) / 1000) + 's ago' : 
-          'never';
-        
-        // Store load history in sessionStorage (last 10 loads)
-        var history = JSON.parse(sessionStorage.getItem('page-load-history') || '[]');
-        history.push({ 
-          time: loadTime, 
-          type: navType, 
-          wasRefresh: wasRefresh, 
-          url: location.pathname,
-          freshSession: !hadHistory
-        });
-        if (history.length > 10) history.shift();
-        sessionStorage.setItem('page-load-history', JSON.stringify(history));
-        
-        // Also persist to localStorage (survives tab kills) - last 30 loads
-        var persistentHistory = JSON.parse(localStorage.getItem('page-load-history-persistent') || '[]');
-        persistentHistory.push({ 
-          time: loadTime, 
-          type: navType, 
-          wasRefresh: wasRefresh, 
-          url: location.pathname,
-          freshSession: !hadHistory,
-          sessionStart: sessionStart,
-          referrer: isSameOrigin ? 'self' : referrer.substring(0, 50),
-          unloadAge: timeSinceUnload
-        });
-        if (persistentHistory.length > 30) persistentHistory.shift();
-        localStorage.setItem('page-load-history-persistent', JSON.stringify(persistentHistory));
-        
-        console.log('[PageLoad] ' + loadTime + ' | type: ' + navType + ' | fresh: ' + !hadHistory + ' | unload: ' + timeSinceUnload);
-        console.log('[PageLoad] Full history:', persistentHistory);
-        
-        // Count suspicious loads in last 15 minutes
-        var fifteenMinAgo = Date.now() - 15 * 60 * 1000;
-        var suspiciousLoads = persistentHistory.filter(function(h) { 
-          var t = new Date(h.time).getTime();
-          return t > fifteenMinAgo && (h.wasRefresh || h.freshSession);
-        });
-        
-        // Show visual debug panel if there were suspicious loads (more than just the current one)
-        // DISABLED: Debug panel no longer needed, but keeping code for future debugging
-        if (false && (suspiciousLoads.length > 1 || (suspiciousLoads.length === 1 && !suspiciousLoads[0].freshSession))) {
-          // Wait for DOM to be ready
-          var showDebug = function() {
-            var panel = document.createElement('div');
-            panel.id = 'refresh-debug';
-            panel.style.cssText = 'position:fixed;bottom:60px;left:8px;right:8px;background:#1a0a0a;border:1px solid #ff4444;padding:12px;font-family:monospace;font-size:11px;color:#ff8888;z-index:9999;max-height:280px;overflow-y:auto;border-radius:4px;';
-            
-            var freshCount = suspiciousLoads.filter(function(h) { return h.freshSession; }).length;
-            var reloadCount = suspiciousLoads.filter(function(h) { return h.wasRefresh && !h.freshSession; }).length;
-            var navigateCount = suspiciousLoads.filter(function(h) { return h.type === 'navigate' && !h.freshSession; }).length;
-            
-            var html = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">';
-            html += '<strong style="color:#ff4444;">⚠️ Page instability detected</strong>';
-            html += '<button onclick="this.parentElement.parentElement.remove();localStorage.removeItem(\'page-load-history-persistent\');sessionStorage.removeItem(\'page-load-history\');localStorage.removeItem(\'last-beforeunload\')" style="background:#333;border:1px solid #666;color:#aaa;padding:2px 8px;border-radius:3px;cursor:pointer;">Clear</button>';
-            html += '</div>';
-            html += '<div style="font-size:10px;color:#ffaa00;margin-bottom:6px;">';
-            html += 'Tab kills: ' + freshCount + ' | Reloads: ' + reloadCount + ' | Navigates: ' + navigateCount;
-            html += '</div>';
-            html += '<div style="font-size:10px;color:#888;margin-bottom:6px;">Recent loads (newest first):</div>';
-            
-            var reversed = persistentHistory.slice().reverse().slice(0, 20);
-            for (var i = 0; i < reversed.length; i++) {
-              var h = reversed[i];
-              var time = new Date(h.time).toLocaleTimeString();
-              var color = h.freshSession ? '#ffaa00' : (h.wasRefresh ? '#ff6666' : (h.type === 'navigate' ? '#66aaff' : '#66ff66'));
-              var label = h.freshSession ? 'TAB-KILL' : h.type.toUpperCase();
-              var extra = h.unloadAge && h.unloadAge !== 'never' ? ' (unload ' + h.unloadAge + ')' : '';
-              html += '<div style="color:' + color + ';margin:2px 0;">' + time + ' - ' + label + extra + ' - ' + h.url + '</div>';
-            }
-            
-            panel.innerHTML = html;
-            document.body.appendChild(panel);
-          };
-          
-          if (document.body) {
-            showDebug();
-          } else {
-            document.addEventListener('DOMContentLoaded', showDebug);
-          }
-        }
-        
-        // Track unload events to see what triggers navigation
-        window.addEventListener('beforeunload', function(e) {
-          // Store the time when beforeunload happened
-          localStorage.setItem('last-beforeunload', new Date().toISOString());
-          console.warn('[PageLoad] beforeunload triggered at ' + new Date().toISOString());
-        });
-        
-        // Track errors that might cause page crash/reload
-        window.addEventListener('error', function(e) {
-          console.error('[PageLoad] Uncaught error:', e.message, e.filename, e.lineno);
-          var errors = JSON.parse(localStorage.getItem('page-errors') || '[]');
-          errors.push({ time: new Date().toISOString(), msg: e.message, file: e.filename, line: e.lineno });
-          if (errors.length > 5) errors.shift();
-          localStorage.setItem('page-errors', JSON.stringify(errors));
-        });
-        window.addEventListener('unhandledrejection', function(e) {
-          console.error('[PageLoad] Unhandled promise rejection:', e.reason);
-          var errors = JSON.parse(localStorage.getItem('page-errors') || '[]');
-          errors.push({ time: new Date().toISOString(), msg: 'Promise: ' + String(e.reason) });
-          if (errors.length > 5) errors.shift();
-          localStorage.setItem('page-errors', JSON.stringify(errors));
-        });
-      })();
-      
-      // If content was already shown (returning from sleep/background), skip font wait
-      if (sessionStorage.getItem('content-shown')) {
-        document.documentElement.classList.add('content-shown');
-      }
-      
-      // Wait for GT Pressura Mono font to load before showing content
-      if (document.fonts) {
-        document.fonts.ready.then(() => {
-          document.documentElement.classList.add('fonts-loaded');
-          sessionStorage.setItem('content-shown', '1');
-        });
-        // Failsafe - show content after 100ms even if font check hangs
-        setTimeout(() => {
-          document.documentElement.classList.add('fonts-loaded');
-          sessionStorage.setItem('content-shown', '1');
-        }, 100);
-      } else {
-        // Fallback for browsers without Font Loading API
-        document.documentElement.classList.add('fonts-loaded');
-        sessionStorage.setItem('content-shown', '1');
-      }
-    </script>
     <title>Vedanta Systems</title>
-    <!-- PT Mono Font - block display to prevent FOUT -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=PT+Mono&display=block" rel="stylesheet">
-    <link rel="preload" href="https://fonts.googleapis.com/css2?family=PT+Mono&display=block" as="style">
-    <!-- JetBrains Mono for ASCII moon - excellent braille support -->
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400&display=block" rel="stylesheet">
   </head>
   <body>
     <div id="root"></div>

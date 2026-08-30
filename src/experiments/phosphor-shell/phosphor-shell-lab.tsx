@@ -227,7 +227,7 @@ export default function PhosphorShellLab() {
 
   return (
     <main className="ps2-lab">
-      <div className="ps2-scroll content-scroll">
+      <div className="ps2-scroll">
         <header className="ps2-header">
           <div className="ps2-identity">
             <span className="ps2-eyebrow">PUBLIC OPERATIONS / LUV</span>

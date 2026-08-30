@@ -123,6 +123,21 @@ the first complete two-plane route slice. The
 evidence; the plan owns implementation order. Do not duplicate their full
 finding lists here.
 
+The current branch also contains the mobile shell correction: document-owned
+scroll, safe-area-aware header and bottom navigation, standalone manifest,
+browser zoom, and removal of the persistent phantom-height stabilizer. Before
+deployment, verify on a physical iPhone that:
+
+- Safari and Chrome minimize their browser bars during ordinary document
+  scroll;
+- a newly added home-screen app opens standalone and keeps the header below the
+  status bar or Dynamic Island;
+- the bottom navigation clears both browser chrome and the home indicator as
+  their safe areas change;
+- Found Footy and Spin Cycle disclosures retain useful context without blank
+  height growth;
+- Found Footy search remains stable while the keyboard opens and closes.
+
 ---
 
 ## Deferred — long-exposure UI roadmap

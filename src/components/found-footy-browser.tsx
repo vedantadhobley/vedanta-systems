@@ -3,7 +3,6 @@ import { RiCloseLine, RiCloseFill, RiShareBoxLine, RiShareBoxFill, RiDownload2Li
 import type { Fixture, GoalEvent, RankedVideo, SearchDateGroup } from '@/types/found-footy'
 import { cn } from '@/lib/utils'
 import { useTimezone } from '@/contexts/timezone-context'
-import { useScrollStabilizer } from '@/lib/use-scroll-stabilizer'
 import {
   getFixturePresentationState,
   orderFixturesForPresentation,
@@ -232,17 +231,6 @@ export function FoundFootyBrowser({
   const initialVideoProcessed = useRef(false)
   const initialVideoNavigated = useRef(false)  // Track if we've navigated to the event's date
   const searchInputRef = useRef<HTMLInputElement>(null)
-  
-  // Scroll stabilizer — prevents snap when content height shrinks
-  // (date changes, fixture collapse, etc.)
-  const scrollContainerRef = useRef<HTMLElement | null>(null)
-  useEffect(() => {
-    scrollContainerRef.current = document.querySelector('.content-scroll')
-  }, [])
-  const scrollSpacerRef = useScrollStabilizer(
-    scrollContainerRef,
-    [currentDate, expandedCompetition, expandedFixture, expandedEvent, isChangingDate, searchMode]
-  )
   
   const { mode, formatTime, getTimezoneAbbr, getDateForTimestamp, getToday } = useTimezone()
   
@@ -533,21 +521,6 @@ export function FoundFootyBrowser({
               className="flex-1 flex mx-2"
               onSubmit={(e) => {
                 e.preventDefault()
-                // Lock scroll position during keyboard dismiss to prevent
-                // the cascade: viewport resize → scroll event → spacer shrink → scroll clamp
-                const container = scrollContainerRef.current
-                const savedTop = container?.scrollTop ?? 0
-                let lockId: ReturnType<typeof setInterval> | null = null
-                if (container) {
-                  // Keep restoring scrollTop every frame for 400ms while iOS resizes
-                  lockId = setInterval(() => {
-                    container.scrollTop = savedTop
-                  }, 16)
-                  setTimeout(() => {
-                    if (lockId) clearInterval(lockId)
-                  }, 400)
-                }
-                // Dismiss keyboard
                 searchInputRef.current?.blur()
               }}
             >
@@ -812,9 +785,6 @@ export function FoundFootyBrowser({
           )}
         </div>
       )}
-
-      {/* Phantom spacer for scroll stabilization — prevents snap when content shrinks */}
-      <div ref={scrollSpacerRef} aria-hidden="true" />
 
       {/* Video Modal */}
       {videoModal && (
