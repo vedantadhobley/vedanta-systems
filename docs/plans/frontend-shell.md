@@ -1,6 +1,8 @@
 # Frontend shell and layout stability
 
-Status: approved foundation; runtime implementation has not started.
+Status: active. The neutral production shell extraction, shared geometry
+tokens, and opt-in viewport diagnostics are staged on the exploration branch.
+The contained scroll profile and shared layout transaction have not landed.
 
 This plan defines the behavior beneath the current visual language. It does
 not select a new navigation hierarchy, font, icon set, color system, or
@@ -220,17 +222,17 @@ types, fixture status logic, or a specific icon library.
 
 ### 1. Protect and instrument current behavior
 
-- Keep the deployed desktop wheel restoration.
+- [x] Keep the deployed desktop wheel restoration.
 - Add browser tests for wheel, trackpad-equivalent wheel deltas, scrollbar and
   keyboard scrolling, short routes, disclosure collapse, and date replacement.
-- Add the opt-in viewport diagnostic surface.
+- [x] Add the opt-in viewport diagnostic surface.
 - Record physical iPhone browser and standalone measurements.
 
 ### 2. Introduce the neutral shell
 
-- Extract the current header and bottom navigation into `AppShell` without a
+- [x] Extract the current header and bottom navigation into `AppShell` without a
   visual redesign.
-- Centralize safe-area and bottom-occlusion tokens.
+- [x] Centralize safe-area and bottom-occlusion tokens.
 - Implement the contained profile behind an explicit development switch.
 - Verify that its scrollbar ends above the navigation and that short routes do
   not acquire false overflow.

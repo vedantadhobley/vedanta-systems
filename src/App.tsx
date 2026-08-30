@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useLocation, Routes, Route } from 'react-router-dom'
 import { RiFolder2Line, RiFolder2Fill } from '@remixicon/react'
 import { GitHubContributionGraph } from '@/components/github-contribution-graph'
-import { Header, BottomNav } from '@/components/header'
+import { AppShell } from '@/components/app-shell'
 import { PathSegment } from '@/components/filesystem-nav'
 // Dormant composition option; see public/videos/README.md before retaining or removing it.
 // import { MoonBackground } from '@/components/moon-background'
@@ -152,12 +152,7 @@ function DirectoryListing() {
   }
 
   return (
-    <>
-      <div 
-        className="content-scroll" 
-      >
-        <Header currentPath={currentPath} onNavigate={handleNavigate} />
-      
+    <AppShell currentPath={currentPath} onNavigate={handleNavigate}>
         {/* GitHub Contribution Graph - shows on all pages */}
         <div className="w-full">
           <GitHubContributionGraph username="vedantadhobley" />
@@ -265,10 +260,7 @@ function DirectoryListing() {
             </div>
           )}
         </div>
-      </div>
-      
-      <BottomNav currentPath={currentPath} onNavigate={handleNavigate} />
-    </>
+    </AppShell>
   )
 }
 

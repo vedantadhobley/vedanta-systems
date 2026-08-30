@@ -145,9 +145,9 @@ marking the behavior validated, verify on a physical iPhone that:
 The production correction is an interim baseline, not the final shared shell.
 Next:
 
-- [ ] add opt-in viewport and safe-area diagnostics;
+- [x] add opt-in viewport and safe-area diagnostics;
 - [ ] add desktop scroll-owner and structural-transition browser tests;
-- [ ] extract a visually unchanged `AppShell` and centralize bottom occlusion;
+- [x] extract a visually unchanged `AppShell` and centralize bottom occlusion;
 - [ ] prototype the contained desktop and standalone scroll surface;
 - [ ] replace Found Footy's transient spacer with a shared layout transaction;
 - [ ] preserve an expanded competition only while its semantic ID survives
