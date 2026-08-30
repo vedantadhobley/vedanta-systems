@@ -617,3 +617,32 @@ and start time. The public portal, bundle, API, and Found Footy health checks
 pass. Physical iPhone disclosure behavior remains validating.
 
 ---
+
+## 2026-08-30 — Release retained space only after it leaves the viewport
+
+**Context.** The first transition-scoped replacement reduced its spacer on
+every scroll event. Each upward movement shortened the document by the same
+amount and left the user pinned to its new maximum, so reversing direction
+could not scroll down. Mobile browser-bar resizing could trigger the same path.
+Date navigation also bypassed the disclosure hook even though its fixture
+region changes height below an otherwise stable control region. Short pages
+still allowed elastic vertical movement on mobile despite having no overflow.
+
+**Decision.** Keep the full transition spacer while any part of it intersects
+the viewport. Release it in one step only after its top edge is at or below the
+viewport bottom; removal then changes no visible geometry. Suppress native
+scroll anchoring during the React disclosure handoff. Apply vertical
+`overscroll-behavior: none` without disabling normal document scrolling. Route
+explicit Found Footy date actions through the same pre-layout capture and close
+their old disclosure state in that commit. The advisory and date selector form
+the stable upper boundary; fixture content below them is the variable region.
+
+**Consequences.** A user can reverse direction normally while retained dead
+space remains visible. Mobile browser chrome cannot progressively consume that
+space, short routes do not rubber-band, and date or disclosure changes keep the
+stable controls at the same viewport coordinates. The route-lifetime high-water
+pattern remains prohibited.
+
+**Deployment status.** Staged, not deployed.
+
+---

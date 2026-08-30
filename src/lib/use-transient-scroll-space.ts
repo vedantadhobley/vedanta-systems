@@ -1,26 +1,22 @@
 import { useCallback, useEffect, useLayoutEffect, useRef } from 'react'
 
 interface LayoutSnapshot {
-  contentHeight: number
+  targetHeight: number
   scrollTop: number
 }
 
-export function nextSpacerHeight(
-  currentSpacerHeight: number,
-  previousContentHeight: number,
+export function spacerHeightForTarget(
+  targetHeight: number,
   nextContentHeight: number,
 ): number {
-  return Math.max(0, currentSpacerHeight + previousContentHeight - nextContentHeight)
+  return Math.max(0, targetHeight - nextContentHeight)
 }
 
-export function requiredSpacerHeight(
-  currentSpacerHeight: number,
-  scrollTop: number,
+export function isSpacerOutsideViewport(
+  spacerTop: number,
   viewportHeight: number,
-  contentHeight: number,
-): number {
-  const heightNeededToSupportViewport = Math.max(0, scrollTop + viewportHeight - contentHeight)
-  return Math.min(currentSpacerHeight, heightNeededToSupportViewport)
+): boolean {
+  return spacerTop >= viewportHeight
 }
 
 function getScrollRoot(): HTMLElement | null {
@@ -40,30 +36,48 @@ function setSpacerHeight(spacer: HTMLDivElement, height: number): void {
  *
  * A collapse may make the document too short to retain its current scrollTop.
  * The hook replaces only the removed height with temporary space before paint.
- * As the user scrolls toward real content, that space contracts to the minimum
- * still needed to support the current viewport, then resets to zero.
+ * The retained space remains stable while any part of it is visible. Once the
+ * user has scrolled it completely below the viewport, it resets to zero in one
+ * step without changing the visible page.
  *
  * This is transition-scoped. It has no route-lifetime high-water mark and it
  * never grows in response to scrolling or an unannounced render.
  */
-export function useTransientScrollSpace() {
+export function useTransientScrollSpace(transitionActive = false) {
   const spacerRef = useRef<HTMLDivElement>(null)
   const pendingSnapshotRef = useRef<LayoutSnapshot | null>(null)
+  const heldSnapshotRef = useRef<LayoutSnapshot | null>(null)
+  const heldTransitionStartedRef = useRef(false)
   const suppressScrollRef = useRef(false)
   const suppressionFrameRef = useRef<number | null>(null)
 
-  const preserveThroughNextLayout = useCallback(() => {
+  const captureLayout = useCallback((): LayoutSnapshot | null => {
     const root = getScrollRoot()
     const spacer = spacerRef.current
-    if (!root || !spacer) return
+    if (!root || !spacer) return null
 
-    pendingSnapshotRef.current = {
-      contentHeight: root.scrollHeight - getSpacerHeight(spacer),
+    return {
+      targetHeight: root.scrollHeight,
       scrollTop: root.scrollTop,
     }
   }, [])
 
-  const trimToViewport = useCallback(() => {
+  const preserveThroughNextLayout = useCallback(() => {
+    const snapshot = captureLayout()
+    if (!snapshot) return
+    pendingSnapshotRef.current = snapshot
+    document.documentElement.classList.add('scroll-space-transition')
+  }, [captureLayout])
+
+  const preserveUntilTransitionSettles = useCallback(() => {
+    const snapshot = captureLayout()
+    if (!snapshot) return
+    heldSnapshotRef.current = snapshot
+    heldTransitionStartedRef.current = false
+    document.documentElement.classList.add('scroll-space-transition')
+  }, [captureLayout])
+
+  const releaseOutsideViewport = useCallback(() => {
     const root = getScrollRoot()
     const spacer = spacerRef.current
     if (!root || !spacer) return
@@ -71,19 +85,29 @@ export function useTransientScrollSpace() {
     const currentSpacerHeight = getSpacerHeight(spacer)
     if (currentSpacerHeight <= 0) return
 
-    const contentHeight = root.scrollHeight - currentSpacerHeight
-    setSpacerHeight(spacer, requiredSpacerHeight(
-      currentSpacerHeight,
-      root.scrollTop,
-      root.clientHeight,
-      contentHeight,
-    ))
+    if (isSpacerOutsideViewport(spacer.getBoundingClientRect().top, root.clientHeight)) {
+      setSpacerHeight(spacer, 0)
+    }
   }, [])
 
   useLayoutEffect(() => {
-    const snapshot = pendingSnapshotRef.current
+    const heldSnapshot = heldSnapshotRef.current
+    const snapshot = heldSnapshot ?? pendingSnapshotRef.current
     if (!snapshot) return
     pendingSnapshotRef.current = null
+
+    if (heldSnapshot && transitionActive) {
+      heldTransitionStartedRef.current = true
+    }
+    const heldTransitionFinished = Boolean(
+      heldSnapshot
+      && heldTransitionStartedRef.current
+      && !transitionActive,
+    )
+    if (heldTransitionFinished) {
+      heldSnapshotRef.current = null
+      heldTransitionStartedRef.current = false
+    }
 
     const root = getScrollRoot()
     const spacer = spacerRef.current
@@ -91,36 +115,43 @@ export function useTransientScrollSpace() {
 
     const currentSpacerHeight = getSpacerHeight(spacer)
     const nextContentHeight = root.scrollHeight - currentSpacerHeight
-    const nextHeight = nextSpacerHeight(
-      currentSpacerHeight,
-      snapshot.contentHeight,
-      nextContentHeight,
-    )
+    const nextHeight = spacerHeightForTarget(snapshot.targetHeight, nextContentHeight)
 
     setSpacerHeight(spacer, nextHeight)
+    // Restoring a position after the browser clamps it can emit `scroll`.
+    // Keep both that event and native scroll anchoring out of this handoff.
+    suppressScrollRef.current = true
     if (root.scrollTop !== snapshot.scrollTop) {
-      // Restoring a position after the browser clamps it can emit `scroll`.
-      // That event is not the user's signal to consume the retained space.
-      suppressScrollRef.current = true
       root.scrollTop = snapshot.scrollTop
-      if (suppressionFrameRef.current !== null) {
-        window.cancelAnimationFrame(suppressionFrameRef.current)
-      }
+    }
+    if (suppressionFrameRef.current !== null) {
+      window.cancelAnimationFrame(suppressionFrameRef.current)
+    }
+    suppressionFrameRef.current = window.requestAnimationFrame(() => {
       suppressionFrameRef.current = window.requestAnimationFrame(() => {
         suppressScrollRef.current = false
         suppressionFrameRef.current = null
+        if (!heldSnapshotRef.current) {
+          document.documentElement.classList.remove('scroll-space-transition')
+        }
       })
-    }
+    })
   })
 
   useEffect(() => {
     let frameId: number | null = null
     const handleScroll = () => {
       if (suppressScrollRef.current) return
+      const heldSnapshot = heldSnapshotRef.current
+      const root = getScrollRoot()
+      if (heldSnapshot && root) {
+        heldSnapshot.scrollTop = root.scrollTop
+        return
+      }
       if (frameId !== null) return
       frameId = window.requestAnimationFrame(() => {
         frameId = null
-        trimToViewport()
+        releaseOutsideViewport()
       })
     }
 
@@ -131,8 +162,9 @@ export function useTransientScrollSpace() {
       if (suppressionFrameRef.current !== null) {
         window.cancelAnimationFrame(suppressionFrameRef.current)
       }
+      document.documentElement.classList.remove('scroll-space-transition')
     }
-  }, [trimToViewport])
+  }, [releaseOutsideViewport])
 
-  return { spacerRef, preserveThroughNextLayout }
+  return { spacerRef, preserveThroughNextLayout, preserveUntilTransitionSettles }
 }

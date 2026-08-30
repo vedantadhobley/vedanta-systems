@@ -226,9 +226,14 @@ anchoring to document scroll.
 - A disclosure collapse must not clamp or jump the current viewport. Capture
   the document height and scroll position before that interaction, retain the
   exact removed height as temporary space before paint, and consume that space
-  only as the user later scrolls away from it. Expansion may consume retained
-  space. Never retain a route-lifetime high-water height or let temporary space
-  grow in response to unrelated renders.
+  only after the user has scrolled it completely outside the viewport. Never
+  trim it continuously: doing so pins the user to a moving document maximum and
+  breaks reverse scrolling. Expansion may consume retained space. Never retain
+  a route-lifetime high-water height or let temporary space grow in response to
+  unrelated renders.
+- Treat stable controls above variable content as an anchor boundary. Found
+  Footy's advisory and date controls do not move when the fixture region below
+  expands, collapses, or changes date.
 - Let the browser own keyboard viewport changes. Do not restore `scrollTop` on
   a timer while an iOS keyboard is closing.
 

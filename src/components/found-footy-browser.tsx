@@ -232,7 +232,11 @@ export function FoundFootyBrowser({
   const initialVideoProcessed = useRef(false)
   const initialVideoNavigated = useRef(false)  // Track if we've navigated to the event's date
   const searchInputRef = useRef<HTMLInputElement>(null)
-  const { spacerRef, preserveThroughNextLayout } = useTransientScrollSpace()
+  const {
+    spacerRef,
+    preserveThroughNextLayout,
+    preserveUntilTransitionSettles,
+  } = useTransientScrollSpace(isChangingDate)
   
   const { mode, formatTime, getTimezoneAbbr, getDateForTimestamp, getToday } = useTimezone()
   
@@ -337,6 +341,31 @@ export function FoundFootyBrowser({
     setExpandedFixture(null)
     setExpandedEvent(null)
   }, [preserveThroughNextLayout])
+
+  // The controls above the fixture region are a stable visual boundary. Keep
+  // them at the same viewport position while the selected date and disclosure
+  // state change together; only the fixture region below is allowed to resize.
+  const prepareDateChange = useCallback(() => {
+    preserveUntilTransitionSettles()
+    setExpandedCompetition(null)
+    setExpandedFixture(null)
+    setExpandedEvent(null)
+  }, [preserveUntilTransitionSettles])
+
+  const handleGoToToday = useCallback(() => {
+    prepareDateChange()
+    onGoToToday()
+  }, [onGoToToday, prepareDateChange])
+
+  const handlePreviousDate = useCallback(() => {
+    prepareDateChange()
+    onPreviousDate()
+  }, [onPreviousDate, prepareDateChange])
+
+  const handleNextDate = useCallback(() => {
+    prepareDateChange()
+    onNextDate()
+  }, [onNextDate, prepareDateChange])
 
   // Handle navigating to the correct date for shared video links
   useEffect(() => {
@@ -567,7 +596,7 @@ export function FoundFootyBrowser({
           <>
             {/* Normal mode: < Date with search/today icons > */}
             <button
-              onClick={onPreviousDate}
+              onClick={handlePreviousDate}
               onTouchStart={() => {}}
               disabled={!canGoPrevious}
               className="nav-btn flex items-center p-1"
@@ -597,7 +626,7 @@ export function FoundFootyBrowser({
                 </span>
               ) : currentDate < today ? (
                 <button
-                  onClick={onGoToToday}
+                  onClick={handleGoToToday}
                   onTouchStart={() => {}}
                   className="nav-btn flex items-center p-1"
                   aria-label="Go to today"
@@ -607,7 +636,7 @@ export function FoundFootyBrowser({
                 </button>
               ) : (
                 <button
-                  onClick={onGoToToday}
+                  onClick={handleGoToToday}
                   onTouchStart={() => {}}
                   className="nav-btn flex items-center p-1"
                   aria-label="Go to today"
@@ -620,7 +649,7 @@ export function FoundFootyBrowser({
             
             {/* Next button */}
             <button
-              onClick={onNextDate}
+              onClick={handleNextDate}
               onTouchStart={() => {}}
               disabled={!canGoNext}
               className="nav-btn flex items-center p-1"
