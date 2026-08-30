@@ -125,8 +125,7 @@ finding lists here.
 
 Production contains the mobile shell correction: document-owned scroll,
 safe-area-aware header and bottom navigation, standalone manifest, browser
-zoom, and removal of the persistent phantom-height stabilizer. A follow-up is
-staged to restore the intended no-pop disclosure behavior with exact,
+zoom, and replacement of the persistent phantom-height stabilizer with exact,
 transition-scoped retained space that is consumed by later scrolling. Before
 marking the behavior validated, verify on a physical iPhone that:
 

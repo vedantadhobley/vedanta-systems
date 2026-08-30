@@ -609,6 +609,11 @@ unrelated route states. This supersedes only the native-anchoring disclosure
 clause of the preceding decision; its viewport, safe-area, zoom, and manifest
 choices remain in force. Physical iPhone verification remains required.
 
-**Deployment status.** Staged, not deployed.
+**Deployment status (2026-08-30).** Production runs frontend source `3b2c8c6`
+from image `sha256:62047f49637576a9ca669fd929196d41951969fd77fc611ae0051bf99a7c3e38`
+and serves bundle `index-Dq67Ahc6.js`. Only the frontend container was
+recreated with `--no-deps`; the API container retained its existing identity
+and start time. The public portal, bundle, API, and Found Footy health checks
+pass. Physical iPhone disclosure behavior remains validating.
 
 ---
