@@ -6,10 +6,9 @@ import { useTimezone } from '@/contexts/timezone-context'
 import { useScrollStabilizer } from '@/lib/use-scroll-stabilizer'
 import {
   getFixturePresentationState,
-  getTerminalDeferredLabel,
   orderFixturesForPresentation,
-  sortFixturesByActivity,
 } from '@/lib/found-footy-presentation'
+import { formatFixtureIndicator } from '@/lib/found-footy-live'
 
 /**
  * Generate event display title with <<highlighted>> markers around scoring team's score
@@ -180,20 +179,16 @@ interface InitialVideoParams {
 }
 
 interface FoundFootyBrowserProps {
-  stagingFixtures: Fixture[]
   fixtures: Fixture[]
-  completedFixtures: Fixture[]
-  isConnected: boolean
+  dateIntent: 'live' | 'pinned'
   isLoading: boolean  // True until first SSE data received
   isChangingDate?: boolean  // True during date navigation (prevents scroll reset)
-  lastUpdate: Date | null
   initialVideo?: InitialVideoParams | null  // From URL params
   onPauseStream?: () => void   // Called when video modal opens
   onResumeStream?: () => void  // Called when video modal closes
   // Calendar navigation
   currentDate: string          // YYYY-MM-DD format
   navigableDates: string[]     // Dates the user can navigate to (descending). See FootyStreamContext.
-  onDateChange: (date: string) => void
   onGoToToday: () => void
   onPreviousDate: () => void
   onNextDate: () => void
@@ -203,17 +198,14 @@ interface FoundFootyBrowserProps {
   searchQuery: string
   searchResults: SearchDateGroup[]
   isSearching: boolean
-  searchTotalFixtures: number
   onEnterSearch: () => void
   onExitSearch: () => void
   onSearch: (query: string) => void
 }
 
 export function FoundFootyBrowser({ 
-  stagingFixtures,
-  fixtures, 
-  completedFixtures, 
-  isConnected: _isConnected,
+  fixtures,
+  dateIntent,
   isLoading,
   isChangingDate,
   initialVideo,
@@ -221,7 +213,6 @@ export function FoundFootyBrowser({
   onResumeStream,
   currentDate,
   navigableDates,
-  onDateChange: _onDateChange,  // Kept for future date picker
   onGoToToday,
   onPreviousDate,
   onNextDate,
@@ -230,7 +221,6 @@ export function FoundFootyBrowser({
   searchQuery,
   searchResults,
   isSearching,
-  searchTotalFixtures: _searchTotalFixtures,
   onEnterSearch,
   onExitSearch,
   onSearch
@@ -333,14 +323,7 @@ export function FoundFootyBrowser({
     setVideoModal(info)
   }, [onPauseStream])
 
-  const sortedFixtures = useMemo(() => sortFixturesByActivity(fixtures), [fixtures])
-  const sortedCompleted = useMemo(() => sortFixturesByActivity(completedFixtures), [completedFixtures])
-  
-  // All fixtures for deep linking search (staging + active + completed)
-  const allFixtures = useMemo(
-    () => [...stagingFixtures, ...sortedFixtures, ...sortedCompleted],
-    [stagingFixtures, sortedFixtures, sortedCompleted],
-  )
+  const allFixtures = useMemo(() => orderFixturesForPresentation(fixtures), [fixtures])
 
   // Toggle fixture - close others
   const toggleFixture = useCallback((fixtureId: number) => {
@@ -444,30 +427,15 @@ export function FoundFootyBrowser({
   const formatKickoff = useCallback((dateStr: string) => {
     const date = new Date(dateStr)
     return `${formatTime(date)} ${getTimezoneAbbr()}`
-  }, [mode, formatTime, getTimezoneAbbr])
+  }, [formatTime, getTimezoneAbbr])
 
-  // Filter fixtures to only those matching currentDate in the current timezone mode
-  const filterFixturesByDate = useCallback((fixtureList: Fixture[]) => {
-    return fixtureList.filter(f => getDateForTimestamp(f.fixture.date) === currentDate)
-  }, [getDateForTimestamp, currentDate])
-  
-  // All fixtures for this date, filtered by timezone and sorted
-  const filteredStaging = useMemo(() => filterFixturesByDate(stagingFixtures), [filterFixturesByDate, stagingFixtures])
-  const filteredActive = useMemo(() => filterFixturesByDate(sortedFixtures), [filterFixturesByDate, sortedFixtures])
-  const filteredCompleted = useMemo(() => filterFixturesByDate(sortedCompleted), [filterFixturesByDate, sortedCompleted])
-  
-  // Transport buckets describe Found Footy's monitor lifecycle, not what the
-  // user should see as live. Classify the union by match status: playing,
-  // finished, upcoming, then deferred. This keeps a monitored PST/SUSP/INT
-  // fixture visible without letting activation recency or a backend "active"
-  // state move it above actual play.
+  // A live view carries every playing fixture across a date boundary. Pinned
+  // views remain scoped to the explicitly selected timezone-local kickoff day.
   const currentFilteredFixtures = useMemo(
-    () => orderFixturesForPresentation([
-      ...filteredStaging,
-      ...filteredCompleted,
-      ...filteredActive,
-    ]),
-    [filteredStaging, filteredCompleted, filteredActive],
+    () => orderFixturesForPresentation(allFixtures.filter(fixture => (
+      dateIntent === 'live' && fixture.presentation_state === 'playing'
+    ) || getDateForTimestamp(fixture.fixture.date) === currentDate)),
+    [allFixtures, currentDate, dateIntent, getDateForTimestamp],
   )
   
   // Keep a ref of the last non-empty fixtures to show during date transitions
@@ -945,10 +913,10 @@ function StagingFixtureItem({ fixture, formatKickoff, searchTeamMatch, roundOnly
           )}
         </span>
 
-        {/* Kickoff time stacked - time on top, countdown below */}
+        {/* Backend-selected status indicator with schedule context below. */}
         <span className="text-corpo-text/60 flex-shrink-0 text-right font-light flex flex-col items-end">
-          <span className="tabular-nums">{kickoffTime}</span>
-          <span className="text-corpo-text/40 text-sm">{countdown}</span>
+          <span title={fixture.status.long}>{formatFixtureIndicator(fixture)}</span>
+          <span className="text-corpo-text/40 text-sm tabular-nums">{kickoffTime} · {countdown}</span>
         </span>
       </div>
     </div>
@@ -990,28 +958,25 @@ function FixtureItem({
   roundOnly
 }: FixtureItemProps) {
   
-  const { teams, goals, score, fixture: fixtureInfo, events, league } = fixture
+  const { teams, goals, score, events, league } = fixture
   const competitionText = roundOnly
     ? formatRound(league?.round)
     : (league ? `${league.country} - ${league.name}${league.round ? ` (${league.round})` : ''}` : 'Unknown Competition')
   const isLive = getFixturePresentationState(fixture) === 'playing'
-  // Only show elapsed time for statuses where game is actively playing
-  const showElapsedTime = ['1H', '2H', 'ET', 'LIVE'].includes(fixtureInfo.status.short)
-  
-  // Check if this is a penalty shootout (in progress 'P' or completed 'PEN')
-  const showPenaltyScore = ['P', 'PEN'].includes(fixtureInfo.status.short) && score?.penalty
-  
-  // Determine winner for highlighting (only for completed matches)
-  // Use teams.winner from API - this correctly handles penalty shootouts
-  // where goals are tied but there's still a winner
-  const isCompleted = ['FT', 'AET', 'PEN', 'AWD', 'WO'].includes(fixtureInfo.status.short)
-  const homeWins = isCompleted && teams.home.winner === true
-  const awayWins = isCompleted && teams.away.winner === true
+  const hasScore = goals?.home != null && goals?.away != null
+  const showPenaltyScore = hasScore && score?.penalty != null
+  const isFinished = getFixturePresentationState(fixture) === 'finished'
+  const homeWins = isFinished && teams.home.winner === true
+  const awayWins = isFinished && teams.away.winner === true
 
-  // Terminal deferred fixtures have no usable result. Keep them static while
-  // SUSP/INT remain expandable because they may already contain score/events.
-  const terminalDeferredLabel = getTerminalDeferredLabel(fixture)
-  if (terminalDeferredLabel) {
+  // Empty deferred fixtures have nothing to expand. This is data-driven; the
+  // browser does not interpret provider status codes to decide interactivity.
+  if (
+    getFixturePresentationState(fixture) === 'deferred' &&
+    events.length === 0 &&
+    (goals?.home == null || goals.home === 0) &&
+    (goals?.away == null || goals.away === 0)
+  ) {
     return (
       <div className="border border-corpo-border">
         <div className="w-full flex items-center gap-2 px-3 py-2 text-corpo-text/50" style={{ fontSize: 'var(--text-size-base)' }}>
@@ -1029,7 +994,12 @@ function FixtureItem({
             )}
           </span>
           {/* Status on the right, where the kickoff time sits for a pending match */}
-          <span className="flex-shrink-0 text-sm uppercase tracking-wider text-corpo-text/40">{terminalDeferredLabel}</span>
+          <span
+            className="flex-shrink-0 text-sm uppercase tracking-wider text-corpo-text/40"
+            title={fixture.status.long}
+          >
+            {formatFixtureIndicator(fixture)}
+          </span>
         </div>
       </div>
     )
@@ -1073,8 +1043,8 @@ function FixtureItem({
             <span className={cn(homeWins && "text-lavender")}>{teams.home.name}</span>
             <span className="text-corpo-text/50 mx-2">
               {showPenaltyScore 
-                ? `${goals?.home ?? 0} (${score.penalty!.home}) - (${score.penalty!.away}) ${goals?.away ?? 0}`
-                : `${goals?.home ?? 0} - ${goals?.away ?? 0}`
+                ? `${goals.home} (${score.penalty!.home}) - (${score.penalty!.away}) ${goals.away}`
+                : hasScore ? `${goals.home} - ${goals.away}` : 'vs'
               }
             </span>
             <span className={cn(awayWins && "text-lavender")}>{teams.away.name}</span>
@@ -1109,12 +1079,8 @@ function FixtureItem({
         <span className={cn(
           "text-corpo-text/60 flex-shrink-0 font-light",
           isLive && "text-lavender"
-        )}>
-          {showElapsedTime
-            ? (fixtureInfo.status.extra 
-                ? `${fixtureInfo.status.elapsed}+${fixtureInfo.status.extra}'`
-                : `${fixtureInfo.status.elapsed}'`)
-            : fixtureInfo.status.short}
+        )} title={fixture.status.long}>
+          {formatFixtureIndicator(fixture)}
         </span>
       </button>
 

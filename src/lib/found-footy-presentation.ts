@@ -1,51 +1,30 @@
-import type { Fixture } from '@/types/found-footy'
+import type { Fixture, FixturePresentationState } from '@/types/found-footy'
 
-export type FixturePresentationState = 'playing' | 'finished' | 'upcoming' | 'deferred'
-
-const PLAYING = new Set(['1H', '2H', 'HT', 'ET', 'BT', 'P', 'LIVE'])
-const FINISHED = new Set(['FT', 'AET', 'PEN', 'AWD', 'WO'])
-const UPCOMING = new Set(['NS', 'TBD'])
-const DEFERRED = new Set(['PST', 'CANC', 'SUSP', 'INT', 'ABD'])
-
-const TERMINAL_DEFERRED_LABELS: Record<string, string> = {
-  PST: 'Postponed',
-  CANC: 'Cancelled',
-  ABD: 'Abandoned',
-}
-
-function statusOf(fixture: Fixture): string {
-  return (fixture.fixture.status.short || '').toUpperCase()
-}
+export type { FixturePresentationState } from '@/types/found-footy'
 
 export function getFixturePresentationState(fixture: Fixture): FixturePresentationState {
-  const status = statusOf(fixture)
-  if (PLAYING.has(status)) return 'playing'
-  if (FINISHED.has(status)) return 'finished'
-  if (UPCOMING.has(status)) return 'upcoming'
-  if (DEFERRED.has(status)) return 'deferred'
-
-  // Unknown provider statuses must not create a false live badge. Keep them
-  // visible at the end until the taxonomy is deliberately extended.
-  return 'deferred'
+  return fixture.presentation_state
 }
 
-export function getTerminalDeferredLabel(fixture: Fixture): string | null {
-  return TERMINAL_DEFERRED_LABELS[statusOf(fixture)] ?? null
+function compareFixtureIdentity(a: Fixture, b: Fixture): number {
+  return a.fixture.date.localeCompare(b.fixture.date) || a._id - b._id
 }
 
 function sortByActivity<T extends Fixture>(fixtures: T[]): T[] {
   const withActivity = fixtures
     .filter(fixture => fixture._last_activity)
-    .sort((a, b) => Date.parse(b._last_activity!) - Date.parse(a._last_activity!))
+    .sort((a, b) => (
+      Date.parse(b._last_activity!) - Date.parse(a._last_activity!) || compareFixtureIdentity(a, b)
+    ))
   const withoutActivity = fixtures
     .filter(fixture => !fixture._last_activity)
-    .sort((a, b) => a.fixture.date.localeCompare(b.fixture.date))
+    .sort(compareFixtureIdentity)
 
   return [...withActivity, ...withoutActivity]
 }
 
 function sortByKickoff<T extends Fixture>(fixtures: T[]): T[] {
-  return fixtures.sort((a, b) => a.fixture.date.localeCompare(b.fixture.date))
+  return fixtures.sort(compareFixtureIdentity)
 }
 
 export function orderFixturesForPresentation<T extends Fixture>(fixtures: readonly T[]): T[] {

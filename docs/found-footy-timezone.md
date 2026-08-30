@@ -33,26 +33,21 @@ A user can see:
    the one shown.
 
 Found Footy's `staging`, `active`, and `completed` states control processing.
-They do not control presentation. The browser classifies provider statuses as
-playing, finished, upcoming, or deferred. `PST`, `CANC`, `SUSP`, `INT`, and
-`ABD` are deferred after the first three groups and never increase the live
-count. This keeps a postponed fixture on the fast monitor path without showing
-it as a live match.
+They do not control presentation. Found Footy supplies `presentation_state` as
+playing, finished, upcoming, or deferred. The browser uses that field directly
+and never interprets provider status codes. This lets a postponed fixture stay
+on the fast monitor path without showing it as a live match.
 
 Nothing beyond that single future date is shown. The user cannot navigate to
 it and search will not return it.
 
-### Current carryover defect
+### Carryover behavior
 
-The production renderer does not yet satisfy item 2. It filters normal-browser
-playing fixtures by the selected timezone-local kickoff date. The provider also
-opens SSE only when the literal selected date equals today. A fixture that
-starts before midnight and remains active after midnight can therefore be
-hidden from the new live day and frozen on the old day.
-
-This is a confirmed defect, not a change to the intended rule. The frontend
-re-foundation must represent live intent separately from the selected date and
-render every playing carryover fixture in the live view.
+The FF-077 consumer stores live versus pinned date intent separately. A live
+view renders every fixture whose backend `presentation_state` is `playing`,
+even when its timezone-local kickoff date is yesterday. It remains visible and
+receives targeted updates until Found Footy moves it out of the playing group.
+A pinned view remains scoped to its selected date.
 
 ### Why One Future Day?
 
@@ -60,13 +55,13 @@ Staging fixtures have no events, no scores, no videos — they're just scheduled
 
 ## How It Works: Normal Browsing
 
-### BFF: `/dates?tz=<minutes-east-of-UTC>` endpoint
+### Date index
 
-The client sends `0` in UTC mode or the browser's current UTC offset in local
-mode. The BFF reads the current Found Footy fixture window from the Go API,
-shifts each kickoff by that offset, and returns distinct `YYYY-MM-DD` values.
-The returned date index is therefore bucketed for the requested mode rather
-than always being UTC.
+The browser takes one complete fixture snapshot and derives distinct dates with
+`getDateForTimestamp()`. The same timezone implementation therefore owns both
+the navigation index and final rendering; a fixed current offset cannot diverge
+from historical daylight-saving rules. The older BFF `/dates` adapter remains
+available but the FF-077 provider no longer calls it.
 
 ### Client: `navigableDates`
 
@@ -82,9 +77,12 @@ Everything else                →  hidden
 The date arrows in the nav bar only cycle through `navigableDates`. Dates
 beyond the cutoff are unreachable.
 
-### Client: fixture fetching
+### Client fixture snapshot
 
-When the user navigates to a date, the context fetches `/fixtures?date=YYYY-MM-DD` for that date *plus its adjacent UTC dates*. This ensures timezone edge cases are covered (e.g. a fixture at 23:00 UTC on Feb 19 is Feb 20 in AEDT). Fixtures are then filtered client-side by `getDateForTimestamp` to show only those belonging to the selected timezone-local date.
+Initial load and every recovery transition fetch one complete
+`/api/found-footy/fixtures` snapshot. Date navigation filters that collection
+with `getDateForTimestamp()`. This removes the previous three-request upstream
+amplification and naturally covers timezone edges.
 
 ## How It Works: Search
 
@@ -103,14 +101,12 @@ Search results are re-processed client-side through the same scoping rule:
 2. The cutoff date is computed from the newest date in `navigableDates` (the
    same list used for normal navigation).
 3. **Finished, playing, and deferred fixtures** pass through unconditionally.
-4. **Upcoming fixtures** (`NS` or `TBD`) are dropped if their
+4. **Upcoming fixtures** (`presentation_state == upcoming`) are dropped if their
    timezone-local date exceeds the cutoff.
 5. Surviving fixtures are regrouped by their **timezone-local date** (not the server's UTC grouping).
 
-Search and normal browsing enforce the same staging cutoff. Their current
-playing-fixture behavior is not identical: search admits playing fixtures
-without the staging cutoff, while normal browsing still applies the erroneous
-selected kickoff-date filter described above.
+Search and normal browsing enforce the same staging cutoff. Both use the
+backend presentation state rather than provider status codes.
 
 ## Timezone Edge Cases
 
@@ -128,22 +124,17 @@ Toggling from Local to UTC (or vice versa) can shift which date a fixture belong
 
 ### `availableDates` follow the selected mode
 
-The client refetches `/dates` when the user switches Local/UTC mode. It compares
-those mode-bucketed `YYYY-MM-DD` strings with `getToday()` in the same mode.
-Fixture requests still fetch the selected date plus its adjacent UTC dates,
-then use `getDateForTimestamp()` for final client-side bucketing.
-
-The local-mode date index currently uses one numeric offset captured at request
-time, not an IANA timezone evaluated at each kickoff. Historical fixtures on
-the other side of a daylight-saving transition can differ by one hour from the
-browser's final bucketing. This is tracked in the todo list.
+The client re-derives `availableDates` from its complete fixture collection
+when Local/UTC mode changes. It compares those dates with `getToday()` from the
+same mode and uses the same `getDateForTimestamp()` conversion for rendering.
 
 ## File Map
 
 | File | Role |
 |------|------|
 | `src/contexts/timezone-context.tsx` | `getToday()`, `getDateForTimestamp()`, timezone toggle state |
-| `src/contexts/FootyStreamContext.tsx` | Fetches `/dates`, derives `navigableDates`, manages route data and search state |
+| `src/contexts/FootyStreamContext.tsx` | Owns complete snapshots, recovery, live/pinned intent, targeted updates, navigation, and search state |
 | `src/components/found-footy-browser.tsx` | Applies the search cutoff and renders navigation |
-| `src/lib/found-footy-presentation.ts` | Owns match-status presentation categories, ordering, and terminal deferred labels |
-| `src/server/routes/found-footy.ts` | `/dates` fixed-offset bucketing; `/search` UTC grouping; `/fixtures` UTC date filter |
+| `src/lib/found-footy-presentation.ts` | Orders backend-owned presentation groups and recency |
+| `src/lib/found-footy-live.ts` | Applies targeted status, fixture, and event replacements |
+| `src/server/routes/found-footy.ts` | Full snapshot, targeted NATS resolution, SSE, search, and media adapter |

@@ -1,4 +1,4 @@
-// Types for Found Footy data from MongoDB
+// Portal-facing Found Footy resource types produced by the Pattern-B adapter.
 
 export interface Team {
   id: number
@@ -51,8 +51,8 @@ export interface GoalEvent {
   _event_id: string
   _display_title: string      // "Real Madrid (1) - 2 Manchester City"
   _display_subtitle: string   // "28' - Rodrygo"
-  _score_before: ScoreContext
-  _score_after: ScoreContext
+  _score_before: ScoreContext | null
+  _score_after: ScoreContext | null
   _scoring_team: 'home' | 'away'
   _twitter_search: string
   _discovered_videos: DiscoveredVideo[]
@@ -66,22 +66,42 @@ export interface GoalEvent {
   _download_completed_at?: string
 }
 
+export type FixturePresentationState = 'playing' | 'finished' | 'upcoming' | 'deferred'
+export type FixtureDisplay = 'clock' | 'status'
+export type FixtureProcessState = 'staging' | 'active' | 'completed'
+export type FootyDateIntent = 'live' | 'pinned'
+
+export interface FixtureClock {
+  minute: number | null
+  extra: number | null
+}
+
 export interface FixtureStatus {
-  long: string   // 'Match Finished', 'First Half', etc.
-  short: string  // 'FT', '1H', '2H', 'HT', 'NS', etc.
-  elapsed: number | null
-  extra: number | null  // Added time (e.g., 90+5 has extra=5)
+  long: string
+  short: string
+}
+
+export interface FixtureStatusProjection {
+  fixture_id: number
+  presentation_state: FixturePresentationState
+  clock: FixtureClock
+  status: FixtureStatus
+  display: FixtureDisplay
 }
 
 export interface Fixture {
   _id: number  // fixture.id
+  state: FixtureProcessState
+  presentation_state: FixturePresentationState
+  clock: FixtureClock
+  status: FixtureStatus
+  display: FixtureDisplay
   fixture: {
     id: number
     referee: string | null
     timezone: string
     date: string  // ISO date string
     timestamp: number
-    status: FixtureStatus
     venue?: {
       id: number
       name: string
@@ -106,9 +126,6 @@ export interface Fixture {
     away: number | null
   }
   score: {
-    halftime: ScoreContext
-    fulltime: ScoreContext
-    extratime: ScoreContext | null
     penalty: ScoreContext | null
   }
   events: GoalEvent[]
@@ -117,25 +134,9 @@ export interface Fixture {
   _last_activity?: string
 }
 
-// SSE Event types
-export type SSEEventType = 'initial' | 'active_update' | 'completed_update' | 'heartbeat' | 'error'
-
-export interface SSEEvent {
-  type: SSEEventType
-  fixtures?: Fixture[]
-  completedFixtures?: Fixture[]
-  fixture?: Fixture | null
-  fixtureId?: number
-  operationType?: 'insert' | 'update' | 'replace' | 'delete'
-  timestamp?: string
-  message?: string
-}
-
 // API response types
 export interface FixturesResponse {
-  staging: Fixture[]
-  active: Fixture[]
-  completed: Fixture[]
+  fixtures: Fixture[]
 }
 
 // Search result types

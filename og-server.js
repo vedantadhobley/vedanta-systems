@@ -47,15 +47,11 @@ function fetchJson(url) {
   });
 }
 
-// Find event by ID across all fixture collections
+// Find event by ID in the FF-077 fixture collection.
 async function findEvent(eventId) {
   try {
     const data = await fetchJson(`${API_BASE}/api/found-footy/fixtures`);
-    const allFixtures = [
-      ...(data.staging || []),
-      ...(data.active || []),
-      ...(data.completed || [])
-    ];
+    const allFixtures = Array.isArray(data.fixtures) ? data.fixtures : [];
 
     for (const fixture of allFixtures) {
       const event = fixture.events?.find(e => e._event_id === eventId);

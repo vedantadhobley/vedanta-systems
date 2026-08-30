@@ -510,3 +510,42 @@ domain policy shared by normal browsing and search. Carryover visibility and
 wake/reconciliation remain separate frontend re-foundation work.
 
 ---
+
+## 2026-08-30 — Consume backend-owned fixture presentation and targeted live hints
+
+**Context.** The portal previously received API-Football status codes, rebuilt
+their taxonomy in React, stored fixtures in Found Footy's processing buckets,
+and converted structural fixture and video hints into full-window refreshes.
+That duplicated provider policy, let period transitions trigger reordering,
+amplified reads, and left non-replaying SSE/NATS gaps after reconnect or mobile
+sleep.
+
+**Decision.** Adopt Found Footy FF-077 as a coordinated breaking contract. REST
+and `fixture.status` share the backend-owned `presentation_state`, nullable
+`clock`, provider `status`, and `display` projection. Provider status codes are
+opaque display data in this repo. React stores one fixture collection and uses
+`presentation_state` as its sole grouping classification. Inline status/time
+messages patch in place; coalesced `fixture.update` IDs resolve through a
+targeted fixture read; `event.video` resolves through a targeted event read.
+
+Retain full REST reconciliation for initial setup, browser/SSE/NATS recovery,
+page restore, online, deliberate stream resume, midnight, and timezone-mode
+change. Model live versus pinned date intent separately; any selection of today
+follows live, while another date pins. Keep every playing carryover fixture
+visible in the live view. Abort superseded snapshots and
+replay live messages that arrive during a snapshot before declaring its state
+current.
+
+The shared NATS contract replaces `fixture.clock` with `fixture.status`; no
+permanent compatibility path exists. This frontend, Found Footy producer, and
+shared schema must deploy together.
+
+**Consequences.** The backend is the sole owner of provider-status meaning.
+Half-time and other within-group transitions no longer fetch or reorder the
+window. Structural work scales with changed fixture IDs, while video placement
+scales with one event. Mobile wake after midnight follows the new live day;
+explicitly pinned history remains pinned and revalidates. This supersedes the
+browser-owned provider taxonomy in the 2026-08-23 decision while retaining its
+separation between processing and presentation state.
+
+---

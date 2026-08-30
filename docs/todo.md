@@ -40,12 +40,15 @@ restrict exporter network access, and make the btop source branch durable.
 These are production behavior defects. Fix them independently of the paused
 visual redesign.
 
-- [x] Separate fixture processing state from display state. `PST` remains
-  monitoring-active so Found Footy can detect a same-fixture reschedule, but it
-  must render in a deferred group after playing, finished, and upcoming
-  fixtures. It must not participate in activity ordering or the competition's
-  live count. Apply the same explicit presentation taxonomy to `CANC`, `SUSP`,
-  `INT`, and `ABD` instead of inheriting a backend lifecycle bucket.
+- [x] Consume Found Footy's backend-owned fixture presentation. Processing
+  `state` remains separate data; `presentation_state` alone owns playing,
+  finished, upcoming, and deferred grouping. Provider status codes remain
+  display strings and are not interpreted by the BFF or React.
+- [x] Implement FF-077 targeted live delivery. `fixture.status` patches the
+  complete inline indicator without reordering; coalesced `fixture.update`
+  IDs fetch only those fixtures; `event.video` fetches only that event. Full
+  REST snapshots recover initial connection, stream/NATS reconnect, browser
+  wake, page restore, online, video resume, midnight, and timezone changes.
 - [x] Replace the video watchdog's `readyState >= 2` heuristic. Ordinary
   loading/buffering must never trigger pause/play recovery or the custom play
   overlay. A rejected `play()` may show **Play video**; a confirmed media error
@@ -102,15 +105,16 @@ The two-plane visual system is not part of this migration.
 
 ---
 
-## Paused — frontend re-foundation through Found Footy
+## Paused — frontend visual and interaction re-foundation
 
 The [frontend re-foundation plan](./plans/frontend-refoundation.md) remains the
-authoritative architecture and sequence, but implementation is paused while
-the two-plane design language is developed separately. When work resumes,
-begin with Found Footy's route-owned runtime: separate live intent from the
-selected date, retain active carryover fixtures, reconcile REST after every
-disconnected interval, protect request ordering, and handle wake, page
-restore, network recovery, midnight, and timezone changes.
+authoritative architecture and sequence, but visual/component implementation
+is paused while the two-plane design language is developed separately.
+FF-077 has landed the Found Footy data foundation: backend-owned presentation,
+one fixture collection, targeted SSE updates, live/pinned intent, carryover,
+snapshot ordering, and recovery. Work resumes with route ownership, explicit
+freshness UI, stale search/shared-link cancellation, and the accessible
+interaction primitives.
 
 Then land shared input, focus, dialog, disclosure, and media primitives with
 the first complete two-plane route slice. The
@@ -228,13 +232,12 @@ data surface. Don't migrate proactively.
 
 ---
 
-## Found Footy — timezone navigation (fold into the re-foundation)
+## Found Footy — remaining timezone navigation
 
-Surfaced 2026-08-11 while auditing the found-footy ingest/retention
-tz contract from the Go-rebuild side. Both items live in the
-timezone-scoping path documented in `docs/found-footy-timezone.md`.
-The active re-foundation captures these in its Found Footy slice rather than
-patching the legacy provider in isolation. The slice must address #1.
+Surfaced 2026-08-11 while auditing the found-footy ingest/retention timezone
+contract. FF-077 fixed carryover and removed the fixed-offset date index by
+deriving navigation dates from the complete client snapshot. One staging
+preview edge remains in `docs/found-footy-timezone.md`:
 
 1. **"One future day" splits a tz-straddling match day for eastern
    users.** `navigableDates` (`FootyStreamContext.tsx`) keeps every
@@ -250,15 +253,6 @@ patching the legacy provider in isolation. The slice must address #1.
    *local calendar days* when it should reason about *match days*. The
    edge case is already half-acknowledged in
    `found-footy-timezone.md` §"Fixture straddles midnight".
-
-2. **The date index uses one current fixed offset, not an IANA timezone.**
-   The client calls `/dates?tz=<tzMin>` with the browser's offset at request
-   time. The BFF applies that offset to every fixture in the window, while
-   `getDateForTimestamp()` uses the browser's date rules for each timestamp.
-   Historical fixtures across a daylight-saving boundary can therefore be
-   indexed an hour differently from their final client bucketing. Replace the
-   fixed-offset index contract or prove the retained window cannot expose the
-   mismatch.
 
 ---
 

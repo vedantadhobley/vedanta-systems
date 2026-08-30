@@ -127,9 +127,10 @@ Share a component when they have the same semantic and behavioral contract.
 
 ### Snapshot is truth; stream is notification
 
-REST returns the authoritative durable state. SSE reports that the state may
-have changed. A lightweight clock tick may patch an ephemeral display value,
-but the next snapshot must be able to replace it completely.
+REST returns the authoritative durable state. SSE carries targeted resource
+replacements resolved by the BFF. The inline `fixture.status` projection may
+patch status/time without a fetch, but the next snapshot must replace it
+completely.
 
 Every transition from possibly disconnected to live performs a snapshot
 reconciliation. This includes:
@@ -227,12 +228,14 @@ causes scroll lag or keeps the mobile radio awake fails the gate.
 ### 1. Rebuild Found Footy's runtime boundary
 
 - Mount its provider at the Found Footy route, not above the router.
-- Add live versus pinned date intent.
-- Reconcile on wake, page restore, network recovery, stream reopen, midnight,
-  timezone change, and any deliberate stream resume.
-- Resolve the split staging match-day and fixed-offset date-index defects in
-  the [timezone todo](../todo.md).
-- Protect date and search requests from stale responses.
+- **Landed in FF-077:** live versus pinned date intent; playing carryover;
+  complete initial/recovery snapshots; wake, page restore, network, stream,
+  midnight, timezone, and deliberate-resume reconciliation; abort/generation
+  protection for snapshots; targeted fixture/status/video updates; and an
+  IANA-consistent date index derived from the complete snapshot.
+- Resolve the remaining split staging match-day defect in the
+  [timezone todo](../todo.md).
+- Protect search and shared-link requests from stale responses.
 - Expose transport and freshness as separate state.
 - Keep the current production markup while these invariants settle.
 

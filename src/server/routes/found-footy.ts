@@ -1,15 +1,16 @@
 import { Router, Response, Request } from 'express'
 import { Readable } from 'node:stream'
+import type { Fixture, GoalEvent, SearchFixture } from '../../types/found-footy'
+import type { EventVideoPatch } from '../../lib/found-footy-live'
 
 /**
  * Found Footy API surface — **Pattern B adapter (translation shim)**.
  *
  * vs-api no longer reads found-footy's Mongo/MinIO directly. It calls the
  * found-footy Go read API (`found-footy-{env}-api`, REST at `/api/v1/*`) and
- * **reshapes** the flat+nested Go DTOs back into the legacy Mongo-shaped
- * `Fixture` the current frontend still expects — so the frontend needs zero
- * changes while the backend is the new Go stack. When the frontend is
- * redesigned to consume the Go shape natively, this reshaping goes away.
+ * **reshapes** the flat+nested Go DTOs into the portal's existing fixture and
+ * event component model. Found Footy owns presentation classification; the
+ * adapter preserves its root projection without interpreting provider codes.
  *
  * ── Video / share URLs (the new sharing model) ──────────────────────────
  * Old: MinIO object paths, proxied at `/api/found-footy/video/:bucket/*`.
@@ -39,7 +40,10 @@ export interface FoundFootyConfig {
 
 // ---- Go cmd/api DTO shapes (what we consume) ----
 interface GoSide { id: number; name: string; score: number | null; winner: boolean | null }
-interface GoStatus { short: string; long: string; elapsed: number | null; extra: number | null }
+type GoPresentationState = 'playing' | 'finished' | 'upcoming' | 'deferred'
+type GoDisplay = 'clock' | 'status'
+interface GoClock { minute: number | null; extra: number | null }
+interface GoStatus { short: string; long: string }
 interface GoLeague { id: number; name: string; season: number; country?: string; round?: string }
 interface GoVideo {
   share_id: string; url: string; rank: number; verified: boolean
@@ -52,16 +56,95 @@ interface GoEvent {
   team: { id: number; name: string }; player: { id: number; name: string } | null
   assist?: { id: number; name: string } | null   // captured end-to-end now (was parsed-but-dropped); goals only
   videos: GoVideo[]
-  // Backend-derived lifecycle (design.md "Data contracts" contract). Optional so the
-  // shim still works against an API that predates the field.
-  phase?: 'detected' | 'searching' | 'complete' | 'removed'
-  debounce_count?: number
+  phase: 'detected' | 'searching' | 'complete' | 'removed'
+  debounce_count: number
 }
 interface GoFixture {
   id: number; state: 'staging' | 'active' | 'completed'; kickoff: string
-  league: GoLeague; home: GoSide; away: GoSide; status: GoStatus
+  league: GoLeague; home: GoSide; away: GoSide
+  presentation_state: GoPresentationState; clock: GoClock; status: GoStatus; display: GoDisplay
   penalty?: { home: number; away: number } | null   // shootout result
   last_activity_at: string | null; events: GoEvent[]
+}
+
+interface FixtureStatusEntry {
+  fixture_id: number
+  presentation_state: GoPresentationState
+  clock: GoClock
+  status: GoStatus
+  display: GoDisplay
+}
+
+interface FoundFootyEnvelope {
+  subject?: string
+  payload?: {
+    fixtures?: unknown
+    fixture_ids?: unknown
+    event_id?: unknown
+    fixture_id?: unknown
+  }
+}
+
+export interface FixtureUpdateBatcher {
+  add: (fixtureIds: readonly number[]) => void
+  flush: () => Promise<void>
+  close: () => void
+}
+
+export type FoundFootyLiveTopic = 'fixture_status' | 'fixture_update' | 'event_video'
+
+export function foundFootyLiveTopic(subject: string): FoundFootyLiveTopic | null {
+  if (subject.endsWith('fixture.status')) return 'fixture_status'
+  if (subject.endsWith('fixture.update')) return 'fixture_update'
+  if (subject.endsWith('event.video')) return 'event_video'
+  return null
+}
+
+export function createFixtureUpdateBatcher(
+  onBatch: (fixtureIds: number[]) => Promise<void>,
+  delayMs = 250,
+): FixtureUpdateBatcher {
+  const pending = new Set<number>()
+  let timer: ReturnType<typeof setTimeout> | null = null
+  let active: Promise<void> | null = null
+
+  const schedule = () => {
+    if (timer || pending.size === 0) return
+    timer = setTimeout(() => {
+      timer = null
+      void flush()
+    }, delayMs)
+  }
+
+  const flush = async (): Promise<void> => {
+    if (timer) {
+      clearTimeout(timer)
+      timer = null
+    }
+    if (active) await active
+    if (pending.size === 0) return
+
+    const fixtureIds = [...pending].sort((a, b) => a - b)
+    pending.clear()
+    active = onBatch(fixtureIds).finally(() => { active = null })
+    await active
+    schedule()
+  }
+
+  return {
+    add(fixtureIds) {
+      for (const id of fixtureIds) {
+        if (Number.isSafeInteger(id) && id > 0) pending.add(id)
+      }
+      schedule()
+    },
+    flush,
+    close() {
+      if (timer) clearTimeout(timer)
+      timer = null
+      pending.clear()
+    },
+  }
 }
 
 // Factory function to create Found Footy router with configuration
@@ -70,95 +153,39 @@ export function createFoundFootyRouter(config: FoundFootyConfig): Router {
   const API = (config.apiUrl || '').replace(/\/$/, '')
   const isConfigured = !!API
 
-  // Track connected SSE clients (for the /refresh fan-out + NATS bridge)
+  // Track connected SSE clients for the NATS -> browser bridge.
   const sseClients: Set<Response> = new Set()
 
-  function broadcastRefresh(reason?: string) {
-    const msg = `data: ${JSON.stringify({ type: 'refresh', timestamp: Date.now(), reason })}\n\n`
+  function broadcast(event: object) {
+    const msg = `data: ${JSON.stringify(event)}\n\n`
     sseClients.forEach(c => { try { c.write(msg) } catch { /* client gone */ } })
-    console.log(`[found-footy] refresh -> ${sseClients.size} clients${reason ? ` (${reason})` : ''}`)
-  }
-
-  // Coalesce bursty NATS hints (a monitor cycle can fire several update/video messages)
-  // into one refresh per ~250ms window — the frontend refetches the window once per burst.
-  let refreshTimer: ReturnType<typeof setTimeout> | null = null
-  function coalescedRefresh() {
-    if (refreshTimer) return
-    refreshTimer = setTimeout(() => { refreshTimer = null; broadcastRefresh('nats') }, 250)
-  }
-
-  // fixture.clock -> forward minute ticks as an SSE 'clock'; the frontend patches the
-  // displayed minute in place (no refetch). Producer emits one batched message per monitor
-  // cycle, so no coalescing needed.
-  function broadcastClock(fixtures: any[]) {
-    if (!Array.isArray(fixtures) || fixtures.length === 0) return
-    const msg = `data: ${JSON.stringify({ type: 'clock', fixtures })}\n\n`
-    sseClients.forEach(c => { try { c.write(msg) } catch { /* client gone */ } })
-  }
-
-  // ---- NATS live-feed bridge: found-footy.<env>.> -> SSE ----
-  // Per the producer's bridge handoff (found-footy/docs/design/frontend-bridge-handoff.md):
-  // REST is truth; each NATS message is a "refetch" hint. For the current window-refetching
-  // frontend we coalesce fixture.update + event.video into the SSE `refresh` it already acts
-  // on, and re-emit on our OWN NATS reconnect (closes the BFF<->NATS blip: the browser sees
-  // no disconnect, so it must be told to re-snapshot). fixture.clock is forwarded as an
-  // ephemeral in-place minute patch.
-  if (config.natsUrl) {
-    ;(async () => {
-      let nats: any
-      try { nats = await import('nats') } catch (e) {
-        console.error('[found-footy] NATS client not installed — bridge disabled:', (e as Error).message)
-        return
-      }
-      const jc = nats.JSONCodec()
-      const connectLoop = async () => {
-        try {
-          const nc = await nats.connect({
-            servers: config.natsUrl, name: 'vedanta-systems-bff',
-            maxReconnectAttempts: -1, reconnectTimeWait: 2000,
-          })
-          console.log(`✅ [found-footy] NATS bridge connected (${config.natsUrl})`)
-          ;(async () => {
-            for await (const s of nc.status()) {
-              if (s.type === 'reconnect') { console.log('[found-footy] NATS reconnected — resync'); broadcastRefresh('nats-resync') }
-            }
-          })().catch(() => { /* status stream closed */ })
-          // Scope to OUR env: one shared broker serves dev + prod, and subjects carry the env
-          // token (found-footy.<env>.<domain>.<event>). Subscribing to found-footy.> would pull
-          // the other env's events into this SSE feed. Env isolation is by subject, not account
-          // (broker is open mode — no creds). See ~/workspace/nats/schemas/README.md.
-          const env = config.env || 'dev'
-          const sub = nc.subscribe(`found-footy.${env}.>`)
-          for await (const m of sub) {
-            try {
-              const env: any = jc.decode(m.data)
-              const subject: string = env?.subject || m.subject || ''
-              if (subject.endsWith('fixture.clock')) {
-                broadcastClock(env?.payload?.fixtures || [])
-              } else if (subject.endsWith('fixture.update') || subject.endsWith('event.video')) {
-                coalescedRefresh()
-              }
-            } catch (err) {
-              console.error('[found-footy] NATS message parse error:', (err as Error).message)
-            }
-          }
-        } catch (e) {
-          console.error('[found-footy] NATS bridge connect failed, retrying in 5s:', (e as Error).message)
-          setTimeout(connectLoop, 5000)
-        }
-      }
-      connectLoop()
-    })()
   }
 
   // ---- helpers ----
   async function goJson<T>(path: string): Promise<T> {
-    const r = await fetch(`${API}${path}`)
+    const r = await fetch(`${API}${path}`, { signal: AbortSignal.timeout(10_000) })
     if (!r.ok) throw new Error(`found-footy-api ${path} -> ${r.status}`)
     return r.json() as Promise<T>
   }
 
   const videoUrl = (shareId: string) => `/api/found-footy/video/${shareId}`
+
+  function legacyEventFlags(e: GoEvent) {
+    switch (e.phase) {
+      case 'removed':
+        return { monitorComplete: true, downloadComplete: true, removed: true }
+      case 'complete':
+        return { monitorComplete: true, downloadComplete: true, removed: false }
+      case 'searching':
+        return { monitorComplete: true, downloadComplete: false, removed: false }
+      case 'detected':
+        // Unknown-player placeholders never enter discovery; the current UI's
+        // legacy flags must not render them as an active search.
+        return e.player
+          ? { monitorComplete: false, downloadComplete: false, removed: false }
+          : { monitorComplete: true, downloadComplete: true, removed: false }
+    }
+  }
 
   // Non-scoring searchable events (red cards, missed penalties). found-footy's contract:
   // both run the SAME detected->searching->complete lifecycle and surface clips exactly like
@@ -167,19 +194,15 @@ export function createFoundFootyRouter(config: FoundFootyConfig): Router {
   // involved team (card offender / penalty taker) rides in _scoring_team so generateEventTitle
   // names the right side; `detail` is the display label. player is always known (no unknown-
   // scorer case), so phase=detected maps straight to the debouncing state.
-  function reshapeNonScoring(g: GoFixture, e: GoEvent, kind: string, detailLabel: string): any {
+  function reshapeNonScoring(
+    g: GoFixture,
+    e: GoEvent,
+    kind: 'card' | 'penalty-miss',
+    detailLabel: string,
+  ): GoalEvent {
     const team: 'home' | 'away' = e.team.id === g.home.id ? 'home' : 'away'
     const vids = [...(e.videos || [])].sort((x, y) => x.rank - y.rank)
-    let monitorComplete: boolean
-    let downloadComplete: boolean
-    let removed = false
-    switch (e.phase) {
-      case 'removed':   monitorComplete = true;  downloadComplete = true;  removed = true; break
-      case 'complete':  monitorComplete = true;  downloadComplete = true;  break
-      case 'searching': monitorComplete = true;  downloadComplete = false; break
-      case 'detected':  monitorComplete = false; downloadComplete = false; break // debouncing/validating
-      default:          monitorComplete = true;  downloadComplete = g.state === 'completed' || vids.length > 0
-    }
+    const { monitorComplete, downloadComplete, removed } = legacyEventFlags(e)
     return {
       type: 'Goal',
       _kind: kind,
@@ -216,14 +239,14 @@ export function createFoundFootyRouter(config: FoundFootyConfig): Router {
   // Go event -> legacy GoalEvent, with a running-score tally to reconstruct
   // the display fields the Go API no longer sends (_display_title, _score_after,
   // _scoring_team). Goals only — the old UI renders type:'Goal'.
-  function reshapeEvents(g: GoFixture): any[] {
+  function reshapeEvents(g: GoFixture): GoalEvent[] {
     const goals = (g.events || [])
       .filter(e => e.type === 'goal')
       .sort((a, b) => (a.minute - b.minute) || ((a.extra || 0) - (b.extra || 0)))
 
     let h = 0
     let a = 0
-    const goalEvents = goals.map(e => {
+    const goalEvents = goals.map((e): GoalEvent => {
       const scoringTeam: 'home' | 'away' = e.team.id === g.home.id ? 'home' : 'away'
       const before = { home: h, away: a }
       if (scoringTeam === 'home') h++
@@ -236,28 +259,7 @@ export function createFoundFootyRouter(config: FoundFootyConfig): Router {
       const playerName = e.player?.name || 'Unknown'
       const videos = [...(e.videos || [])].sort((x, y) => x.rank - y.rank)
 
-      // Map the backend-derived semantic phase -> the legacy two-flag model the current
-      // UI reads (_monitor_complete/_download_complete). Prefer the real `phase`; fall
-      // back to the heuristic only if the API predates the field. (The redesigned frontend
-      // will read `phase` + videos natively and this mapping goes away — design.md.)
-      let monitorComplete: boolean
-      let downloadComplete: boolean
-      let removed = false
-      switch (e.phase) {
-        case 'removed':   monitorComplete = true;  downloadComplete = true;  removed = true; break
-        case 'complete':  monitorComplete = true;  downloadComplete = true;  break
-        case 'searching': monitorComplete = true;  downloadComplete = false; break
-        case 'detected':
-          if (e.player) { monitorComplete = false; downloadComplete = false } // known scorer: confirming/validating
-          else          { monitorComplete = true;  downloadComplete = true }  // unknown scorer: never searched -> done
-          break
-        default: {
-          // Pre-phase API fallback: exact for finished games, ambiguous only for live ones.
-          const done = g.state === 'completed' || !e.player || (e.videos?.length || 0) > 0
-          monitorComplete = true
-          downloadComplete = done
-        }
-      }
+      const { monitorComplete, downloadComplete, removed } = legacyEventFlags(e)
 
       return {
         type: 'Goal',
@@ -310,19 +312,20 @@ export function createFoundFootyRouter(config: FoundFootyConfig): Router {
     return [...goalEvents, ...cardEvents, ...missedPenEvents]
   }
 
-  function reshapeFixture(g: GoFixture): any {
+  function reshapeFixture(g: GoFixture): Fixture {
     return {
       _id: g.id,
+      state: g.state,
+      presentation_state: g.presentation_state,
+      clock: g.clock,
+      status: g.status,
+      display: g.display,
       fixture: {
         id: g.id,
         referee: null,
         timezone: 'UTC',
         date: g.kickoff,
         timestamp: Math.floor(new Date(g.kickoff).getTime() / 1000),
-        // Go sends lowercase status codes ('ns','1h','pen'); the frontend keys all its
-        // status logic on uppercase (API-Football convention) — staging/live/penalty/
-        // completed detection + the live-minute highlight. Uppercase so they match.
-        status: { long: g.status.long, short: (g.status.short || '').toUpperCase(), elapsed: g.status.elapsed, extra: g.status.extra },
       },
       league: { id: g.league.id, name: g.league.name, country: g.league.country || '', logo: '', flag: '', season: g.league.season, round: g.league.round || '' },
       teams: {
@@ -330,14 +333,134 @@ export function createFoundFootyRouter(config: FoundFootyConfig): Router {
         away: { id: g.away.id, name: g.away.name, winner: g.away.winner, logo: '' },
       },
       goals: { home: g.home.score, away: g.away.score },
-      // Go provides `penalty` (the shootout result); HT/FT/ET splits stay dropped.
-      score: { halftime: { home: 0, away: 0 }, fulltime: { home: 0, away: 0 }, extratime: null, penalty: g.penalty || null },
-      events: g.state === 'staging' ? [] : reshapeEvents(g),
+      score: { penalty: g.penalty || null },
+      events: reshapeEvents(g),
       // found-footy's API derives last_activity_at from activation, first terminal observation,
       // and eligible events. Legacy/direct-complete rows fall back to completion. The later
       // active→completed process transition therefore cannot reorder an already-finished match.
       _last_activity: g.last_activity_at || undefined,
     }
+  }
+
+  function reshapeEventVideo(e: GoEvent): EventVideoPatch {
+    const videos = [...(e.videos || [])].sort((left, right) => left.rank - right.rank)
+    const { monitorComplete, downloadComplete, removed } = legacyEventFlags(e)
+    return {
+      _event_id: e.id,
+      _s3_urls: videos.map(video => videoUrl(video.share_id)),
+      _s3_videos: videos.map(video => ({
+        url: videoUrl(video.share_id),
+        perceptual_hash: '',
+        resolution_score: (video.width || 0) * (video.height || 0),
+        width: video.width || 0,
+        height: video.height || 0,
+        popularity: video.popularity || 0,
+        rank: video.rank,
+      })),
+      _monitor_complete: monitorComplete,
+      _download_complete: downloadComplete,
+      _removed: removed,
+    }
+  }
+
+  const fixtureUpdates = createFixtureUpdateBatcher(async fixtureIds => {
+    try {
+      const ids = fixtureIds.join(',')
+      const fixtures = await goJson<GoFixture[]>(`/api/v1/fixtures?ids=${encodeURIComponent(ids)}`)
+      broadcast({
+        type: 'fixture_update',
+        fixture_ids: fixtureIds,
+        fixtures: fixtures.map(reshapeFixture),
+      })
+    } catch (error) {
+      console.error('[found-footy] targeted fixture update failed:', (error as Error).message)
+      broadcast({ type: 'resync', reason: 'fixture-update-failed' })
+    }
+  })
+
+  async function forwardEventVideo(payload: { event_id?: unknown; fixture_id?: unknown }) {
+    const eventId = typeof payload.event_id === 'string' ? payload.event_id : ''
+    const fixtureId = typeof payload.fixture_id === 'number' ? payload.fixture_id : 0
+    if (!eventId || !Number.isSafeInteger(fixtureId) || fixtureId <= 0) return
+
+    try {
+      const events = await goJson<GoEvent[]>(`/api/v1/events?ids=${encodeURIComponent(eventId)}`)
+      const event = events.find(candidate => candidate.id === eventId && candidate.fixture_id === fixtureId)
+      broadcast({
+        type: 'event_video',
+        event_id: eventId,
+        fixture_id: fixtureId,
+        event: event ? reshapeEventVideo(event) : null,
+      })
+    } catch (error) {
+      console.error('[found-footy] targeted event video update failed:', (error as Error).message)
+      broadcast({ type: 'resync', reason: 'event-video-failed' })
+    }
+  }
+
+  // ---- NATS live-feed bridge: found-footy.<env>.> -> targeted browser SSE ----
+  // REST remains the recovery authority. The status subject is an inline
+  // projection; fixture and event dirty-signals are resolved once in the BFF
+  // and broadcast to every connected browser.
+  if (config.natsUrl) {
+    void (async () => {
+      let nats: typeof import('nats')
+      try { nats = await import('nats') } catch (error) {
+        console.error('[found-footy] NATS client not installed — bridge disabled:', (error as Error).message)
+        return
+      }
+      const jc = nats.JSONCodec()
+      const connectLoop = async () => {
+        try {
+          const nc = await nats.connect({
+            servers: config.natsUrl,
+            name: 'vedanta-systems-bff',
+            maxReconnectAttempts: -1,
+            reconnectTimeWait: 2000,
+          })
+          console.log(`✅ [found-footy] NATS bridge connected (${config.natsUrl})`)
+          broadcast({ type: 'resync', reason: 'nats-connect' })
+          void (async () => {
+            for await (const status of nc.status()) {
+              if (status.type === 'reconnect') {
+                console.log('[found-footy] NATS reconnected — resync')
+                broadcast({ type: 'resync', reason: 'nats-reconnect' })
+              }
+            }
+          })().catch(() => { /* status stream closed */ })
+
+          const envName = config.env || 'dev'
+          const sub = nc.subscribe(`found-footy.${envName}.>`)
+          for await (const message of sub) {
+            try {
+              const envelope = jc.decode(message.data) as FoundFootyEnvelope
+              const subject: string = envelope?.subject || message.subject || ''
+              const topic = foundFootyLiveTopic(subject)
+              if (topic === 'fixture_status') {
+                await fixtureUpdates.flush()
+                const fixtures = envelope?.payload?.fixtures
+                if (Array.isArray(fixtures) && fixtures.length > 0) {
+                  broadcast({ type: 'fixture_status', fixtures: fixtures as FixtureStatusEntry[] })
+                }
+              } else if (topic === 'fixture_update') {
+                const fixtureIds = envelope?.payload?.fixture_ids
+                if (Array.isArray(fixtureIds)) fixtureUpdates.add(fixtureIds)
+              } else if (topic === 'event_video') {
+                await fixtureUpdates.flush()
+                await forwardEventVideo(envelope?.payload || {})
+              }
+            } catch (error) {
+              console.error('[found-footy] NATS message handling failed:', (error as Error).message)
+              broadcast({ type: 'resync', reason: 'nats-message-failed' })
+            }
+          }
+        } catch (error) {
+          console.error('[found-footy] NATS bridge connect failed, retrying in 5s:', (error as Error).message)
+          setTimeout(connectLoop, 5000)
+        }
+      }
+      connectLoop()
+    })()
   }
 
   const localDate = (iso: string, offsetMin: number) =>
@@ -348,7 +471,7 @@ export function createFoundFootyRouter(config: FoundFootyConfig): Router {
   // GET /health - is the found-footy read API reachable?
   router.get('/health', async (_req: Request, res: Response) => {
     let up = false
-    try { up = (await fetch(`${API}/healthz`)).ok } catch { up = false }
+    try { up = (await fetch(`${API}/healthz`, { signal: AbortSignal.timeout(5_000) })).ok } catch { up = false }
     res.json({
       status: up ? 'ok' : 'degraded',
       health: { api: { status: up ? 'up' : 'down' }, overall: up ? 'healthy' : 'unhealthy' },
@@ -357,21 +480,13 @@ export function createFoundFootyRouter(config: FoundFootyConfig): Router {
     })
   })
 
-  // GET /fixtures[?date=YYYY-MM-DD] - reshaped into {staging,active,completed}
-  router.get('/fixtures', async (req: Request, res: Response) => {
+  // GET /fixtures - one complete authoritative fixture window. Presentation
+  // grouping comes from presentation_state; Found Footy's processing state is
+  // preserved as data but never becomes a browser bucket.
+  router.get('/fixtures', async (_req: Request, res: Response) => {
     try {
       const all = await goJson<GoFixture[]>('/api/v1/fixtures')
-      const dateParam = req.query.date as string | undefined
-      const inDate = (g: GoFixture) => !dateParam || g.kickoff.slice(0, 10) === dateParam
-      // Preserve Found Footy's process state. It controls polling and retention, so a fixture
-      // may activate before kickoff or remain active while postponed. The browser owns the
-      // separate match-status presentation taxonomy and must not equate this bucket with live.
-      const pick = (state: GoFixture['state']) => all
-        .filter(g => g.state === state && inDate(g))
-        .map(reshapeFixture)
-      const body: any = { staging: pick('staging'), active: pick('active'), completed: pick('completed') }
-      if (dateParam) body.date = dateParam
-      res.json(body)
+      res.json({ fixtures: all.map(reshapeFixture) })
     } catch (error) {
       console.error('[found-footy] /fixtures:', (error as Error).message)
       res.status(502).json({ error: 'found-footy api unavailable' })
@@ -409,17 +524,20 @@ export function createFoundFootyRouter(config: FoundFootyConfig): Router {
       const has = (s?: string | null) => !!s && s.toLowerCase().includes(needle)
 
       const fixtures = all.map(g => {
-        const f = reshapeFixture(g)
         const teamMatch = has(g.home.name) || has(g.away.name)
-        const matchedEventIds = (f.events as any[])
+        const base = reshapeFixture(g)
+        const matchedEventIds = base.events
           .filter(e => has(e.player?.name) || has(e.assist?.name))
           .map(e => e._event_id)
-        f._search = { teamMatch, matchedEventIds, matchCount: matchedEventIds.length + (teamMatch ? 1 : 0) }
-        return f
+        const fixture: SearchFixture = {
+          ...base,
+          _search: { teamMatch, matchedEventIds, matchCount: matchedEventIds.length + (teamMatch ? 1 : 0) },
+        }
+        return fixture
       })
 
       // Group by UTC date, newest first (the frontend regroups by tz-local date).
-      const byDate = new Map<string, any[]>()
+      const byDate = new Map<string, SearchFixture[]>()
       for (const f of fixtures) {
         const date = (f.fixture.date || '').slice(0, 10)
         if (!byDate.has(date)) byDate.set(date, [])
@@ -490,10 +608,11 @@ export function createFoundFootyRouter(config: FoundFootyConfig): Router {
       if (attachment) res.setHeader('Content-Disposition', `attachment; filename="${attachment}"`)
 
       if (!upstream.body) return res.end()
-      const nodeStream = Readable.fromWeb(upstream.body as any)
+      const nodeStream = Readable.fromWeb(upstream.body as Parameters<typeof Readable.fromWeb>[0])
       // Unhandled stream 'error' crashes the request (→ 500). A client seek/disconnect
       // aborts the upstream — expected; swallow it, log anything genuinely unexpected.
-      nodeStream.on('error', (err: any) => {
+      nodeStream.on('error', (error: unknown) => {
+        const err = error as { name?: string; code?: string; message?: string }
         if (err?.name !== 'AbortError' && err?.code !== 'ABORT_ERR') {
           console.error('[found-footy] stream:', err?.message)
         }
@@ -502,7 +621,7 @@ export function createFoundFootyRouter(config: FoundFootyConfig): Router {
       res.on('error', () => nodeStream.destroy())
       nodeStream.pipe(res)
     } catch (error) {
-      const err = error as any
+      const err = error as { name?: string; code?: string; message?: string }
       if (err?.name === 'AbortError' || err?.code === 'ABORT_ERR') {
         if (!res.writableEnded) res.destroy()
         return
@@ -523,8 +642,7 @@ export function createFoundFootyRouter(config: FoundFootyConfig): Router {
     streamClip(req.params.shareId, req, res, filename)
   })
 
-  // GET /stream - connected/health/heartbeat plus NATS-backed refresh and
-  // ephemeral clock messages broadcast through sseClients above.
+  // GET /stream - connected/health/heartbeat plus targeted NATS-backed updates.
   router.get('/stream', async (req: Request, res: Response) => {
     req.socket.setTimeout(0)
     req.socket.setNoDelay(true)
@@ -537,18 +655,24 @@ export function createFoundFootyRouter(config: FoundFootyConfig): Router {
     res.flushHeaders()
 
     sseClients.add(res)
+    let heartbeat: ReturnType<typeof setInterval> | null = null
+    let closed = false
+    const cleanup = () => {
+      closed = true
+      if (heartbeat) clearInterval(heartbeat)
+      sseClients.delete(res)
+    }
+    req.once('close', cleanup)
+
     res.write(`data: ${JSON.stringify({ type: 'connected', timestamp: Date.now() })}\n\n`)
     let up = false
-    try { up = (await fetch(`${API}/healthz`)).ok } catch { up = false }
+    try { up = (await fetch(`${API}/healthz`, { signal: AbortSignal.timeout(5_000) })).ok } catch { up = false }
+    if (closed) return
     res.write(`data: ${JSON.stringify({ type: 'health', health: { api: { status: up ? 'up' : 'down' }, overall: up ? 'healthy' : 'unhealthy' } })}\n\n`)
 
-    const heartbeat = setInterval(() => {
+    heartbeat = setInterval(() => {
       res.write(`data: ${JSON.stringify({ type: 'heartbeat' })}\n\n`)
     }, 30000)
-    req.on('close', () => {
-      clearInterval(heartbeat)
-      sseClients.delete(res)
-    })
   })
 
   return router

@@ -1,214 +1,141 @@
 # Found Footy live-data lifecycle
 
-This document describes how Found Footy data reaches the browser today, where
-the current lifecycle loses correctness, and the contract the frontend
-re-foundation must implement. Fixture bucketing and staging visibility remain
-in [timezone-aware fixture scoping](./found-footy-timezone.md).
+This document is the as-built browser contract for Found Footy FF-077. Fixture
+visibility and navigation policy live in
+[timezone-aware fixture scoping](./found-footy-timezone.md). Found Footy's
+producer contract is authoritative in its `docs/api.md`.
 
 ## System path
 
 ```text
 found-footy workers
-  -> Core NATS found-footy.<env>.* events
+  -> Core NATS found-footy.<env>.*
   -> vedanta-systems BFF
-  -> browser SSE notification
-  -> authoritative Found Footy REST snapshot
-  -> React route state
+  -> targeted browser SSE
+  -> React fixture collection
+
+found-footy read API
+  -> authoritative REST snapshot and targeted BFF reads
 ```
 
-The Go read API is authoritative. NATS and browser SSE are transient
-notifications. Neither stream is a database or a replay log.
+Core NATS and browser SSE do not replay missed messages. REST is truth; live
+messages reduce latency and read volume.
 
-## Current BFF mapping
+## Fixture contract
 
-The BFF subscribes to `found-footy.<env>.>` and maps events as follows:
+Every REST fixture carries two independent kinds of state:
 
-| NATS event suffix | Browser SSE | Browser behavior |
+- `state`: Found Footy's `staging`, `active`, or `completed` processing state;
+- `presentation_state`: `playing`, `finished`, `upcoming`, or `deferred`.
+
+Only `presentation_state` controls browser grouping, live badges, and finished
+winner highlighting. The BFF and React do not classify API-Football status
+codes.
+
+The complete inline indicator projection is:
+
+```json
+{
+  "presentation_state": "playing",
+  "clock": { "minute": 62, "extra": null },
+  "status": { "short": "2H", "long": "Second Half" },
+  "display": "clock"
+}
+```
+
+`display` selects the indicator generically. `clock` formats the nullable
+minute and extra time. `status` renders `status.short`; `status.long` supplies
+accessible or expanded context. Provider codes remain visible data, not
+consumer control flow. Winner fields and non-null penalty fields come directly
+from the backend.
+
+## NATS to SSE mapping
+
+The BFF retains one environment-wide subscription:
+`found-footy.<env>.>`.
+
+| NATS suffix | BFF action | Browser SSE action |
 |---|---|---|
-| `fixture.update` | coalesced `refresh` | Fetch an authoritative fixture snapshot |
-| `event.video` | coalesced `refresh` | Fetch an authoritative fixture snapshot |
-| `fixture.clock` | `clock` | Patch displayed live minutes until the next snapshot |
-| NATS reconnect | `refresh` with resync reason | Fetch an authoritative snapshot if the browser is connected |
+| `fixture.status` | Forward the complete projection | Replace the four presentation fields by fixture ID without fetching or reordering |
+| `fixture.update` | Union IDs across the short coalescing window and fetch `/api/v1/fixtures?ids=...` once | Replace only those IDs, then regroup and reorder by `presentation_state` and `last_activity_at` |
+| `event.video` | Fetch `/api/v1/events?ids=<event_id>` | Replace only that event's video projection inside `fixture_id` |
+| NATS connect or reconnect | Emit `resync` | Take a complete fixture snapshot |
 
-Fixture and video refreshes share a roughly 250 ms coalescing window. Clock
-events are deliberately ephemeral display ticks.
+`fixture.status` replaces the obsolete `fixture.clock` path. A minute change
+and a provider status transition that remains in one presentation group use
+the inline path. Kickoff, final whistle, postponed resumption, score/event
+changes, and other presentation boundaries use targeted `fixture.update`.
 
-The BFF preserves Found Footy's `staging`, `active`, and `completed` process
-states in fixture snapshots. The browser independently derives playing,
-finished, upcoming, and deferred presentation states from provider status.
-The process `active` bucket therefore does not imply a live badge: a monitored
-postponed fixture can remain active while rendering after real matches.
+The BFF resolves dirty signals once and broadcasts their resulting resource
+projection to all connected browsers. It does not turn fixture or video events
+into a generic window refresh.
 
-When an actively monitored fixture first enters a terminal status, Found Footy
-keeps it in `active` for a one-hour observation grace while late provider events
-settle. Fresh terminal ingests retain their direct-complete path. The frontend
-renders `FT`, `AET`, `PEN`, `AWD`, and `WO` as finished regardless of that
-process bucket. Its recency key uses the producer's first terminal observation,
-not the later `active` to `completed` transition, so retirement does not reorder
-an already-finished fixture. Historical and direct-complete rows without a
-terminal-observation timestamp fall back to their completion timestamp.
+## Browser state and ordering
 
-A new browser SSE connection receives `connected`, one upstream `health`
-payload, and periodic `heartbeat` messages. It does not receive a replay or an
-initial fixture snapshot. The current BFF does not emit SSE event IDs.
+The provider stores one fixture collection. It does not maintain processing
+state buckets. Structural replacements remove the requested IDs, insert the
+authoritative responses, deduplicate, and order:
 
-## Current browser lifecycle
+1. playing by `last_activity_at` descending;
+2. finished by `last_activity_at` descending;
+3. upcoming by kickoff;
+4. deferred by kickoff.
 
-On initial provider mount, the browser:
+Equal recency uses kickoff and fixture ID as deterministic tie breakers.
+Inline `fixture.status` updates preserve the exact array order.
 
-1. selects `getToday()` in the active timezone mode;
-2. fetches the available-date index;
-3. fetches the selected UTC day and both adjacent UTC days;
-4. merges those results and buckets fixtures in the browser timezone;
-5. opens SSE only when the selected date equals `getToday()`.
+`last_activity_at` comes from Found Footy. Polls, clock ticks, and ordinary
+within-group status changes do not advance it. The portal never manufactures a
+recency timestamp.
 
-While connected:
+## Snapshot and recovery
 
-- `refresh` triggers the same three-date snapshot;
-- `clock` patches fixtures in the active process bucket directly;
-- `heartbeat` has no data effect;
-- `health` is currently ignored by the provider;
-- an EventSource error closes and retries with exponential backoff.
+The browser takes one complete `GET /api/found-footy/fixtures` snapshot on:
 
-When the document becomes hidden, the provider closes SSE. When it becomes
-visible, it refetches and reconnects only if the selected date still equals
-the newly computed `getToday()`. Opening a video also pauses SSE; closing it
-reconnects without first fetching a snapshot.
-
-## Current correctness gaps
-
-### A reconnect is not reconciliation
-
-SSE and Core NATS provide no browser replay cursor. Any update produced while
-the browser is asleep, offline, hidden, watching a video, or between stream
-connections can be missed. Reopening EventSource only restores future
-notifications.
-
-### Selected date does not represent live intent
-
-The provider infers “follow live” from `selectedDate === getToday()`. At
-midnight, yesterday no longer equals today. A phone that was following live
-before sleep therefore looks indistinguishable from a user who deliberately
-pinned yesterday.
-
-### Carryover fixtures are filtered by kickoff date
-
-The browser filters playing fixtures to the selected timezone-local kickoff
-date. A match that began yesterday and remains active after midnight is hidden
-from the new live day. If yesterday stays selected, SSE is disconnected
-because yesterday is no longer today, so the match also freezes.
-
-### Freshness and connectivity share one status
-
-The current provider can mark the backend online when EventSource opens or
-after parsing a response body without checking the HTTP status. Transport
-connectivity does not prove that the upstream API is healthy or that the
-snapshot is current.
-
-### Snapshots duplicate upstream work
-
-The browser fetches three date endpoints. Each BFF endpoint reads the complete
-Go API fixture window and filters one UTC date locally. One logical browser
-snapshot therefore performs three full upstream-window reads.
-
-## Target state model
-
-Route state must keep these concepts separate:
-
-```text
-selectedDate: YYYY-MM-DD
-dateIntent: live | pinned
-snapshot: loading | current | stale | failed
-stream: closed | connecting | open | retrying
-upstream: unknown | healthy | degraded | unavailable
-lastValidSnapshot: fixture data retained across transient failures
-```
-
-`dateIntent` changes only through explicit navigation semantics:
-
-- entering the route without a pinned-date URL follows live;
-- selecting a historical/future date pins it;
-- selecting the explicit live/today action follows live again;
-- timezone changes preserve intent, then recompute the corresponding date.
-
-## Target reconciliation contract
-
-Every transition from a possibly disconnected state follows one sequence:
-
-1. mark the current snapshot stale without deleting it;
-2. cancel obsolete requests;
-3. refresh the date index when the calendar or timezone may have changed;
-4. if intent is live, compute the new today; otherwise retain the pinned date;
-5. fetch and validate an authoritative snapshot;
-6. commit it only if its route/date/timezone generation is still current;
-7. open or retain SSE when live updates are required;
-8. declare the snapshot current only after reconciliation succeeds.
-
-Apply this sequence on:
-
-- initial route entry;
-- EventSource reconnect;
+- initial provider setup;
+- every SSE connection marker, including reconnection;
+- BFF-to-NATS connect or reconnect;
 - `visibilitychange` to visible;
 - `pageshow`, including back-forward-cache restore;
 - browser `online`;
-- video or other deliberate stream resume;
-- active-timezone midnight;
+- deliberate stream resume after video playback;
+- active-timezone midnight; and
 - timezone-mode change.
 
-An SSE notification arriving during the snapshot either queues one later
-refresh or is covered by a version check. It must not allow an older response
-to overwrite newer state.
+Requests have an abort controller and generation. Only the newest snapshot may
+commit. Live events that arrive during a snapshot are recorded and replayed
+after the response commits, so an older REST response cannot overwrite newer
+stream state. A failed refresh retains the last valid fixture collection.
 
-## Live and pinned date behavior
+## Live and pinned date intent
 
-### Live mode
+The provider stores `dateIntent` separately from `currentDate`:
 
-The live view renders:
+- route entry and **Today** use `live`;
+- selecting today, including with a date arrow, uses `live`;
+- selecting any other date uses `pinned`.
 
-- every playing fixture in the API window, including a previous-day carryover;
-- staging and completed fixtures belonging to the selected live date;
-- the current active-timezone date in navigation.
+Recovery recomputes the active-timezone day only in live mode. A phone that
+sleeps across midnight therefore advances to the new day; a deliberately
+pinned historical view stays pinned but still revalidates.
 
-At midnight, it advances once to the new date and reconciles. Carryover
-fixtures remain visible until provider status leaves the playing presentation
-state.
+The live view renders every playing fixture in the API window, including a
+match that kicked off on the previous day. Non-playing fixtures remain scoped
+to the selected timezone-local kickoff date. Pinned views scope every fixture
+to their selected date.
 
-### Pinned mode
+## Remaining re-foundation work
 
-Pinned mode retains its selected date across midnight, sleep, and reconnect.
-It still refreshes after a disconnected interval. Whether it maintains a
-continuous SSE connection is an implementation choice; correctness does not
-depend on doing so because every resume reconciles REST.
+FF-077 fixes the data contract, targeted delivery, request ordering, live
+intent, carryover, and recovery path. The broader frontend re-foundation still
+owns:
 
-## Error behavior
+- mounting the provider only while the Found Footy route is active;
+- exposing freshness separately from transport health in the visible UI;
+- aborting superseded search and shared-link requests;
+- resolving the next-match-day staging cutoff; and
+- the accessible interaction/component migration.
 
-- Check `res.ok` before parsing a response as project data.
-- Validate the decoded body before committing it.
-- Preserve the last valid snapshot when refresh fails.
-- Show stale/degraded state instead of successful empty data.
-- Distinguish event-not-found from upstream-unavailable.
-- Abort superseded date, timezone, query, and shared-link requests.
-- Treat direct `clock` patches as disposable; the next snapshot replaces them.
-
-## Acceptance scenarios
-
-The route contract is not complete until all of these pass:
-
-1. A phone follows live, sleeps before midnight, and wakes after midnight. The
-   route advances without a page reload and retains any active carryover game.
-2. A phone sleeps on a deliberately pinned date. The date remains selected and
-   its data is revalidated.
-3. A foreground tab crosses midnight. Live mode advances once; pinned mode does
-   not.
-4. A match starts before midnight and ends after midnight. It remains live and
-   receives clock/event updates in the new live view.
-5. SSE disconnects during a fixture or video update. Reconnect reconciles the
-   snapshot before declaring it current.
-6. Closing a video reconciles changes produced while its stream was paused.
-7. Rapid date, timezone, search, and shared-link changes cannot display an
-   older response.
-8. An upstream 500 retains prior data and shows degraded/stale state rather
-   than an empty successful view.
-9. Network recovery, `pageshow`, and ordinary visibility recovery use the same
-   idempotent path.
-10. Hidden non-Found-Footy routes own no Found Footy request or stream.
+Those items remain in the
+[frontend re-foundation plan](./plans/frontend-refoundation.md) and
+[project todo](./todo.md).

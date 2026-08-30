@@ -72,18 +72,15 @@ function SystemsSurface() {
 
 function FoundFootySurface() {
   const {
-    stagingFixtures,
-    activeFixtures,
-    completedFixtures,
+    fixtures,
+    dateIntent,
     isBackendOnline,
     isLoading,
     isChangingDate,
-    lastUpdate,
     pauseStream,
     resumeStream,
     currentDate,
     navigableDates,
-    setDate,
     goToToday,
     goToPreviousDate,
     goToNextDate,
@@ -92,7 +89,6 @@ function FoundFootySurface() {
     searchQuery,
     searchResults,
     isSearching,
-    searchTotalFixtures,
     enterSearch,
     exitSearch,
     executeSearch,
@@ -107,19 +103,15 @@ function FoundFootySurface() {
     <div className="ps2-project-content">
       <ProjectStatus githubUrl={GITHUB_URLS['found-footy']} isConnected={isBackendOnline} />
       <FoundFootyBrowser
-        stagingFixtures={stagingFixtures}
-        fixtures={activeFixtures}
-        completedFixtures={completedFixtures}
-        isConnected={isBackendOnline}
+        fixtures={fixtures}
+        dateIntent={dateIntent}
         isLoading={isLoading}
         isChangingDate={isChangingDate}
-        lastUpdate={lastUpdate}
         initialVideo={initialVideo}
         onPauseStream={pauseStream}
         onResumeStream={resumeStream}
         currentDate={currentDate}
         navigableDates={navigableDates}
-        onDateChange={setDate}
         onGoToToday={goToToday}
         onPreviousDate={goToPreviousDate}
         onNextDate={goToNextDate}
@@ -128,7 +120,6 @@ function FoundFootySurface() {
         searchQuery={searchQuery}
         searchResults={searchResults}
         isSearching={isSearching}
-        searchTotalFixtures={searchTotalFixtures}
         onEnterSearch={enterSearch}
         onExitSearch={exitSearch}
         onSearch={executeSearch}

@@ -53,15 +53,15 @@ port that didn't exist; fixed in commit `62ba907`).
 
 The current SPA statically imports the project browsers and mounts Found Footy
 and Spin Cycle providers above the router. Those providers can fetch and open
-SSE connections even when another route is visible. Found Footy's live state
-uses REST snapshots plus an SSE feed bridged from NATS, but its current resume
-logic does not fully reconcile missed stream intervals or day rollover. These
-are current implementation facts, not the target architecture.
+SSE connections even when another route is visible. FF-077 gives Found Footy a
+complete authoritative snapshot plus targeted SSE replacements and reconciles
+wake, reconnect, page restore, online, video resume, midnight, and timezone
+changes. Provider route ownership and visible freshness state remain open.
 
 The active [frontend re-foundation plan](./plans/frontend-refoundation.md)
-moves code, provider, request, and stream ownership to each route. It also
-defines the snapshot/SSE reconciliation and live-versus-pinned date contract.
-Keep this section current-state only until those slices land.
+moves code, provider, request, and stream ownership to each route. Its
+snapshot/SSE reconciliation and live-versus-pinned date contract landed in
+FF-077; the remaining route and component slices stay active plan work.
 
 ### Cross-project — the data plane
 

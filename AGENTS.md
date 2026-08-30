@@ -87,10 +87,10 @@ The proxy stack itself lives in `~/workspace/proxy/`; its
 
 | Project | What vs-api does today | Target shape |
 |---|---|---|
-| **found-footy** | **Pattern B, live both envs.** Proxies the Go read API (`found-footy-{env}-api:8081`) for fixtures/search/events (reshaped by the shim), plus a NATS live-feed bridge (`found-footy.<env>.>` → SSE) and share_id video re-proxy (302 → presigned Garage). Dev 2026-08-13, prod 2026-08-15. | Done — no direct mongo/minio peers. |
+| **found-footy** | **Pattern B, live both envs.** Proxies the Go read API, resolves targeted `fixture.update`/`event.video` hints, forwards inline `fixture.status`, and re-proxies share-id media. FF-077 is staged for a coordinated producer/schema/consumer rollout. | Done — no direct mongo/minio peers. |
 | **spin-cycle** | Reads `spin-cycle-{env}-postgres` directly (Pattern A) | `spin-cycle-{env}-api:3000` already exists — vs-api just needs to swap from pg pool to HTTP proxy. |
 | **long-exposure** | Reads `long-exposure-{env}-postgres` directly (Pattern A, by design until LE grows its own API) | Pattern B once LE has a separate api service. The `caddy.d/long-exposure.caddy` file documents the current design. |
-| **btop-luv / btop-joi** | Legacy Express proxies `/api/btop-{luv,joi}/{health,stream}` to host ports; joi's collectors are disabled. A dormant sequence-aware NATS consumer exists at `/api/btop/<node>/*`. | One native exporter per node → private HTTP/SSE → owning control plane → Core NATS → BFF → browser SSE. |
+| **btop-luv / btop-joi** | Express proxies `/api/btop-{luv,joi}/{health,stream}` to the per-node btop container via host gateway (4102/4103 dev, 3102/3103 prod). | n/a — `network_mode: host` is incompatible with Caddy fronting. |
 | **legal-tender** | Not surfaced. | Pattern B from day one when it lands. |
 
 Pattern A vs B is the central architectural call here — see
@@ -105,7 +105,7 @@ Pattern A vs B is the central architectural call here — see
 - @docs/plans/frontend-redesign.md — historical shell studies and instrument workbench log; not the active migration plan
 - @docs/frontend-audit.md — dated evidence for lifecycle, input, accessibility, performance, and component-boundary problems
 - @docs/full-project-audit-2026-08-20.md — first whole-project audit across frontend, BFF, security, deployment, dependencies, runtime, and docs
-- @docs/found-footy-live-data.md — current NATS/SSE/REST behavior and target reconnect, wake, midnight, and carryover contract
+- @docs/found-footy-live-data.md — FF-077 NATS/SSE/REST contract, targeted updates, recovery, live intent, and carryover behavior
 - @src/components/UI-PATTERNS.md — current production interaction and video behavior; migration evidence, not the new component API
 - @deploy/INFRA-NOTES.md — Caddy + Cloudflared bring-up reference for this repo's slice
 - @docs/architecture.md — request paths (prod via Caddy → in-container nginx → SPA / api / og-server; dev via Caddy → Vite proxy → api), network model, btop's network_mode:host exception
@@ -152,11 +152,19 @@ Pattern A vs B is the central architectural call here — see
   risks before another public deployment. This repo then owns the btop BFF and
   browser migration; exporter, relay, NATS, and node-deployment work stays in
   its cross-project owners. See @docs/todo.md.
-- **Frontend re-foundation paused**: the approved architecture still begins
-  with Found Footy's wake/reconnect/date correctness and route ownership. Do
-  not apply the two-plane visual system until its design is ready. Production
-  remains the behavior baseline. See @docs/plans/frontend-refoundation.md.
-- **found-footy Pattern B — live both envs (prod cutover 2026-08-15)**: `src/server/routes/found-footy.ts` shims the Go read API (`found-footy-{env}-api:8081`; fixtures/search/events reshaped to the legacy frontend shape) + a NATS→SSE bridge (env-scoped to `found-footy.<env>.>`) + share_id video/download re-proxy (302 → presigned `garage:3900`, streamed same-origin). **Load-bearing:** `found-footy-{env}-garage` must be aliased `garage` on `luv-{env}` or video 502s; the NATS broker is open mode (env isolation is by subject token, no creds). Dev landed 2026-08-13, prod verified end-to-end 2026-08-15 — see @docs/decisions.md.
+- **Frontend visual/component re-foundation paused**: FF-077 has landed the
+  Found Footy data foundation in source: backend-owned presentation, targeted
+  live updates, live/pinned intent, carryover, and recovery. Route ownership,
+  explicit freshness UI, accessible primitives, and the two-plane visual
+  migration remain. Do not apply the visual system until its design is ready.
+- **found-footy FF-077 staged, not deployed**: the BFF consumes the breaking
+  root presentation shape, forwards `fixture.status`, resolves coalesced
+  fixture IDs and targeted video events, and serves one complete snapshot.
+  Deploy only with Found Footy commits `a6c9e0f` + `e26966a` and the matching
+  shared NATS schema commit. The existing production integration remains on
+  the pre-FF-077 contract until that coordinated rollout. **Load-bearing:**
+  `found-footy-{env}-garage` must be aliased `garage` on `luv-{env}` or video
+  502s; NATS environment isolation is currently by subject token, not creds.
 - **Caddy migration**: complete and load-bearing. cloudflared moved out of vs-prod into `~/workspace/proxy/` (commit `6c8c480`). Vite dev proxy target fixed to `vedanta-systems-dev-api:3001` (commit `62ba907`). Internal in-container nginx kept — it's not redundant with Caddy.
 - **Long Exposure surfaced**: the current browser includes date navigation,
   day/week views, and the day timeline over the Pattern-A Postgres route.
