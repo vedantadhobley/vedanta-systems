@@ -643,6 +643,13 @@ space, short routes do not rubber-band, and date or disclosure changes keep the
 stable controls at the same viewport coordinates. The route-lifetime high-water
 pattern remains prohibited.
 
-**Deployment status.** Staged, not deployed.
+**Deployment status (2026-08-30).** Production runs frontend source `cf93eba`
+from image `sha256:03356e2077346417df5e89181334a497264d8c08944838165a08db71afbb7d54`
+and serves bundle `index-B39lHdz7.js`. Only the frontend container was
+recreated with `--no-deps`; the API container retained its prior image and
+start time. Public Chrome assertions pass for short-route overflow, reversible
+collapse scrolling, and date-boundary stability through snapshot settlement.
+The portal API and Found Footy health checks pass. Physical iPhone browser-bar
+behavior remains validating.
 
 ---
