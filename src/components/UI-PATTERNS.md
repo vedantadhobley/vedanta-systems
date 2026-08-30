@@ -211,10 +211,12 @@ const [controlsEnabled, setControlsEnabled] = useState(false)
 
 ## Mobile viewport and scrolling
 
-The document is the portal's sole vertical scroll owner. Do not recreate a
-page-sized fixed overflow container. Mobile WebKit relates its dynamic browser
-bars, visual viewport, keyboard, history restoration, and native scroll
-anchoring to document scroll.
+The document is the current production portal's sole vertical scroll owner.
+Do not recreate a page-sized fixed overflow container inside a project route.
+The target shell profiles and contained desktop/standalone experiment are
+defined in the [frontend shell plan](../../docs/plans/frontend-shell.md).
+Mobile WebKit relates its dynamic browser bars, visual viewport, keyboard,
+history restoration, and native scroll anchoring to document scroll.
 
 - Keep `viewport-fit=cover`, then apply every relevant
   `env(safe-area-inset-*)` value at the shell boundary.

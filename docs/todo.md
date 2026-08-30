@@ -105,18 +105,20 @@ The two-plane visual system is not part of this migration.
 
 ---
 
-## Paused — frontend visual and interaction re-foundation
+## Now — frontend shell and interaction re-foundation
 
 The [frontend re-foundation plan](./plans/frontend-refoundation.md) remains the
-authoritative architecture and sequence, but visual/component implementation
-is paused while the two-plane design language is developed separately.
+authoritative architecture and sequence. The
+[frontend shell plan](./plans/frontend-shell.md) now owns the first runtime
+slice. Visual component implementation remains paused until viewport, scroll,
+safe-area, and layout-stability ownership are proven.
 FF-077 has landed the Found Footy data foundation: backend-owned presentation,
 one fixture collection, targeted SSE updates, live/pinned intent, carryover,
 snapshot ordering, and recovery. Work resumes with route ownership, explicit
 freshness UI, stale search/shared-link cancellation, and the accessible
 interaction primitives.
 
-Then land shared input, focus, dialog, disclosure, and media primitives with
+Then land shared input, focus, dialog, disclosure, and media primitives before
 the first complete two-plane route slice. The
 [2026-08-19 frontend audit](./frontend-audit.md) and
 [2026-08-20 full-project audit](./full-project-audit-2026-08-20.md) own the
@@ -139,6 +141,18 @@ marking the behavior validated, verify on a physical iPhone that:
   the resulting dead space until the user scrolls away, and never accumulate
   unrelated blank height;
 - Found Footy search remains stable while the keyboard opens and closes.
+
+The production correction is an interim baseline, not the final shared shell.
+Next:
+
+- [ ] add opt-in viewport and safe-area diagnostics;
+- [ ] add desktop scroll-owner and structural-transition browser tests;
+- [ ] extract a visually unchanged `AppShell` and centralize bottom occlusion;
+- [ ] prototype the contained desktop and standalone scroll surface;
+- [ ] replace Found Footy's transient spacer with a shared layout transaction;
+- [ ] preserve an expanded competition only while its semantic ID survives
+  consecutive date snapshots; and
+- [ ] validate Safari, Chrome, and standalone behavior on a physical iPhone.
 
 ---
 

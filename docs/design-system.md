@@ -2,7 +2,9 @@
 
 Status: working guideline. This document defines the direction to prototype
 progressively on the current production interface. It does not approve a new
-shell, navigation model, font, palette, or motion timeline.
+visual shell, navigation model, font, palette, or motion timeline. The neutral
+behavioral shell is governed separately by the
+[frontend shell plan](./plans/frontend-shell.md).
 
 This document owns visual material and component anatomy. The
 [frontend re-foundation plan](./plans/frontend-refoundation.md) owns runtime,
@@ -386,8 +388,9 @@ component names are prototype inputs for review, not locked decisions.
 
 The current production interface is the baseline. The active sequence is in
 the [frontend re-foundation plan](./plans/frontend-refoundation.md); this list
-defines only the visual dependency order. Do not replace the shell or
-navigation while developing this system.
+defines only the visual dependency order. Do not replace the visual shell or
+navigation while developing this system. The behavioral shell may be
+refactored without visual change before this sequence resumes.
 
 1. Inventory one existing Found Footy fixture and classify each visible part
    as container-plane or data-plane.

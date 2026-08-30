@@ -26,6 +26,9 @@ Use this index to route project work before searching the full docs tree.
 - [Plans](./plans/README.md) — routing index for active and historical plans.
 - [Frontend re-foundation](./plans/frontend-refoundation.md) — active runtime,
   component-system, accessibility, and route-migration plan.
+- [Frontend shell and layout stability](./plans/frontend-shell.md) — active
+  viewport, scroll-owner, safe-area, bottom-navigation, and structural-handoff
+  contract.
 - [Frontend visual exploration log](./plans/frontend-redesign.md) — rejected
   shell studies and the instrument workbench record; not the active plan.
 - [Frontend audit](./frontend-audit.md) — 2026-08-19 runtime, input,

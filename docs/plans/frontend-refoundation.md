@@ -1,7 +1,8 @@
 # Frontend re-foundation
 
-Status: approved architecture; implementation paused while btop transport is
-active and the two-plane visual language is developed separately.
+Status: active. Found Footy's live-data foundation has landed. The shared
+shell and layout-stability foundation now precedes further visual component
+work.
 
 This is the authoritative implementation plan for the frontend rewrite. The
 current production interface remains the behavioral baseline until a migrated
@@ -31,6 +32,8 @@ have narrower jobs:
 - the [frontend audit](../frontend-audit.md) owns the dated evidence;
 - the [full-project audit](../full-project-audit-2026-08-20.md) owns the wider
   BFF, infrastructure, security, and documentation evidence;
+- the [frontend shell plan](./frontend-shell.md) owns viewport geometry,
+  safe areas, scroll ownership, fixed chrome, and structural handoffs;
 - the [Found Footy live-data contract](../found-footy-live-data.md) owns the
   current stream behavior and target reconciliation semantics;
 - the [design brief](../design.md) owns intent and confirmed product
@@ -190,11 +193,12 @@ and live-data ownership when testing shows the stream can remain open.
   restoration.
 - Preserve browser zoom. Meet focus, accessible-name, and list-structure
   requirements before a component enters the shared system.
-- Keep one document scroll owner. Apply safe-area insets at the shell boundary.
-  Disclosure collapse may retain exactly the removed height until the user
-  scrolls the complete retained region outside the viewport; do not trim it
-  continuously, use a route-lifetime height maximum, or let that temporary space
-  grow outside an announced transition.
+- Keep one shell-selected scroll owner. Touch browser tabs retain document
+  scrolling; desktop and validated standalone profiles may use a contained
+  main scroll surface so its scrollbar ends above application navigation.
+  Apply safe-area insets at the shell boundary. Structural changes use the
+  shared layout transaction in the [shell plan](./frontend-shell.md), not
+  route-local root CSS or a route-lifetime height maximum.
 - `prefers-reduced-motion` removes spatial sequencing and persistence while
   preserving state, hierarchy, and settled readability.
 
@@ -244,7 +248,17 @@ causes scroll lag or keeps the mobile radio awake fails the gate.
 - Expose transport and freshness as separate state.
 - Keep the current production markup while these invariants settle.
 
-### 2. Establish behavior primitives
+### 2. Establish the neutral shell and layout transaction
+
+- Extract viewport, scroll, safe-area, header, and bottom-navigation ownership
+  without changing the visual design or navigation hierarchy.
+- Add the viewport diagnostic and browser-mode acceptance harness.
+- Replace Found Footy's route-local transient spacer with the shared dynamic
+  region and layout transaction.
+- Preserve disclosures by semantic identity only while the item survives
+  consecutive committed views.
+
+### 3. Establish behavior primitives
 
 - Land accessible link/button, disclosure, dialog, date-navigation, and status
   primitives.
@@ -252,7 +266,7 @@ causes scroll lag or keeps the mobile radio awake fails the gate.
   regressing autoplay recovery or input-specific controls.
 - Verify touch, mouse, keyboard, focus restoration, and browser zoom.
 
-### 3. Complete the Found Footy visual slice
+### 4. Complete the Found Footy visual slice
 
 - Migrate one fixture through the container/data-plane anatomy first.
 - Cover compact, expanded, live, completed, staging, voided, searching,
@@ -264,7 +278,7 @@ causes scroll lag or keeps the mobile radio awake fails the gate.
 - Replace the route only after the whole surface passes behavior, visual,
   accessibility, and performance gates.
 
-### 4. Make route ownership complete
+### 5. Make route ownership complete
 
 - Lazy-load project surfaces and heavy modals.
 - Route-scope Spin Cycle and other project providers.
@@ -274,7 +288,7 @@ causes scroll lag or keeps the mobile radio awake fails the gate.
   ownership replaces them.
 - Enable Strict Mode after provider effects are replay-safe.
 
-### 5. Migrate the remaining instruments
+### 6. Migrate the remaining instruments
 
 - Use btop as the dense-renderer and color-system case.
 - Rebuild Long Exposure's timeline with accessible interaction and correct
@@ -317,7 +331,8 @@ The first route cannot ship until these scenarios pass:
 ## Non-goals for the first slice
 
 - A big-bang replacement of every route.
-- A new shell or navigation hierarchy.
+- A new visual shell or navigation hierarchy. The neutral behavioral shell is
+  part of the first foundation.
 - A React upgrade or framework migration.
 - Removing Tailwind or shadcn-related dependencies before their uses migrate.
 - Packaging the component system for hypothetical consumers.

@@ -101,7 +101,8 @@ Pattern A vs B is the central architectural call here — see
 - @README.md — public-facing project description
 - @docs/design.md — **the living design brief**: confirmed clarity/response constraints, working BR2049 × lavender-phosphor direction, references, and open questions. References and existing code are not authority.
 - @docs/design-system.md — working two-plane interface contract: crisp container plane above luminous phosphor data, composite controls, reusable primitives, and progressive adoption from the current UI
-- @docs/plans/frontend-refoundation.md — approved frontend architecture and migration gates; implementation is paused during btop transport work and further design-language development
+- @docs/plans/frontend-refoundation.md — active frontend architecture and migration gates; the neutral shell and layout-stability foundation precedes further visual component work
+- @docs/plans/frontend-shell.md — active viewport, scroll-owner, safe-area, bottom-navigation, and structural-handoff contract
 - @docs/plans/frontend-redesign.md — historical shell studies and instrument workbench log; not the active migration plan
 - @docs/frontend-audit.md — dated evidence for lifecycle, input, accessibility, performance, and component-boundary problems
 - @docs/full-project-audit-2026-08-20.md — first whole-project audit across frontend, BFF, security, deployment, dependencies, runtime, and docs

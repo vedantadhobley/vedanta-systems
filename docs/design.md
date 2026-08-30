@@ -9,8 +9,10 @@ and the existing implementation.
 The current implementation direction is the
 [two-plane interface design system](./design-system.md): crisp containers at
 the screen surface, with luminous data rendered beneath them. Develop it
-progressively from the current production UI. Do not infer a new shell or
-navigation design from the mood references in this brief.
+progressively from the current production UI. The neutral behavioral shell may
+be refactored first to enforce viewport, safe-area, scrolling, and transition
+correctness. Do not infer a new visual shell or navigation design from the mood
+references in this brief.
 
 The [frontend re-foundation plan](./plans/frontend-refoundation.md) governs
 how this language lands with live-data correctness, input, accessibility, and
@@ -242,8 +244,9 @@ or fiddly is failure.
   accessibility, selection, or responsive layout.
 - Preserving an existing component or pattern only because it has already
   been implemented.
-- Replacing the application shell before the component system has been proven
-  progressively on the current interface.
+- Replacing the visual shell or navigation before the component system has
+  been proven progressively on the current interface. A visually unchanged
+  behavioral shell may land first to enforce layout and input invariants.
 
 ## What the reference stills say, as a system
 
