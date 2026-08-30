@@ -20,10 +20,11 @@ import type { EventVideoPatch } from '../../lib/found-footy-live'
  *           → 302 presigned Garage URL → vs-api streams the bytes back
  *             (same-origin, Range-forwarded — Garage isn't browser-reachable).
  * Shares are **stable across replacement**: when a better clip supersedes an
- * older one, the share_id keeps resolving (found-footy walks the supersede
- * chain to the current live asset), so a shared link never dies — it
- * upgrades. A VAR-removed clip resolves 410; a never-minted id 404s. That's
- * why the shareable URL is the share_id, not the underlying object path.
+ * older one, the share_id keeps resolving through the supersede chain to the
+ * current live asset. That replacement guarantee is not permanent media
+ * retention. A removed or retention-reclaimed clip resolves 410; a
+ * never-minted id 404s. The share ID remains the durable identity even after
+ * its media bytes become unavailable.
  *
  * The adapter also owns timezone-offset `/dates` synthesis, search reshaping,
  * and the NATS→SSE bridge. The Go API now supplies `phase`,

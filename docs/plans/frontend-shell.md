@@ -196,6 +196,21 @@ For a Found Footy date transition:
 - A different competition occupying the same list index never inherits the
   old state.
 
+The competition key is reconciled after the new date snapshot commits. Nested
+fixture and event disclosure state clears when the canonical selected date
+changes; those details belong to the outgoing date. Skipping an empty date,
+manual navigation, live midnight rollover, and timezone-driven date changes
+all use this same rule.
+
+Automatic opening is explicit, not a general post-navigation heuristic:
+
+- a final remains open because its presentation policy is locked open; and
+- a shared-link navigation opens its target competition, fixture, and event
+  after the target date resolves.
+
+No other competition or fixture opens merely because it is first, live, or the
+only item on the new date unless a later product decision adds that behavior.
+
 This is **survival persistence**: state survives only while the keyed entity
 exists across consecutive committed views. Back/forward navigation may restore
 a prior view from explicit history state, but that is a separate contract and

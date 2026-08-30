@@ -139,8 +139,9 @@ function generateEventSubtitle(event) {
 
 // Generate OG HTML for a shared clip, keyed on the stable share_id.
 //
-// The share_id resolves to the CURRENT BEST clip (it self-upgrades when a better clip
-// supersedes an older one; 410 if VAR-removed, 404 if never minted). We point og:video at
+// The share_id resolves to the current best retained clip when a better clip
+// supersedes an older one. Removed or retention-reclaimed media returns 410;
+// never-minted shares return 404. We point og:video at
 // the shim's byte-streaming endpoint (`/api/found-footy/video/:shareId`) — a same-origin
 // HTTPS video/mp4 with Range support, which is exactly what iMessage/Twitter need for an
 // inline player. Because the OG URL is the *stable* share_id, we never re-mint per clip

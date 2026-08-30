@@ -318,15 +318,18 @@ The first route cannot ship until these scenarios pass:
 8. Rapid date and search changes cannot display an older response.
 9. Opening and closing a video cannot leave fixture data stale.
 10. The exact shared video route and ordinary clip opening preserve muted
-   autoplay recovery on iPhone Safari/Chrome and desktop Chrome.
-11. Mouse movement reveals desktop video controls; touch movement does not;
-   deliberate tap and keyboard focus do.
-12. Every disclosure and modal works by touch, mouse, and keyboard with visible
-   focus and correct focus restoration.
-13. Reduced motion and no-effect modes remain complete, readable interfaces.
-14. Hidden routes own no live connection or decorative render loop.
-15. The migrated route is at least as responsive and clear as production at
-   phone and desktop widths.
+    autoplay recovery on iPhone Safari/Chrome and desktop Chrome.
+11. A known reclaimed or removed share opens its retained fixture/event
+    context and reports that the video is unavailable; the raw media endpoint
+    remains `410` and never becomes an HTML redirect.
+12. Mouse movement reveals desktop video controls; touch movement does not;
+    deliberate tap and keyboard focus do.
+13. Every disclosure and modal works by touch, mouse, and keyboard with visible
+    focus and correct focus restoration.
+14. Reduced motion and no-effect modes remain complete, readable interfaces.
+15. Hidden routes own no live connection or decorative render loop.
+16. The migrated route is at least as responsive and clear as production at
+    phone and desktop widths.
 
 ## Non-goals for the first slice
 

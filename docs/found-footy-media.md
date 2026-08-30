@@ -29,6 +29,59 @@ A 2026-08-23 production sample returned `206`, delivered the first MiB in
 that sample and route, not every device or clip. Diagnose future reports by
 separating delivery timing from player-state classification.
 
+## Expired media and historical share context
+
+Found Footy retains fixture, event, candidate, asset, and share records after
+retention reclaims the Garage object. Targeted fixture and event reads can
+therefore recover historical context outside the ordinary public date window.
+The raw media resource deliberately remains a media resource:
+
+- active or superseded media returns bytes through the redirect and BFF;
+- reclaimed or removed media returns `410 Gone`; and
+- a never-minted share ID returns `404 Not Found`.
+
+Do not turn `/api/found-footy/video/<share-id>` into an HTML or application
+redirect. It is used as `<video src>` and by Open Graph video metadata.
+
+Current portal share URLs contain both `v=<event-id>` and `s=<share-id>`. The
+retained event ID is sufficient to request the historical context without a
+new share lookup. The current BFF does make those targeted event and fixture
+requests, but its `/event/<event-id>` adapter returns only the kickoff date.
+React then depends on the ordinary fixture snapshot, which excludes completed
+fixtures outside the public window. An old link can therefore navigate to the
+right date and still have no fixture to render.
+
+The consumer needs one targeted historical-context path that returns or inserts
+the retained fixture and target event independently of the public snapshot.
+It must also distinguish unavailable media from a retryable media failure,
+keep the fixture/event context open, and display **video no longer available**
+instead of a player retry loop.
+
+A separate Found Footy-owned share-context resource remains the preferred
+long-term contract. It allows the share ID to resolve both context and media
+availability without changing media delivery semantics. The public projection
+should expose frontend meaning rather than storage or supersession mechanics:
+
+```json
+{
+  "share_id": "s_abc123",
+  "media_state": "removed",
+  "fixture_id": 123,
+  "event_id": "00000000-0000-0000-0000-000000000000"
+}
+```
+
+`media_state` should be `available` or `removed`; active versus superseded is
+not a frontend distinction because both play through the stable media URL. A
+known removed share returns this representation successfully. An unknown share
+returns `404`. If Found Footy adds this endpoint, the BFF combines the returned
+IDs with targeted fixture/event reads. React resolves that historical
+projection before opening media. When the current URL already contains `v`,
+the same BFF path can use that event ID directly and consult the share resource
+only for authoritative media state. A later canonical share URL may then use
+only the share ID. The OG server must omit `og:video` for removed media while
+retaining historical page metadata.
+
 ## Required interaction contract
 
 - Every clip starts muted, inline, and requests autoplay at element
@@ -57,6 +110,9 @@ Keep these states distinct:
 | autoplay-blocked | newest `play()` promise rejected | **Play video** |
 | false-playing | unpaused timeline is stationary despite buffered future data | one startup-only reset |
 | media-error | media element exposes an error | **Retry video** |
+
+An authoritative `media_state: removed` is not `media-error`. It renders the
+historical context and unavailable message without mounting a retrying player.
 
 Stale play promises must not overwrite a newer state. Seeking, a deliberate
 pause, a hidden document, and an ended video are never false-playing evidence.

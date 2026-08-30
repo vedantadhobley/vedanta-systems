@@ -130,7 +130,8 @@ function isUnknownPlayer(player: { name: string | null } | null | undefined): bo
 
 // Extract the share_id from a clip URL (e.g. "s_8445a5f3a3dc" from ".../video/s_8445a5f3a3dc").
 // The share_id is the stable, shareable unit — it self-upgrades to the current best clip
-// (VAR-removed → 410, never-minted → 404), so a shared link never rots.
+// across replacement. Removed or retention-reclaimed media returns 410; a
+// never-minted share returns 404. Stable identity does not imply permanent bytes.
 function getShareId(url: string): string {
   const match = url.match(/\/video\/(s_[a-f0-9]+)/i)
   return match?.[1] || ''

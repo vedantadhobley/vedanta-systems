@@ -77,6 +77,20 @@ visual redesign.
   returns a valid `206 Partial Content` range through the BFF. Physical-device
   interaction testing remains the release gate.
 
+- [ ] Coordinate a Found Footy share-context read contract that returns
+  `media_state`, `fixture_id`, and `event_id` for a known share without changing
+  `/api/v1/videos/<share-id>` media semantics. Known reclaimed or removed media
+  remains `410` on the media route; unknown shares remain `404`.
+- [ ] Make retained GUI share links open their historical fixture/event and
+  show **video no longer available** for authoritative removed media. Do not
+  classify that terminal state as autoplay failure or a retryable media error.
+  The current BFF `/event/<event-id>` route discards the targeted fixture/event
+  projection after deriving its date, so an out-of-window link still cannot
+  render from the ordinary snapshot. Return a targeted historical projection
+  and keep it separate from the bounded public window.
+- [ ] Update crawler metadata to omit `og:video` when a known share is removed
+  while keeping the historical fixture/event page card.
+
 ---
 
 ## Now — native multi-node btop consumer migration
@@ -151,7 +165,9 @@ Next:
 - [ ] prototype the contained desktop and standalone scroll surface;
 - [ ] replace Found Footy's transient spacer with a shared layout transaction;
 - [ ] preserve an expanded competition only while its semantic ID survives
-  consecutive date snapshots; and
+  consecutive date snapshots; clear nested fixture/event state on canonical
+  date changes, with locked finals and explicit shared links as the only
+  current auto-open policies; and
 - [ ] validate Safari, Chrome, and standalone behavior on a physical iPhone.
 
 ---
