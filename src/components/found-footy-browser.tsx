@@ -869,24 +869,27 @@ function StagingFixtureItem({ fixture, formatKickoff, searchTeamMatch, roundOnly
         <RiHourglass2Line className="w-4 h-4 flex-shrink-0 text-corpo-text/50 group-hover:hidden" />
         <RiHourglass2Fill className="w-4 h-4 flex-shrink-0 text-corpo-text/50 hidden group-hover:block" />
         
-        {/* Fixture info - two lines like active fixtures */}
+        {/* Each row owns its right-hand content independently. The longer
+            schedule must not reserve that width beside the team names. */}
         <span className="flex-1 flex flex-col min-w-0">
-          {/* Teams with vs in middle (matching active fixture style without score) */}
-          <span className="truncate flex items-center">
-            <span>{teams.home.name}</span>
-            <span className="text-corpo-text/50 mx-2">vs</span>
-            <span>{teams.away.name}</span>
+          <span className="flex items-center gap-2 min-w-0">
+            <span className="truncate flex-1 min-w-0">
+              <span>{teams.home.name}</span>
+              <span className="text-corpo-text/50 mx-2">vs</span>
+              <span>{teams.away.name}</span>
+            </span>
+            <span className="text-corpo-text/60 flex-shrink-0 font-light" title={fixture.status.long}>
+              {formatFixtureIndicator(fixture)}
+            </span>
           </span>
-          {/* Competition line — full in search; just the matchweek in the grouped view */}
-          {competitionText && (
-            <span className={cn("text-sm truncate font-light", competitionText === 'Final' ? "text-lavender" : "text-corpo-text/40")}>{competitionText}</span>
-          )}
-        </span>
-
-        {/* Backend-selected status indicator with schedule context below. */}
-        <span className="text-corpo-text/60 flex-shrink-0 text-right font-light flex flex-col items-end">
-          <span title={fixture.status.long}>{formatFixtureIndicator(fixture)}</span>
-          <span className="text-corpo-text/40 text-sm tabular-nums">{kickoffTime} · {countdown}</span>
+          <span className="flex items-baseline gap-2 min-w-0 text-sm font-light">
+            {competitionText && (
+              <span className={cn("truncate flex-1 min-w-0", competitionText === 'Final' ? "text-lavender" : "text-corpo-text/40")}>{competitionText}</span>
+            )}
+            <span className="ml-auto text-corpo-text/40 flex-shrink-0 tabular-nums">
+              {kickoffTime}{countdown && ` · ${countdown}`}
+            </span>
+          </span>
         </span>
       </div>
     </div>
