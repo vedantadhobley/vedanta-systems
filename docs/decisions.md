@@ -653,3 +653,26 @@ The portal API and Found Footy health checks pass. Physical iPhone browser-bar
 behavior remains validating.
 
 ---
+
+## 2026-08-30 — Keep vertical document scrolling unconstrained
+
+**Context.** Applying `overscroll-behavior-y: none` to both `html` and `body`
+prevented trusted desktop wheel input from advancing the production document,
+despite measurable vertical overflow. A runtime comparison restored wheel
+scrolling immediately when both declarations returned to `auto`. The rule was
+introduced to suppress elastic movement on short iOS routes, but it changed the
+global scroll owner and broke content-rich routes.
+
+**Decision.** Remove the global vertical overscroll declarations. Keep only the
+horizontal overscroll constraint. Do not solve short-route bounce, standalone
+safe-area composition, or bottom-navigation geometry by constraining the
+document's vertical scroll behavior. Those concerns belong to the shared shell
+and must preserve native wheel, touch, keyboard, scrollbar, and browser-chrome
+behavior.
+
+**Consequences.** Desktop scrolling works again. Short-route elastic movement
+remains an explicit shell redesign concern rather than a global CSS side effect.
+
+**Deployment status.** Staged, not deployed.
+
+---

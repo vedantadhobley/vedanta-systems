@@ -122,7 +122,6 @@
     padding: 0;
     background-color: #000000;
     overflow-x: hidden;
-    overscroll-behavior-y: none;
     overscroll-behavior-x: none;
     -webkit-text-size-adjust: 100%;
     text-size-adjust: 100%;
@@ -136,7 +135,6 @@
     padding: 0;
     background-color: #000000;
     overflow-x: hidden;
-    overscroll-behavior-y: none;
     overscroll-behavior-x: none;
     -webkit-text-size-adjust: 100%;
     text-size-adjust: 100%;
