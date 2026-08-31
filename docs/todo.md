@@ -88,7 +88,10 @@ visual redesign.
   The current BFF `/event/<event-id>` route discards the targeted fixture/event
   projection after deriving its date, so an out-of-window link still cannot
   render from the ordinary snapshot. Return a targeted historical projection
-  and keep it separate from the bounded public window.
+  and keep it separate from the bounded public window. Retain it through
+  reload/reconnect while `v` remains present. Manual and empty-skipping date
+  navigation must push a clean history entry, release it, and allow Back and
+  Forward to restore both states.
 - [ ] Update crawler metadata to omit `og:video` when a known share is removed
   while keeping the historical fixture/event page card.
 

@@ -322,13 +322,17 @@ The first route cannot ship until these scenarios pass:
 11. A known reclaimed or removed share opens its retained fixture/event
     context and reports that the video is unavailable; the raw media endpoint
     remains `410` and never becomes an HTML redirect.
-12. Mouse movement reveals desktop video controls; touch movement does not;
+12. A shared target survives reload, wake, and reconnect while `v` remains in
+    the URL. Manual or empty-skipping date navigation pushes a clean history
+    entry and releases it; Back restores the shared target and Forward restores
+    the selected clean-date state.
+13. Mouse movement reveals desktop video controls; touch movement does not;
     deliberate tap and keyboard focus do.
-13. Every disclosure and modal works by touch, mouse, and keyboard with visible
+14. Every disclosure and modal works by touch, mouse, and keyboard with visible
     focus and correct focus restoration.
-14. Reduced motion and no-effect modes remain complete, readable interfaces.
-15. Hidden routes own no live connection or decorative render loop.
-16. The migrated route is at least as responsive and clear as production at
+15. Reduced motion and no-effect modes remain complete, readable interfaces.
+16. Hidden routes own no live connection or decorative render loop.
+17. The migrated route is at least as responsive and clear as production at
     phone and desktop widths.
 
 ## Non-goals for the first slice

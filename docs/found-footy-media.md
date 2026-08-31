@@ -57,6 +57,24 @@ It must also distinguish unavailable media from a retryable media failure,
 keep the fixture/event context open, and display **video no longer available**
 instead of a player retry loop.
 
+The `v=<event-id>` query owns that targeted projection:
+
+- while `v` remains present, reload, reconnect, wake, and snapshot replacement
+  retain or reacquire the targeted fixture and event outside the bounded public
+  window;
+- resolving `v` selects the fixture's timezone-local date, then opens the
+  target competition, fixture, and event after the projection commits;
+- deliberate date navigation creates a clean history entry without `v` or
+  `s`, releases the targeted projection, and resets disclosure for the chosen
+  date; and
+- browser Back restores the shared URL and reacquires its target. Forward must
+  restore the clean date entry, so the selected date belongs in route history
+  state or an explicit URL value rather than only transient React state.
+
+Skipping an empty date is deliberate date navigation and follows the same
+cleanup. A reconnect or ordinary fixture snapshot is not a date choice and
+must not discard a target while `v` remains present.
+
 A new Found Footy context endpoint is not required for current portal links.
 The existing `v=<event-id>` identifies the retained event, and the existing
 targeted event and fixture reads provide its history. The BFF must preserve
