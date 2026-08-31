@@ -724,3 +724,28 @@ verification remains blocked by Found Footy's existing development
 migration-chain drift.
 
 ---
+
+## 2026-08-31 — Keep local media overlays orthogonal to fixture disclosure
+
+**Context.** The retained-share implementation routed every `v` and `s` URL
+change through historical-target resolution. A local clip click already had a
+rendered fixture and open disclosure path, but its shareable URL replacement
+was misclassified as a direct share entry. The shared-target loading and
+auto-open effects then collapsed and reconstructed the accordion under the
+modal, changing layout and scroll position.
+
+**Decision.** Keep one video modal and player with two entry adapters. Mark an
+exact event/share URL replacement initiated by the mounted browser as local and
+skip retained-target resolution and disclosure reconstruction for that entry.
+Reset disclosure only for an actual canonical date change. Keep the marker in
+memory only; clear it on date navigation or route exit so reload, new-tab, and
+later history restoration use the full retained-share path.
+
+**Consequences.** A local video click changes only modal state and its
+shareable URL. The existing competition, fixture, event, and document position
+remain stable. Direct and restored links still fetch out-of-window context,
+select the correct date, expand the target path, and open the same player.
+
+**Deployment status.** Implemented on the feature branch; not yet deployed.
+
+---

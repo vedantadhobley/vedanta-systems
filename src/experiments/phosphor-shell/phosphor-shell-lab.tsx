@@ -117,6 +117,7 @@ function FoundFootySurface() {
         isLoading={isLoading}
         isChangingDate={isChangingDate}
         initialVideo={initialVideo}
+        hasVideoRoute={initialVideo !== null}
         onPauseStream={pauseStream}
         onResumeStream={resumeStream}
         currentDate={currentDate}

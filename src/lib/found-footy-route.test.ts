@@ -5,6 +5,7 @@ import {
   foundFootyDateUrl,
   foundFootyVideoUrl,
   isCalendarDate,
+  isSameFoundFootyVideo,
   readFoundFootyRoute,
 } from './found-footy-route'
 
@@ -35,4 +36,22 @@ test('invalid calendar dates fall back to today', () => {
   assert.equal(isCalendarDate('2026-02-29'), false)
   assert.equal(isCalendarDate('2028-02-29'), true)
   assert.equal(readFoundFootyRoute('?d=2026-13-99', '2026-08-30', 'entry').cleanDate, '2026-08-30')
+})
+
+test('local video identity requires the exact event and share pair', () => {
+  const route = readFoundFootyRoute(
+    '?v=event-id&s=s_5b7b39d48133',
+    '2026-08-30',
+    'local-entry',
+  )
+
+  assert.equal(isSameFoundFootyVideo(route.target, {
+    eventId: 'event-id',
+    shareId: 's_5b7b39d48133',
+  }), true)
+  assert.equal(isSameFoundFootyVideo(route.target, {
+    eventId: 'event-id',
+    shareId: 's_different000',
+  }), false)
+  assert.equal(isSameFoundFootyVideo(route.target, null), false)
 })

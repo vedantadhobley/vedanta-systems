@@ -24,6 +24,20 @@ body without nginx buffering. Entry-path differences occur before the modal:
 a shared link resolves and navigates to its event first; an ordinary click
 already has the clip URL. They must not produce different player behavior.
 
+Those entry paths also have different disclosure responsibilities while using
+the same modal and player:
+
+- a local clip click starts from an already rendered event. It updates the
+  shareable `v` and `s` URL but must not resolve a historical target, change
+  date intent, reset disclosure, or move the document; and
+- a direct, reloaded, or history-restored share has no trustworthy in-memory
+  fixture path. It resolves the retained target, selects its date, reconstructs
+  the competition/fixture/event disclosure, and then opens the same modal.
+
+The local-origin marker is exact to the event/share pair and exists only for
+the mounted route. A date action or route exit clears it. Reload, a new tab,
+and a later Back/Forward restoration therefore use the full shared-link path.
+
 A 2026-08-23 production sample returned `206`, delivered the first MiB in
 0.31–0.35 seconds, and had a 0.11–0.13 second time to first byte. This proves
 that sample and route, not every device or clip. Diagnose future reports by
@@ -116,6 +130,8 @@ and omits `og:video` for removed or unknown media while retaining page metadata.
 
 - Every clip starts muted, inline, and requests autoplay at element
   initialization.
+- Opening a local clip changes only modal state and its shareable URL. It does
+  not change competition, fixture, or event disclosure or document position.
 - Native controls start hidden.
 - A deliberate touch tap reveals controls on mobile. Actual mouse movement
   reveals them on desktop. Keyboard focus also reveals them.

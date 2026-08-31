@@ -210,6 +210,11 @@ const [controlsEnabled, setControlsEnabled] = useState(false)
    share renders **video no longer available** and an unknown share renders
    **video not found**. Neither state mounts `<video>` or exposes Retry,
    download, or unmute controls.
+9. **Overlay launch preserves its source layout:** opening media from an
+   existing fixture changes only modal state and the shareable URL. It must not
+   collapse, expand, reorder, or scroll the disclosure tree underneath it. A
+   direct or restored share may reconstruct missing disclosure before opening
+   the same modal.
 
 ---
 

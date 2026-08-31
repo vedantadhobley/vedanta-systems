@@ -194,6 +194,7 @@ interface FoundFootyBrowserProps {
   isLoading: boolean  // True until first SSE data received
   isChangingDate?: boolean  // True during date navigation (prevents scroll reset)
   initialVideo?: InitialVideoParams | null  // From URL params
+  hasVideoRoute: boolean  // URL has v; local opens must not run shared-link reconstruction
   onPauseStream?: () => void   // Called when video modal opens
   onResumeStream?: () => void  // Called when video modal closes
   // Calendar navigation
@@ -219,6 +220,7 @@ export function FoundFootyBrowser({
   isLoading,
   isChangingDate,
   initialVideo,
+  hasVideoRoute,
   onPauseStream,
   onResumeStream,
   currentDate,
@@ -458,8 +460,13 @@ export function FoundFootyBrowser({
     }
   }, [isChangingDate, currentFilteredFixtures])
   
-  // Close expanded fixture and video when date changes to prevent stale references
+  // Disclosure belongs to the selected date, not to video-route changes. A
+  // local clip updates v/s while the existing accordion remains authoritative.
+  const previousDateRef = useRef(currentDate)
   useEffect(() => {
+    const previousDate = previousDateRef.current
+    previousDateRef.current = currentDate
+    if (previousDate === currentDate) return
     if (initialVideo && sharedTargetStatus === 'ready' && sharedTarget) return
     setExpandedCompetition(null)
     setExpandedFixture(null)
@@ -471,7 +478,7 @@ export function FoundFootyBrowser({
   // so currentDate alone cannot detect that transition. Route intent owns this
   // reset; Back can then reopen the target and Forward restores a closed date.
   useEffect(() => {
-    if (initialVideo) return
+    if (hasVideoRoute) return
     autoOpenedTargetRef.current = null
     setExpandedCompetition(null)
     setExpandedFixture(null)
@@ -480,7 +487,7 @@ export function FoundFootyBrowser({
       if (current && (current.mediaState || 'available') === 'available') onResumeStream?.()
       return null
     })
-  }, [initialVideo, onResumeStream])
+  }, [hasVideoRoute, onResumeStream])
   
   // During date change, show old fixtures to prevent layout collapse
   // Once new data arrives (isChangingDate becomes false), show new fixtures
