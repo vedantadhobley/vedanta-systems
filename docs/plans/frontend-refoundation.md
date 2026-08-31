@@ -322,10 +322,11 @@ The first route cannot ship until these scenarios pass:
 11. A known reclaimed or removed share opens its retained fixture/event
     context and reports that the video is unavailable; the raw media endpoint
     remains `410` and never becomes an HTML redirect.
-12. A shared target survives reload, wake, and reconnect while `v` remains in
-    the URL. Manual or empty-skipping date navigation pushes a clean history
-    entry and releases it; Back restores the shared target and Forward restores
-    the selected clean-date state.
+12. A shared target survives reload, wake, reconnect, midnight, timezone
+    recomputation, and its own programmatic date switch while `v` remains in
+    the URL. A user date action—including its skip to the next non-empty
+    date—pushes a clean history entry and releases it; Back restores the shared
+    target and Forward restores the selected clean-date state.
 13. Mouse movement reveals desktop video controls; touch movement does not;
     deliberate tap and keyboard focus do.
 14. Every disclosure and modal works by touch, mouse, and keyboard with visible

@@ -64,16 +64,20 @@ The `v=<event-id>` query owns that targeted projection:
   window;
 - resolving `v` selects the fixture's timezone-local date, then opens the
   target competition, fixture, and event after the projection commits;
-- deliberate date navigation creates a clean history entry without `v` or
+- a user-initiated date action creates a clean history entry without `v` or
   `s`, releases the targeted projection, and resets disclosure for the chosen
   date; and
 - browser Back restores the shared URL and reacquires its target. Forward must
   restore the clean date entry, so the selected date belongs in route history
   state or an explicit URL value rather than only transient React state.
 
-Skipping an empty date is deliberate date navigation and follows the same
-cleanup. A reconnect or ordinary fixture snapshot is not a date choice and
-must not discard a target while `v` remains present.
+When a user presses a date control and it selects the next non-empty date, that
+skip is one user-initiated date action and follows the same cleanup. The
+programmatic date switch that resolves `v` preserves `v`, `s`, and the targeted
+projection even when the target crosses empty dates. Reconnect, ordinary
+snapshot replacement, midnight, and timezone recomputation are also not user
+date choices and cannot discard a target while `v` remains present. The shared
+target overrides normal live-date advancement until the user leaves it.
 
 A new Found Footy context endpoint is not required for current portal links.
 The existing `v=<event-id>` identifies the retained event, and the existing
@@ -81,9 +85,12 @@ targeted event and fixture reads provide its history. The BFF must preserve
 that projection instead of reducing it to a date.
 
 React still needs authoritative media availability before it can distinguish
-retention from a retryable player error. The BFF can derive that from the
-existing media endpoint without following its `302` redirect and expose a
-small frontend projection without changing Found Footy's API:
+retention from a retryable player error. The BFF sends a server-side `GET` to
+the existing media endpoint with redirect following disabled. Found Footy's
+`302` means available, `410` means removed, and `404` means unknown. Because
+the BFF does not follow the `302`, it never requests the Garage bytes during
+this probe. It exposes a small frontend projection without changing Found
+Footy's API:
 
 ```json
 {

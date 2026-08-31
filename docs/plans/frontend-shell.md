@@ -214,11 +214,14 @@ model it as an explicit competition focus or filter with visible state and URL
 semantics, not as retained disclosure state. Back/forward navigation may
 restore explicit history state under its own contract.
 
-For a shared target, `v=<event-id>` is that explicit history state. Deliberate
-date navigation pushes a clean entry, releases the target, and resets
-disclosure. Back navigation restores `v`, its out-of-window projection, and
-its explicit opening. Reconnect and snapshot replacement do not count as date
-navigation and cannot clear it.
+For a shared target, `v=<event-id>` is that explicit history state. Only a
+user-initiated date action pushes a clean entry, releases the target, and
+clears `v` plus `s`. Back navigation restores `v`, its out-of-window
+projection, and its explicit opening. The programmatic date switch used to
+resolve the target preserves them even across empty dates. Reconnect, snapshot
+replacement, midnight, and timezone recomputation also cannot clear them. Any
+selected-date change may reset disclosure geometry first; the retained shared
+intent then explicitly reopens its target after the new projection commits.
 
 The one-open-at-a-time Found Footy policy remains until a product requirement
 changes it.

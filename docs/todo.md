@@ -79,9 +79,11 @@ visual redesign.
 
 - [ ] Add a BFF historical-share projection for the current `v` plus `s` URL.
   Preserve the targeted fixture/event instead of reducing it to a date, and
-  derive `media_state` from the existing Found Footy media response without
-  following an available share's `302`. No new Found Footy endpoint is needed
-  unless a later canonical URL removes `v` and keeps only the share ID.
+  derive `media_state` with a server-side `GET` to the existing Found Footy
+  media route with redirects disabled: `302` available, `410` removed, `404`
+  unknown. Do not follow the Garage redirect or download media. No new Found
+  Footy endpoint is needed unless a later canonical URL removes `v` and keeps
+  only the share ID.
 - [ ] Make retained GUI share links open their historical fixture/event and
   show **video no longer available** for authoritative removed media. Do not
   classify that terminal state as autoplay failure or a retryable media error.
@@ -89,9 +91,10 @@ visual redesign.
   projection after deriving its date, so an out-of-window link still cannot
   render from the ordinary snapshot. Return a targeted historical projection
   and keep it separate from the bounded public window. Retain it through
-  reload/reconnect while `v` remains present. Manual and empty-skipping date
-  navigation must push a clean history entry, release it, and allow Back and
-  Forward to restore both states.
+  reload, reconnect, midnight, timezone changes, and its programmatic date
+  switch while `v` remains present. Only a user date action—including a skip
+  to the next non-empty date—pushes a clean history entry and releases it.
+  Back and Forward restore both states.
 - [ ] Update crawler metadata to omit `og:video` when a known share is removed
   while keeping the historical fixture/event page card.
 
