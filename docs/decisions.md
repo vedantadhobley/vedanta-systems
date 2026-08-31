@@ -709,9 +709,18 @@ terminal presentation states and never enter autoplay recovery. The current
 Found Footy media endpoint cannot prove that an arbitrary `s` belongs to `v`;
 strict pair validation would require a later producer contract.
 
-**Deployment status.** Implemented and verified on the feature branch; not yet
-deployed. The production bundle and focused consumer tests pass. Live
-development browser verification is blocked by Found Footy's existing
-development migration-chain drift.
+**Deployment status (2026-08-31).** Production runs the implementation from
+`e8dc75e`. The frontend and API were rebuilt and recreated with `--no-deps`;
+btop, Found Footy, NATS, databases, and the proxy stack were untouched. The
+frontend image is
+`sha256:a77ed0a8913459ae48830f3ff6193d808a441dd6344c1cef99bd023dd3836ac9`,
+the API image is
+`sha256:3dea7242dde9a02a12c23c7e7744212cf8d1e1874952f49d8c343ea0e311d710`,
+and production serves `index-DQk5n_lG.js`. Portal and Found Footy health pass;
+both NATS bridges reconnected; the exact retained share resolves its fixture,
+event, and available media; and the crawler path emits matching video metadata.
+Physical-device interaction remains validating. Live development browser
+verification remains blocked by Found Footy's existing development
+migration-chain drift.
 
 ---
