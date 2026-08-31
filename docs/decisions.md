@@ -755,3 +755,29 @@ start times. Public portal and Found Footy health checks pass. Interactive
 accordion and scroll preservation remains validating in the browser.
 
 ---
+
+## 2026-08-31 — Reflect local media URLs without route navigation
+
+**Context.** The local-origin marker prevented retained-target resolution and
+disclosure reconstruction, but the local clip handler still called React
+Router for its clean-URL-to-video-URL replacement. Opening an overlay was
+therefore still represented as navigation. Mobile browsers could change the
+document position on that first route transition even though application code
+did not request a scroll.
+
+**Decision.** A clip selected from the rendered fixture tree opens only local
+modal state. Reflect its shareable `v` and `s` URL with
+`window.history.replaceState`, preserving the existing history state object,
+and do not notify React Router. Keep direct entry, reload, new-tab, and
+Back/Forward restoration on the routed retained-target path.
+
+**Consequences.** Local media opening cannot run route effects, reset
+disclosure, or invoke router scroll behavior. The address bar remains
+shareable. A real history restoration still reconstructs the retained fixture,
+event, disclosure path, and player. This supersedes the in-memory local-origin
+marker mechanism from the preceding decision; the one-player/two-entry-adapter
+model remains unchanged.
+
+**Deployment status.** Not deployed.
+
+---

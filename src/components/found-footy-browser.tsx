@@ -194,7 +194,7 @@ interface FoundFootyBrowserProps {
   isLoading: boolean  // True until first SSE data received
   isChangingDate?: boolean  // True during date navigation (prevents scroll reset)
   initialVideo?: InitialVideoParams | null  // From URL params
-  hasVideoRoute: boolean  // URL has v; local opens must not run shared-link reconstruction
+  hasSharedVideoRoute: boolean  // Router entry has v; local overlay URL reflection does not
   onPauseStream?: () => void   // Called when video modal opens
   onResumeStream?: () => void  // Called when video modal closes
   // Calendar navigation
@@ -220,7 +220,7 @@ export function FoundFootyBrowser({
   isLoading,
   isChangingDate,
   initialVideo,
-  hasVideoRoute,
+  hasSharedVideoRoute,
   onPauseStream,
   onResumeStream,
   currentDate,
@@ -478,7 +478,7 @@ export function FoundFootyBrowser({
   // so currentDate alone cannot detect that transition. Route intent owns this
   // reset; Back can then reopen the target and Forward restores a closed date.
   useEffect(() => {
-    if (hasVideoRoute) return
+    if (hasSharedVideoRoute) return
     autoOpenedTargetRef.current = null
     setExpandedCompetition(null)
     setExpandedFixture(null)
@@ -487,7 +487,7 @@ export function FoundFootyBrowser({
       if (current && (current.mediaState || 'available') === 'available') onResumeStream?.()
       return null
     })
-  }, [hasVideoRoute, onResumeStream])
+  }, [hasSharedVideoRoute, onResumeStream])
   
   // During date change, show old fixtures to prevent layout collapse
   // Once new data arrives (isChangingDate becomes false), show new fixtures

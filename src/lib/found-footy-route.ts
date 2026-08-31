@@ -4,24 +4,9 @@ export interface FoundFootyRouteTarget {
   navigationKey: string
 }
 
-export interface FoundFootyVideoIdentity {
-  eventId: string
-  shareId?: string
-}
-
 export interface FoundFootyRouteSelection {
   target: FoundFootyRouteTarget | null
   cleanDate: string
-}
-
-export function isSameFoundFootyVideo(
-  routeTarget: FoundFootyRouteTarget | null,
-  video: FoundFootyVideoIdentity | null,
-): boolean {
-  return routeTarget !== null &&
-    video !== null &&
-    routeTarget.eventId === video.eventId &&
-    routeTarget.shareId === video.shareId
 }
 
 export function isCalendarDate(value: string): boolean {
@@ -56,4 +41,12 @@ export function foundFootyDateUrl(date: string, today: string): string {
 
 export function foundFootyVideoUrl(eventId: string, shareId: string): string {
   return `/workspace/found-footy?v=${encodeURIComponent(eventId)}&s=${encodeURIComponent(shareId)}`
+}
+
+export function reflectFoundFootyVideoUrl(
+  history: Pick<History, 'state' | 'replaceState'>,
+  eventId: string,
+  shareId: string,
+): void {
+  history.replaceState(history.state, '', foundFootyVideoUrl(eventId, shareId))
 }

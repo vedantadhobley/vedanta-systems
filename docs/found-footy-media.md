@@ -34,9 +34,11 @@ the same modal and player:
   fixture path. It resolves the retained target, selects its date, reconstructs
   the competition/fixture/event disclosure, and then opens the same modal.
 
-The local-origin marker is exact to the event/share pair and exists only for
-the mounted route. A date action or route exit clears it. Reload, a new tab,
-and a later Back/Forward restoration therefore use the full shared-link path.
+A local clip open reflects its shareable `v` and `s` values with native history
+replacement while preserving React Router's history metadata. It does not
+dispatch a route transition, rerun retained-target resolution, or alter the
+document position. Reload, a new tab, and a later Back/Forward restoration do
+enter through React Router and therefore use the full shared-link path.
 
 A 2026-08-23 production sample returned `206`, delivered the first MiB in
 0.31–0.35 seconds, and had a 0.11–0.13 second time to first byte. This proves

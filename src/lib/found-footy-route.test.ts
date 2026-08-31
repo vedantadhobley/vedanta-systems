@@ -5,8 +5,8 @@ import {
   foundFootyDateUrl,
   foundFootyVideoUrl,
   isCalendarDate,
-  isSameFoundFootyVideo,
   readFoundFootyRoute,
+  reflectFoundFootyVideoUrl,
 } from './found-footy-route'
 
 test('shared target owns route intent even when a clean date is also present', () => {
@@ -38,20 +38,21 @@ test('invalid calendar dates fall back to today', () => {
   assert.equal(readFoundFootyRoute('?d=2026-13-99', '2026-08-30', 'entry').cleanDate, '2026-08-30')
 })
 
-test('local video identity requires the exact event and share pair', () => {
-  const route = readFoundFootyRoute(
-    '?v=event-id&s=s_5b7b39d48133',
-    '2026-08-30',
-    'local-entry',
-  )
+test('local video URL reflection preserves router history state', () => {
+  const routerState = { idx: 4, key: 'route-key' }
+  let replacement: { state: unknown; unused: string; url?: string | URL | null } | null = null
+  const history = {
+    state: routerState,
+    replaceState(state: unknown, unused: string, url?: string | URL | null) {
+      replacement = { state, unused, url }
+    },
+  }
 
-  assert.equal(isSameFoundFootyVideo(route.target, {
-    eventId: 'event-id',
-    shareId: 's_5b7b39d48133',
-  }), true)
-  assert.equal(isSameFoundFootyVideo(route.target, {
-    eventId: 'event-id',
-    shareId: 's_different000',
-  }), false)
-  assert.equal(isSameFoundFootyVideo(route.target, null), false)
+  reflectFoundFootyVideoUrl(history, 'event/id', 's_5b7b39d48133')
+
+  assert.deepEqual(replacement, {
+    state: routerState,
+    unused: '',
+    url: '/workspace/found-footy?v=event%2Fid&s=s_5b7b39d48133',
+  })
 })

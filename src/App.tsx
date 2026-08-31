@@ -14,10 +14,8 @@ import { ProjectStatus } from '@/components/project-status'
 import { BtopMonitor } from '@/components/btop-monitor'
 import {
   foundFootyDateUrl,
-  foundFootyVideoUrl,
-  isSameFoundFootyVideo,
   readFoundFootyRoute,
-  type FoundFootyVideoIdentity,
+  reflectFoundFootyVideoUrl,
 } from '@/lib/found-footy-route'
 import { FootyStreamProvider, useFootyStream } from '@/contexts/FootyStreamContext'
 import { SpinCycleStreamProvider, useSpinCycleStream } from '@/contexts/SpinCycleStreamContext'
@@ -315,29 +313,24 @@ function FoundFootyContent() {
   const navigate = useNavigate()
   const { getToday } = useTimezone()
   const today = getToday()
-  const locallyOpenedVideoRef = useRef<FoundFootyVideoIdentity | null>(null)
   
   const routeSelection = useMemo(
     () => readFoundFootyRoute(location.search, today, location.key),
     [location.search, location.key, today],
   )
   const routeTarget = routeSelection.target
-  const isLocalVideoRoute = isSameFoundFootyVideo(routeTarget, locallyOpenedVideoRef.current)
-  const initialVideo = isLocalVideoRoute ? null : routeTarget
+  const initialVideo = routeTarget
   const eventId = routeTarget?.eventId
   const shareId = routeTarget?.shareId
   const cleanDate = routeSelection.cleanDate
 
   useEffect(() => {
     if (eventId) {
-      if (isLocalVideoRoute) return
-      locallyOpenedVideoRef.current = null
       void resolveSharedTarget(eventId, shareId)
       return
     }
-    locallyOpenedVideoRef.current = null
     clearSharedTarget()
-  }, [location.key, eventId, shareId, isLocalVideoRoute, resolveSharedTarget, clearSharedTarget])
+  }, [location.key, eventId, shareId, resolveSharedTarget, clearSharedTarget])
 
   useEffect(() => {
     const desiredIntent = cleanDate === today ? 'live' : 'pinned'
@@ -346,20 +339,15 @@ function FoundFootyContent() {
   }, [eventId, cleanDate, currentDate, dateIntent, today, setDate])
 
   const handleSelectDate = useCallback((date: string) => {
-    locallyOpenedVideoRef.current = null
     navigate(foundFootyDateUrl(date, today))
   }, [navigate, today])
 
   const handleOpenVideoRoute = useCallback((targetEventId: string, targetShareId: string) => {
-    locallyOpenedVideoRef.current = {
-      eventId: targetEventId,
-      shareId: targetShareId,
-    }
-    navigate(
-      foundFootyVideoUrl(targetEventId, targetShareId),
-      { replace: true },
-    )
-  }, [navigate])
+    // A local clip opens an overlay; it is not navigation. Reflect the
+    // shareable URL without notifying React Router or changing page layout.
+    // Preserve Router's history metadata so later PUSH/POP navigation works.
+    reflectFoundFootyVideoUrl(window.history, targetEventId, targetShareId)
+  }, [])
   
   return (
     <>
@@ -373,7 +361,7 @@ function FoundFootyContent() {
         isLoading={isLoading}
         isChangingDate={isChangingDate}
         initialVideo={initialVideo}
-        hasVideoRoute={routeTarget !== null}
+        hasSharedVideoRoute={routeTarget !== null}
         onPauseStream={pauseStream}
         onResumeStream={resumeStream}
         currentDate={currentDate}
