@@ -40,6 +40,22 @@ dispatch a route transition, rerun retained-target resolution, or alter the
 document position. Reload, a new tab, and a later Back/Forward restoration do
 enter through React Router and therefore use the full shared-link path.
 
+This split is intentional architecture, not a scroll workaround. During a
+local overlay session, `v` and `s` are reflected share metadata; React Router's
+location remains the source route. Do not reintroduce an in-memory origin
+marker, route navigation, delayed scroll restoration, or device-specific
+branch for this case. If the product later requires Back to close a locally
+opened player, replace this contract with an explicit background-location
+modal route rather than partially synchronizing Router with the reflected URL.
+
+The current fix does not make `VideoModal` the reusable site-wide dialog
+primitive. The frontend re-foundation must still provide top-layer or portal
+ownership, background inertness, scroll locking that preserves the active
+shell scroll owner, focus entry and containment, Escape and dismiss behavior,
+and focus restoration. URL reflection and routed-entry reconstruction remain
+route-adapter responsibilities outside that dialog primitive. See the
+[frontend re-foundation plan](./plans/frontend-refoundation.md#3-establish-behavior-primitives).
+
 A 2026-08-23 production sample returned `206`, delivered the first MiB in
 0.31–0.35 seconds, and had a 0.11–0.13 second time to first byte. This proves
 that sample and route, not every device or clip. Diagnose future reports by
@@ -134,6 +150,8 @@ and omits `og:video` for removed or unknown media while retaining page metadata.
   initialization.
 - Opening a local clip changes only modal state and its shareable URL. It does
   not change competition, fixture, or event disclosure or document position.
+- Local URL reflection is not navigation. Direct entry, reload, and history
+  restoration are navigation and must reconstruct retained context.
 - Native controls start hidden.
 - A deliberate touch tap reveals controls on mobile. Actual mouse movement
   reveals them on desktop. Keyboard focus also reveals them.

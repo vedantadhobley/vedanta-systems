@@ -168,6 +168,11 @@ Next:
 - [x] extract a visually unchanged `AppShell` and centralize bottom occlusion;
 - [ ] prototype the contained desktop and standalone scroll surface;
 - [ ] replace Found Footy's transient spacer with a shared layout transaction;
+- [ ] extract a shared dialog/overlay primitive with portal or top-layer
+  ownership, background inertness, focus containment/restoration, and
+  shell-aware scroll locking. Keep URL reflection in route adapters. Preserve
+  Found Footy's production distinction between local overlay opening and
+  routed shared-link reconstruction;
 - [x] reset competition, fixture, and event disclosure on every canonical date
   change, including skipped empty dates. The current frontend already does
   this; locked finals and explicit shared links remain the only auto-open

@@ -189,8 +189,14 @@ and live-data ownership when testing shows the stream can remain open.
   input from viewport width or user agent.
 - Make touch, mouse, and keyboard paths explicit. Hybrid devices follow the
   active input.
-- Every modal owns focus entry, containment, Escape, close action, and focus
-  restoration.
+- Every modal owns top-layer or portal placement, background inertness, focus
+  entry and containment, Escape, close action, scroll locking against the
+  shell-selected scroll owner, and exact focus and scroll restoration.
+- Keep overlay state separate from route state. A local overlay may reflect a
+  shareable URL without notifying the router when Back is not its close
+  control. Direct entry, reload, and history restoration remain routed entry
+  paths. The route adapter owns that distinction; the reusable dialog must not
+  interpret project query parameters.
 - Preserve browser zoom. Meet focus, accessible-name, and list-structure
   requirements before a component enters the shared system.
 - Keep one shell-selected scroll owner. Touch browser tabs retain document
@@ -263,6 +269,15 @@ causes scroll lag or keeps the mobile radio awake fails the gate.
 
 - Land accessible link/button, disclosure, dialog, date-navigation, and status
   primitives.
+- Give the dialog primitive top-layer or portal ownership, an inert background,
+  focus containment and restoration, Escape and dismiss semantics, and scroll
+  locking that preserves the shell's exact position across touch, desktop, and
+  standalone scroll profiles.
+- Define a route-adapter contract for local overlays versus routed entry.
+  Preserve Found Footy's current invariant: a local clip changes modal state
+  and reflects a share URL without a router transition; direct, reloaded, and
+  history-restored shares reconstruct route context. If Back-to-close becomes
+  a requirement, migrate deliberately to a background-location modal route.
 - Move the video modal onto the shared dialog and media contracts without
   regressing autoplay recovery or input-specific controls.
 - Verify touch, mouse, keyboard, focus restoration, and browser zoom.
@@ -336,6 +351,9 @@ The first route cannot ship until these scenarios pass:
 16. Hidden routes own no live connection or decorative render loop.
 17. The migrated route is at least as responsive and clear as production at
     phone and desktop widths.
+18. The first local open of every clip preserves the exact disclosure and
+    document position while reflecting a shareable URL. Direct, reloaded, and
+    restored shares still reconstruct and open their retained fixture/event.
 
 ## Non-goals for the first slice
 

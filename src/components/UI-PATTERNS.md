@@ -215,6 +215,12 @@ const [controlsEnabled, setControlsEnabled] = useState(false)
    collapse, expand, reorder, or scroll the disclosure tree underneath it. A
    direct or restored share may reconstruct missing disclosure before opening
    the same modal.
+10. **Local URL reflection is not navigation:** use native history replacement
+    while preserving Router metadata; do not dispatch a route transition or
+    repair its scroll afterward. Reload, new-tab, and Back/Forward entry remain
+    routed reconstruction paths. The future shared dialog owns portal/top-layer,
+    inert-background, focus, and scroll-lock behavior; its route adapter owns
+    project URL semantics.
 
 ---
 
