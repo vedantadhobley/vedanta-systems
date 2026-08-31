@@ -746,6 +746,12 @@ shareable URL. The existing competition, fixture, event, and document position
 remain stable. Direct and restored links still fetch out-of-window context,
 select the correct date, expand the target path, and open the same player.
 
-**Deployment status.** Implemented on the feature branch; not yet deployed.
+**Deployment status (2026-08-31).** Production runs `6bb73f8` from frontend
+image
+`sha256:f58717e9b148c46f7da287e22eaf19e53581bb1278f55b06a14d07492021435f`
+and serves `index-Bn-nvfZu.js`. Only the frontend was rebuilt and recreated
+with `--no-deps`; the API and btop containers retained their prior images and
+start times. Public portal and Found Footy health checks pass. Interactive
+accordion and scroll preservation remains validating in the browser.
 
 ---
