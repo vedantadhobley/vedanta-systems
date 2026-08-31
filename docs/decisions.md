@@ -683,3 +683,35 @@ health checks pass. Physical iPhone browser and standalone behavior remains
 validating.
 
 ---
+
+## 2026-08-30 — Keep retained share targets outside the bounded fixture snapshot
+
+**Context.** Found Footy retains directly addressable fixture and event rows
+after they leave its public completed-history window. The portal BFF already
+requested those rows for `v=<event-id>` links but discarded them after deriving
+the kickoff date. Snapshot replacement then left React with no fixture to
+render. A media element also cannot distinguish a terminal `410` from a
+retryable delivery failure before it mounts.
+
+**Decision.** Evolve the BFF event route into a composite retained-target read.
+Return the targeted fixture and event, and probe an optional share with a
+server-side redirect-disabled GET: `302` is available, `410` removed, and `404`
+unknown. Keep that projection separate from the bounded snapshot and ordinary
+date index. Let `v` own target intent; use `d=YYYY-MM-DD` for clean pinned
+history entries. Only user date selection or restoration of a clean history
+entry releases the target. Mount the Found Footy provider at its route so its
+requests, timers, and SSE connection share route lifetime.
+
+**Consequences.** Reload, reconnect, wake, midnight, timezone changes, and
+snapshot replacement cannot erase a retained target. Back restores the target;
+Forward restores the selected clean date. Removed and unknown media remain
+terminal presentation states and never enter autoplay recovery. The current
+Found Footy media endpoint cannot prove that an arbitrary `s` belongs to `v`;
+strict pair validation would require a later producer contract.
+
+**Deployment status.** Implemented and verified on the feature branch; not yet
+deployed. The production bundle and focused consumer tests pass. Live
+development browser verification is blocked by Found Footy's existing
+development migration-chain drift.
+
+---

@@ -51,17 +51,19 @@ port that didn't exist; fixed in commit `62ba907`).
 
 ## Frontend runtime
 
-The current SPA statically imports the project browsers and mounts Found Footy
-and Spin Cycle providers above the router. Those providers can fetch and open
-SSE connections even when another route is visible. FF-077 gives Found Footy a
-complete authoritative snapshot plus targeted SSE replacements and reconciles
-wake, reconnect, page restore, online, video resume, midnight, and timezone
-changes. Provider route ownership and visible freshness state remain open.
+The current SPA statically imports the project browsers. Found Footy's provider
+is mounted only while its route is visible, so its snapshot requests, target
+lookups, timers, and SSE connection end on route exit. Spin Cycle's provider
+still sits above the router and can fetch while another route is visible.
+FF-077 gives Found Footy a complete authoritative snapshot plus targeted SSE
+replacements and reconciles wake, reconnect, page restore, online, video
+resume, midnight, and timezone changes. Visible freshness state remains open.
 
 The active [frontend re-foundation plan](./plans/frontend-refoundation.md)
 moves code, provider, request, and stream ownership to each route. Its
 snapshot/SSE reconciliation and live-versus-pinned date contract landed in
-FF-077; the remaining route and component slices stay active plan work.
+FF-077, and the retained-share slice landed Found Footy's route ownership. The
+remaining providers and component slices stay active plan work.
 
 ### Cross-project — the data plane
 
@@ -197,7 +199,7 @@ only frontend in the workspace.
 | Express + project routers | `src/server/index.ts`, `src/server/routes/<project>.ts` | Per-project routers (found-footy Pattern B; spin-cycle/long-exposure Pattern A), legacy inline btop proxy, and the dormant NATS-backed btop router |
 | GitHub contribution BFF | `src/server/routes/github.ts` | Fixed-user GraphQL projection; server-only token; 15-minute cache |
 | Vite dev proxy | `vite.config.ts` | `/api/*` → `vedanta-systems-dev-api:3001` |
-| OG meta server | `og-server.js` + `start.sh` | Runs in vs-prod alongside nginx; data-injection half is currently disabled |
+| OG meta server | `og-server.js` + `start.sh` | Runs in vs-prod alongside nginx; resolves retained Found Footy targets and includes video metadata only for available media |
 
 For agent-facing context that ties it together, start at `AGENTS.md`
 (this repo) and `~/workspace/proxy/CONVENTIONS.md` (the workspace

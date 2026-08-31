@@ -114,3 +114,169 @@ test('routes the three FF-077 subjects and removes the legacy fixture.clock path
   assert.equal(foundFootyLiveTopic('found-footy.prod.event.video'), 'event_video')
   assert.equal(foundFootyLiveTopic('found-footy.prod.fixture.clock'), null)
 })
+
+const retainedEventId = '3b414e73-58ef-4e97-9733-41f546bda044'
+const retainedShareId = 's_5b7b39d48133'
+
+function goEvent(
+  id: string,
+  fixtureId: number,
+  phase: 'detected' | 'searching' | 'complete' | 'removed',
+  minute: number,
+) {
+  return {
+    id,
+    fixture_id: fixtureId,
+    type: 'goal',
+    detail: 'Normal Goal',
+    minute,
+    extra: null,
+    team: { id: fixtureId * 2, name: 'Home' },
+    player: { id: 10, name: 'Scorer' },
+    assist: null,
+    videos: [],
+    phase,
+    debounce_count: phase === 'removed' ? 0 : 3,
+  }
+}
+
+test('retained event route returns an out-of-window fixture and probes media without following it', async t => {
+  const fixture = {
+    ...goFixture(6, 'completed', 'finished', 'FT', '2026-08-23T17:00:00Z'),
+    events: [goEvent('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 6, 'complete', 20)],
+  }
+  const removed = goEvent(retainedEventId, 6, 'removed', 10)
+  let garageRequests = 0
+
+  const upstream = createServer((request, response) => {
+    if (request.url === `/api/v1/events?ids=${retainedEventId}`) {
+      response.setHeader('Content-Type', 'application/json')
+      response.end(JSON.stringify([removed]))
+      return
+    }
+    if (request.url === '/api/v1/fixtures?ids=6') {
+      response.setHeader('Content-Type', 'application/json')
+      response.end(JSON.stringify([fixture]))
+      return
+    }
+    if (request.url === `/api/v1/videos/${retainedShareId}`) {
+      response.statusCode = 302
+      response.setHeader('Location', '/garage/object.mp4')
+      response.end()
+      return
+    }
+    if (request.url === '/garage/object.mp4') {
+      garageRequests++
+      response.end('video bytes')
+      return
+    }
+    response.statusCode = 404
+    response.end()
+  })
+  const upstreamPort = await listen(upstream)
+  t.after(() => close(upstream))
+
+  const app = express()
+  app.use('/api/found-footy', createFoundFootyRouter({ apiUrl: `http://127.0.0.1:${upstreamPort}` }))
+  const portal = createServer(app)
+  const portalPort = await listen(portal)
+  t.after(() => close(portal))
+
+  const response = await fetch(
+    `http://127.0.0.1:${portalPort}/api/found-footy/event/${retainedEventId}?share_id=${retainedShareId}`,
+  )
+  assert.equal(response.status, 200)
+  const body = await response.json() as {
+    found: boolean
+    fixture: Fixture
+    media: { share_id: string; state: string }
+  }
+  assert.equal(body.found, true)
+  assert.equal(body.fixture._id, 6)
+  assert.equal(body.media.state, 'available')
+  assert.equal(garageRequests, 0)
+
+  const target = body.fixture.events.find(event => event._event_id === retainedEventId)!
+  const surviving = body.fixture.events.find(event => event._event_id !== retainedEventId)!
+  assert.equal(target._removed, true)
+  assert.deepEqual(target._score_after, { home: 1, away: 0 })
+  assert.deepEqual(surviving._score_after, { home: 1, away: 0 })
+})
+
+test('retained event route distinguishes removed and unknown media while preserving context', async t => {
+  const fixture = goFixture(6, 'completed', 'finished', 'FT')
+  const event = goEvent(retainedEventId, 6, 'complete', 10)
+  let mediaStatus = 410
+  const upstream = createServer((request, response) => {
+    if (request.url?.startsWith('/api/v1/events?ids=')) {
+      response.setHeader('Content-Type', 'application/json')
+      response.end(JSON.stringify([event]))
+      return
+    }
+    if (request.url === '/api/v1/fixtures?ids=6') {
+      response.setHeader('Content-Type', 'application/json')
+      response.end(JSON.stringify([fixture]))
+      return
+    }
+    if (request.url?.startsWith('/api/v1/videos/')) {
+      response.statusCode = mediaStatus
+      response.end()
+      return
+    }
+    response.statusCode = 404
+    response.end()
+  })
+  const upstreamPort = await listen(upstream)
+  t.after(() => close(upstream))
+
+  const app = express()
+  app.use('/api/found-footy', createFoundFootyRouter({ apiUrl: `http://127.0.0.1:${upstreamPort}` }))
+  const portal = createServer(app)
+  const portalPort = await listen(portal)
+  t.after(() => close(portal))
+  const eventUrl = `http://127.0.0.1:${portalPort}/api/found-footy/event/${retainedEventId}`
+  const url = `http://127.0.0.1:${portalPort}/api/found-footy/event/${retainedEventId}?share_id=${retainedShareId}`
+
+  const eventOnly = await fetch(eventUrl)
+  assert.equal(eventOnly.status, 200)
+  assert.equal(((await eventOnly.json()) as { media: unknown }).media, null)
+
+  const removed = await fetch(url)
+  assert.equal(removed.status, 200)
+  assert.equal(((await removed.json()) as { media: { state: string } }).media.state, 'removed')
+
+  mediaStatus = 404
+  const unknown = await fetch(url)
+  assert.equal(unknown.status, 200)
+  assert.equal(((await unknown.json()) as { media: { state: string } }).media.state, 'unknown')
+})
+
+test('retained event route separates missing resources, invalid input, and upstream failure', async t => {
+  let upstreamStatus = 200
+  const upstream = createServer((request, response) => {
+    if (request.url?.startsWith('/api/v1/events?ids=')) {
+      response.statusCode = upstreamStatus
+      response.setHeader('Content-Type', 'application/json')
+      response.end(upstreamStatus === 200 ? '[]' : '{"error":"failed"}')
+      return
+    }
+    response.statusCode = 404
+    response.end()
+  })
+  const upstreamPort = await listen(upstream)
+  t.after(() => close(upstream))
+
+  const app = express()
+  app.use('/api/found-footy', createFoundFootyRouter({ apiUrl: `http://127.0.0.1:${upstreamPort}` }))
+  const portal = createServer(app)
+  const portalPort = await listen(portal)
+  t.after(() => close(portal))
+  const base = `http://127.0.0.1:${portalPort}/api/found-footy/event`
+
+  assert.equal((await fetch(`${base}/not-a-uuid`)).status, 400)
+  assert.equal((await fetch(`${base}/${retainedEventId}?share_id=bad`)).status, 400)
+  assert.equal((await fetch(`${base}/${retainedEventId}`)).status, 404)
+
+  upstreamStatus = 500
+  assert.equal((await fetch(`${base}/${retainedEventId}`)).status, 502)
+})

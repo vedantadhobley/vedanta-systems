@@ -1,6 +1,13 @@
 import { useState, useCallback, useEffect, useRef, memo, useMemo } from 'react'
 import { RiCloseLine, RiCloseFill, RiShareBoxLine, RiShareBoxFill, RiDownload2Line, RiDownload2Fill, RiCheckFill, RiVidiconFill, RiScan2Line, RiHourglass2Line, RiHourglass2Fill, RiExpandUpDownLine, RiExpandUpDownFill, RiContractUpDownLine, RiContractUpDownFill, RiVolumeMuteLine, RiPlayFill, RiErrorWarningLine, RiArrowLeftSLine, RiArrowLeftSFill, RiArrowRightSLine, RiArrowRightSFill, RiArrowGoBackLine, RiArrowGoBackFill, RiArrowGoForwardLine, RiArrowGoForwardFill, RiSearchLine, RiSearchFill } from '@remixicon/react'
-import type { Fixture, GoalEvent, RankedVideo, SearchDateGroup } from '@/types/found-footy'
+import type {
+  Fixture,
+  GoalEvent,
+  RankedVideo,
+  SearchDateGroup,
+  SharedEventTarget,
+  SharedMediaState,
+} from '@/types/found-footy'
 import { cn } from '@/lib/utils'
 import { useTimezone } from '@/contexts/timezone-context'
 import { useTransientScrollSpace } from '@/lib/use-transient-scroll-space'
@@ -133,7 +140,7 @@ function isUnknownPlayer(player: { name: string | null } | null | undefined): bo
 // across replacement. Removed or retention-reclaimed media returns 410; a
 // never-minted share returns 404. Stable identity does not imply permanent bytes.
 function getShareId(url: string): string {
-  const match = url.match(/\/video\/(s_[a-f0-9]+)/i)
+  const match = url.match(/\/video\/(s_[a-f0-9]{12})(?:$|[/?#])/i)
   return match?.[1] || ''
 }
 
@@ -171,12 +178,14 @@ interface VideoInfo {
   title: string
   subtitle: string
   eventId: string
+  mediaState?: SharedMediaState
 }
 
 // URL params for deep linking
 interface InitialVideoParams {
   eventId: string
   shareId?: string  // clip share_id from ?s= — if provided, open that clip (self-upgrades)
+  navigationKey: string
 }
 
 interface FoundFootyBrowserProps {
@@ -190,10 +199,10 @@ interface FoundFootyBrowserProps {
   // Calendar navigation
   currentDate: string          // YYYY-MM-DD format
   navigableDates: string[]     // Dates the user can navigate to (descending). See FootyStreamContext.
-  onGoToToday: () => void
-  onPreviousDate: () => void
-  onNextDate: () => void
-  onNavigateToEvent?: (eventId: string) => Promise<boolean>  // Navigate to event's date (for shared links)
+  onSelectDate: (date: string) => void
+  sharedTarget: SharedEventTarget | null
+  sharedTargetStatus: 'idle' | 'loading' | 'ready' | 'not-found' | 'error'
+  onOpenVideoRoute?: (eventId: string, shareId: string) => void
   // Search
   searchMode: boolean
   searchQuery: string
@@ -214,10 +223,10 @@ export function FoundFootyBrowser({
   onResumeStream,
   currentDate,
   navigableDates,
-  onGoToToday,
-  onPreviousDate,
-  onNextDate,
-  onNavigateToEvent,
+  onSelectDate,
+  sharedTarget,
+  sharedTargetStatus,
+  onOpenVideoRoute,
   searchMode,
   searchQuery,
   searchResults,
@@ -230,8 +239,7 @@ export function FoundFootyBrowser({
   const [expandedFixture, setExpandedFixture] = useState<number | null>(null)
   const [expandedEvent, setExpandedEvent] = useState<string | null>(null)
   const [videoModal, setVideoModal] = useState<VideoInfo | null>(null)
-  const initialVideoProcessed = useRef(false)
-  const initialVideoNavigated = useRef(false)  // Track if we've navigated to the event's date
+  const autoOpenedTargetRef = useRef<string | null>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const {
     spacerRef,
@@ -300,9 +308,15 @@ export function FoundFootyBrowser({
 
   // Check if we can navigate
   const currentIndex = navigableDates.indexOf(currentDate)
-  const nextDateInList = navigableDates.find(d => d > currentDate)
-  const canGoNext = currentIndex > 0 || (currentIndex === -1 && !!nextDateInList)
-  const canGoPrevious = currentIndex < navigableDates.length - 1 || (currentIndex === -1 && navigableDates.some(d => d < currentDate))
+  const olderDate = currentIndex >= 0
+    ? navigableDates[currentIndex + 1]
+    : navigableDates.find(date => date < currentDate)
+  const newerDates = currentIndex === -1 ? navigableDates.filter(date => date > currentDate) : []
+  const newerDate = currentIndex > 0
+    ? navigableDates[currentIndex - 1]
+    : newerDates[newerDates.length - 1]
+  const canGoNext = !!newerDate
+  const canGoPrevious = !!olderDate
   
   // Memoize close handler to prevent VideoModal re-renders
   const closeVideoModal = useCallback(() => {
@@ -315,8 +329,10 @@ export function FoundFootyBrowser({
   const openVideoModal = useCallback((info: VideoInfo) => {
     // Pause SSE connection when video opens
     onPauseStream?.()
+    const shareId = getShareId(info.url)
+    if (shareId) onOpenVideoRoute?.(info.eventId, shareId)
     setVideoModal(info)
-  }, [onPauseStream])
+  }, [onPauseStream, onOpenVideoRoute])
 
   const allFixtures = useMemo(() => orderFixturesForPresentation(fixtures), [fixtures])
 
@@ -355,96 +371,62 @@ export function FoundFootyBrowser({
 
   const handleGoToToday = useCallback(() => {
     prepareDateChange()
-    onGoToToday()
-  }, [onGoToToday, prepareDateChange])
+    onSelectDate(getToday())
+  }, [getToday, onSelectDate, prepareDateChange])
 
   const handlePreviousDate = useCallback(() => {
+    if (!olderDate) return
     prepareDateChange()
-    onPreviousDate()
-  }, [onPreviousDate, prepareDateChange])
+    onSelectDate(olderDate)
+  }, [olderDate, onSelectDate, prepareDateChange])
 
   const handleNextDate = useCallback(() => {
+    if (!newerDate) return
     prepareDateChange()
-    onNextDate()
-  }, [onNextDate, prepareDateChange])
+    onSelectDate(newerDate)
+  }, [newerDate, onSelectDate, prepareDateChange])
 
-  // Handle navigating to the correct date for shared video links
+  // A route target owns its projection independently of the bounded snapshot.
+  // Open it once per browser-history entry after the projection commits.
   useEffect(() => {
-    if (!initialVideo || initialVideoNavigated.current || !onNavigateToEvent) return
-    
-    // Mark as navigated immediately to prevent multiple calls
-    initialVideoNavigated.current = true
-    
-    // Look up the event's date and navigate there
-    onNavigateToEvent(initialVideo.eventId).then(found => {
-      if (!found) {
-        console.warn('[FoundFooty] Shared video event not found')
-      }
+    if (!initialVideo || sharedTargetStatus !== 'ready' || !sharedTarget) return
+    const targetKey = `${initialVideo.navigationKey}:${initialVideo.eventId}:${initialVideo.shareId || ''}`
+    if (autoOpenedTargetRef.current === targetKey) return
+    const fixture = sharedTarget.fixture
+    const event = fixture.events.find(candidate => candidate._event_id === initialVideo.eventId)
+    if (!event) return
+    autoOpenedTargetRef.current = targetKey
+
+    setExpandedCompetition(fixture.league.id)
+    setExpandedFixture(fixture._id)
+    setExpandedEvent(event._event_id)
+
+    if (!initialVideo.shareId) return
+    const mediaState = sharedTarget.media?.state || 'unknown'
+    const videos = event._s3_videos || []
+    const matched = videos.find(video => getShareId(video.url) === initialVideo.shareId)
+    const url = matched?.url || `/api/found-footy/video/${initialVideo.shareId}`
+    let cancelled = false
+    let secondFrame = 0
+    const firstFrame = requestAnimationFrame(() => {
+      secondFrame = requestAnimationFrame(() => {
+        if (cancelled) return
+        if (mediaState === 'available') onPauseStream?.()
+        setVideoModal({
+          url,
+          title: generateEventTitle(fixture, event),
+          subtitle: generateEventSubtitle(event),
+          eventId: event._event_id,
+          mediaState,
+        })
+      })
     })
-  }, [initialVideo, onNavigateToEvent])
-
-  // Handle opening video from URL params (shared link) - runs after date navigation
-  useEffect(() => {
-    if (!initialVideo || allFixtures.length === 0 || initialVideoProcessed.current) return
-    
-    // Find the fixture and event in the current fixtures
-    for (const fixture of allFixtures) {
-      const event = fixture.events?.find(e => e._event_id === initialVideo.eventId)
-      if (event) {
-        // Mark as processed so we don't re-run on fixture updates
-        initialVideoProcessed.current = true
-        
-        // Expand the fixture and event (and open their competition — collapsed by default)
-        setExpandedCompetition(fixture.league.id)
-        setExpandedFixture(fixture._id)
-        setExpandedEvent(event._event_id)
-        
-        // If a share_id was provided, open that clip. The shared share_id may have been
-        // SUPERSEDED (a better clip replaced it, so it's no longer among the event's current
-        // videos) — but /video/:shareId still self-resolves to the current best clip, so open
-        // the modal on the share_id URL directly rather than requiring an exact match against
-        // the current list. (A never-minted / VAR-removed id will 404/410 at the <video> —
-        // the rare edge; the common case is supersession, which upgrades cleanly.)
-        // Defer modal opening to next frame to prevent UI freeze on slower devices.
-        if (initialVideo.shareId) {
-          const videos = event._s3_videos || []
-          const matched = videos.find(v => getShareId(v.url) === initialVideo.shareId)
-          const url = matched?.url || `/api/found-footy/video/${initialVideo.shareId}`
-          // Use double rAF to ensure DOM has updated before opening modal
-          requestAnimationFrame(() => {
-            requestAnimationFrame(() => {
-              // Pause SSE before opening video modal
-              onPauseStream?.()
-              setVideoModal({
-                url,
-                title: generateEventTitle(fixture, event),
-                subtitle: generateEventSubtitle(event),
-                eventId: event._event_id
-              })
-            })
-          })
-        }
-        break
-      }
+    return () => {
+      cancelled = true
+      cancelAnimationFrame(firstFrame)
+      if (secondFrame) cancelAnimationFrame(secondFrame)
     }
-  }, [initialVideo, allFixtures, onPauseStream])
-
-  // Update URL when video modal changes - only after user interaction
-  const hasOpenedVideoRef = useRef(false)
-  useEffect(() => {
-    if (videoModal) {
-      hasOpenedVideoRef.current = true
-      // Reflect the clip's share_id in the URL so it's shareable / survives refresh
-      const shareId = getShareId(videoModal.url)
-      const shareUrl = shareId
-        ? `/workspace/found-footy?v=${videoModal.eventId}&s=${shareId}`
-        : `/workspace/found-footy?v=${videoModal.eventId}`
-      window.history.replaceState(null, '', shareUrl)
-    } else if (hasOpenedVideoRef.current) {
-      // Only reset URL if user previously opened a video
-      window.history.replaceState(null, '', '/workspace/found-footy')
-    }
-  }, [videoModal])
+  }, [initialVideo, sharedTarget, sharedTargetStatus, onPauseStream])
 
   // Format kickoff time like "19:30 EST" - respects timezone toggle
   const formatKickoff = useCallback((dateStr: string) => {
@@ -478,11 +460,27 @@ export function FoundFootyBrowser({
   
   // Close expanded fixture and video when date changes to prevent stale references
   useEffect(() => {
+    if (initialVideo && sharedTargetStatus === 'ready' && sharedTarget) return
     setExpandedCompetition(null)
     setExpandedFixture(null)
     setExpandedEvent(null)
     // Don't close video modal - let user finish watching
-  }, [currentDate])
+  }, [currentDate, initialVideo, sharedTarget, sharedTargetStatus])
+
+  // A clean history entry can select the same date as the target it replaces,
+  // so currentDate alone cannot detect that transition. Route intent owns this
+  // reset; Back can then reopen the target and Forward restores a closed date.
+  useEffect(() => {
+    if (initialVideo) return
+    autoOpenedTargetRef.current = null
+    setExpandedCompetition(null)
+    setExpandedFixture(null)
+    setExpandedEvent(null)
+    setVideoModal(current => {
+      if (current && (current.mediaState || 'available') === 'available') onResumeStream?.()
+      return null
+    })
+  }, [initialVideo, onResumeStream])
   
   // During date change, show old fixtures to prevent layout collapse
   // Once new data arrives (isChangingDate becomes false), show new fixtures
@@ -518,6 +516,9 @@ export function FoundFootyBrowser({
 
   // Check if we have any fixtures for this date
   const hasFixtures = allDateFixtures.length > 0
+  const isResolvingSharedTarget = !!initialVideo && (
+    sharedTargetStatus === 'idle' || sharedTargetStatus === 'loading'
+  )
 
   return (
     <div className="font-mono" style={{ fontSize: 'var(--text-size-base)' }}>
@@ -664,7 +665,19 @@ export function FoundFootyBrowser({
       </div>
 
       {/* Content: search results or normal fixture list */}
-      {searchMode ? (
+      {isResolvingSharedTarget ? (
+        <div className="text-corpo-text/50 py-8 text-center" role="status">
+          <span className="animate-pulse">Loading shared event...</span>
+        </div>
+      ) : initialVideo && sharedTargetStatus === 'not-found' ? (
+        <div className="text-corpo-text/50 py-8 text-center" role="status">
+          Shared event not found
+        </div>
+      ) : initialVideo && sharedTargetStatus === 'error' ? (
+        <div className="text-corpo-text/50 py-8 text-center" role="status">
+          Shared event is temporarily unavailable
+        </div>
+      ) : searchMode ? (
         <div>
           {isSearching ? (
             <div className="text-corpo-text/50 py-8 text-center">
@@ -830,6 +843,7 @@ export function FoundFootyBrowser({
           title={videoModal.title}
           subtitle={videoModal.subtitle}
           eventId={videoModal.eventId}
+          mediaState={videoModal.mediaState || 'available'}
           onClose={closeVideoModal} 
         />
       )}
@@ -1149,6 +1163,7 @@ interface EventItemProps {
 }
 
 function EventItem({ event, fixture, isExpanded, onToggle, onOpenVideo, isSearchMatch }: EventItemProps) {
+  const isRemoved = event._removed
   
   // Get videos - prefer ranked _s3_videos, fall back to legacy _s3_urls
   const rankedVideos: (RankedVideo | { url: string; rank: number; perceptual_hash?: string })[] = event._s3_videos 
@@ -1163,8 +1178,8 @@ function EventItem({ event, fixture, isExpanded, onToggle, onOpenVideo, isSearch
   // - Both true: All scanning complete
   // - Unknown player: No debouncing, goes straight to extraction
   const hasUnknownPlayer = isUnknownPlayer(event.player)
-  const isValidating = !event._monitor_complete && !hasUnknownPlayer
-  const isExtracting = event._monitor_complete === true && !event._download_complete
+  const isValidating = !isRemoved && !event._monitor_complete && !hasUnknownPlayer
+  const isExtracting = !isRemoved && event._monitor_complete === true && !event._download_complete
   const isStillScanning = isValidating || isExtracting
 
   // Use generated display strings for video modal
@@ -1219,8 +1234,13 @@ function EventItem({ event, fixture, isExpanded, onToggle, onOpenVideo, isSearch
             <span className="truncate">
               <HighlightedText text={generateEventTitle(fixture, event)} />
             </span>
+            {isRemoved && (
+              <span className="text-corpo-text/40 flex-shrink-0 text-xs uppercase tracking-wider">
+                overturned
+              </span>
+            )}
             {/* Status indicators - right of title */}
-            {hasUnknownPlayer && (
+            {!isRemoved && hasUnknownPlayer && (
               <span className="text-corpo-text/50 flex-shrink-0" title="Unknown player - no debouncing">
                 <UnknownPlayerIcon className="w-4 h-4" />
               </span>
@@ -1260,7 +1280,9 @@ function EventItem({ event, fixture, isExpanded, onToggle, onOpenVideo, isSearch
               2. !isStillScanning + no clips: Scan complete, no clips found  
               3. Has clips: Show them (with optional "still scanning" indicator)
             */}
-            {isValidating && videoCount === 0 ? (
+            {isRemoved ? (
+              <span className="text-corpo-text/40">event removed</span>
+            ) : isValidating && videoCount === 0 ? (
               // State 1a: Validating - event just detected, checking if real
               <div className="flex items-center gap-2 text-lavender/70">
                 <ValidatingIcon className="w-4 h-4" />
@@ -1344,6 +1366,7 @@ interface VideoModalProps {
   title: string
   subtitle: string
   eventId: string
+  mediaState: SharedMediaState
   onClose: () => void
 }
 
@@ -1356,7 +1379,14 @@ type PlaybackStatus =
   | 'false-playing'
   | 'media-error'
 
-const MemoizedVideoModal = memo(function VideoModal({ url, title, subtitle, eventId, onClose }: VideoModalProps) {
+const MemoizedVideoModal = memo(function VideoModal({
+  url,
+  title,
+  subtitle,
+  eventId,
+  mediaState,
+  onClose,
+}: VideoModalProps) {
   const [copied, setCopied] = useState(false)
   const [isMuted, setIsMuted] = useState(true) // Always start muted — never takes audio focus, never appears on lockscreen
   const [playbackStatus, setPlaybackStatus] = useState<PlaybackStatus>('initializing')
@@ -1542,8 +1572,8 @@ const MemoizedVideoModal = memo(function VideoModal({ url, title, subtitle, even
     const shareId = getShareId(url)
     const baseUrl = window.location.origin
     return shareId
-      ? `${baseUrl}/workspace/found-footy?v=${eventId}&s=${shareId}`
-      : `${baseUrl}/workspace/found-footy?v=${eventId}`
+      ? `${baseUrl}/workspace/found-footy?v=${encodeURIComponent(eventId)}&s=${encodeURIComponent(shareId)}`
+      : `${baseUrl}/workspace/found-footy?v=${encodeURIComponent(eventId)}`
   }
 
   const handleShare = async () => {
@@ -1670,16 +1700,18 @@ const MemoizedVideoModal = memo(function VideoModal({ url, title, subtitle, even
               </>
             )}
           </button>
-          {/* Download button */}
-          <button
-            onClick={handleDownload}
-            onTouchStart={() => {}} // Required for iOS :active to work
-            className="nav-btn p-1"
-            aria-label="Download video"
-          >
-            <RiDownload2Line className="icon-line w-5 h-5" />
-            <RiDownload2Fill className="icon-fill w-5 h-5" />
-          </button>
+          {/* Download is meaningful only when the media resource exists. */}
+          {mediaState === 'available' && (
+            <button
+              onClick={handleDownload}
+              onTouchStart={() => {}} // Required for iOS :active to work
+              className="nav-btn p-1"
+              aria-label="Download video"
+            >
+              <RiDownload2Line className="icon-line w-5 h-5" />
+              <RiDownload2Fill className="icon-fill w-5 h-5" />
+            </button>
+          )}
           {/* Close button */}
           <button
             onClick={onClose}
@@ -1693,105 +1725,115 @@ const MemoizedVideoModal = memo(function VideoModal({ url, title, subtitle, even
           </div>
         </div>
         
-        {/* Video player with unmute overlay - outer div has black bg to mask any flicker */}
-        <div className="relative bg-black overflow-hidden">
-          <video
-            key={url} // Stable key prevents re-mounting on state changes
-            ref={bindVideoRef}
-            autoPlay
-            muted={isMuted}
-            src={url}
-            controls={controlsEnabled}
-            playsInline
-            tabIndex={0}
-            preload="auto"
-            crossOrigin="anonymous"
-            disableRemotePlayback // Hide Chromecast button
-            className="w-full border border-corpo-border block"
-            style={{ maxHeight: '80vh', backgroundColor: '#000' }}
-            onClick={handleShowControls}
-            onPointerMove={handlePointerMove}
-            onFocus={() => setControlsEnabled(true)}
-            onPlaying={() => {
-              bufferingRef.current = false
-              lastCurrentTimeRef.current = videoRef.current?.currentTime ?? 0
-              lastProgressAtRef.current = performance.now()
-              setPlaybackStatus('playing')
-            }}
-            onTimeUpdate={e => {
-              bufferingRef.current = false
-              if (e.currentTarget.currentTime > lastCurrentTimeRef.current + 0.05) {
-                startupProgressObservedRef.current = true
-              }
-              lastCurrentTimeRef.current = e.currentTarget.currentTime
-              lastProgressAtRef.current = performance.now()
-              setPlaybackStatus('playing')
-            }}
-            onPause={() => setPlaybackStatus(status =>
-              status === 'autoplay-blocked' || status === 'false-playing' || status === 'media-error'
-                ? status
-                : 'paused'
-            )}
-            onWaiting={e => {
-              bufferingRef.current = true
-              lastCurrentTimeRef.current = e.currentTarget.currentTime
-              lastProgressAtRef.current = performance.now()
-              setPlaybackStatus(status =>
+        {/* Terminal share states are authoritative and never mount a retrying player. */}
+        {mediaState !== 'available' ? (
+          <div
+            className="flex min-h-48 items-center justify-center border border-corpo-border bg-black px-4 text-center font-mono text-corpo-text/60"
+            role="status"
+          >
+            {mediaState === 'removed' ? 'video no longer available' : 'video not found'}
+          </div>
+        ) : (
+          /* Video player with unmute overlay - outer div has black bg to mask any flicker */
+          <div className="relative bg-black overflow-hidden">
+            <video
+              key={url} // Stable key prevents re-mounting on state changes
+              ref={bindVideoRef}
+              autoPlay
+              muted={isMuted}
+              src={url}
+              controls={controlsEnabled}
+              playsInline
+              tabIndex={0}
+              preload="auto"
+              crossOrigin="anonymous"
+              disableRemotePlayback // Hide Chromecast button
+              className="w-full border border-corpo-border block"
+              style={{ maxHeight: '80vh', backgroundColor: '#000' }}
+              onClick={handleShowControls}
+              onPointerMove={handlePointerMove}
+              onFocus={() => setControlsEnabled(true)}
+              onPlaying={() => {
+                bufferingRef.current = false
+                lastCurrentTimeRef.current = videoRef.current?.currentTime ?? 0
+                lastProgressAtRef.current = performance.now()
+                setPlaybackStatus('playing')
+              }}
+              onTimeUpdate={e => {
+                bufferingRef.current = false
+                if (e.currentTarget.currentTime > lastCurrentTimeRef.current + 0.05) {
+                  startupProgressObservedRef.current = true
+                }
+                lastCurrentTimeRef.current = e.currentTarget.currentTime
+                lastProgressAtRef.current = performance.now()
+                setPlaybackStatus('playing')
+              }}
+              onPause={() => setPlaybackStatus(status =>
                 status === 'autoplay-blocked' || status === 'false-playing' || status === 'media-error'
                   ? status
-                  : 'buffering'
-              )
-            }}
-            onCanPlay={e => {
-              bufferingRef.current = false
-              lastCurrentTimeRef.current = e.currentTarget.currentTime
-              lastProgressAtRef.current = performance.now()
-            }}
-            onSeeking={e => {
-              seekInProgressRef.current = true
-              lastCurrentTimeRef.current = e.currentTarget.currentTime
-              lastProgressAtRef.current = performance.now()
-            }}
-            onSeeked={e => {
-              seekInProgressRef.current = false
-              lastCurrentTimeRef.current = e.currentTarget.currentTime
-              lastProgressAtRef.current = performance.now()
-            }}
-            onError={e => {
-              const mediaError = e.currentTarget.error
-              console.error('[FoundFooty] video media error', {
-                code: mediaError?.code,
-                message: mediaError?.message,
-                networkState: e.currentTarget.networkState,
-              })
-              setPlaybackStatus('media-error')
-            }}
-          />
-          {(playbackStatus === 'autoplay-blocked' || playbackStatus === 'false-playing' || playbackStatus === 'media-error') && (
-            <button
-              onClick={handlePlayRecovery}
-              onTouchStart={() => {}}
-              className="absolute inset-0 z-10 flex items-center justify-center bg-black/20 text-corpo-text"
-              aria-label={playbackStatus === 'media-error' ? 'Retry video' : 'Play video'}
-            >
-              <span className="flex items-center gap-2 border border-corpo-border bg-black/80 px-3 py-2 font-mono text-sm text-corpo-text hover:border-lavender hover:text-lavender active:border-lavender active:text-lavender">
-                <RiPlayFill className="w-5 h-5" />
-                {playbackStatus === 'media-error' ? 'retry video' : 'play video'}
-              </span>
-            </button>
-          )}
-          {/* Unmute button overlay - square to bottom-left corner */}
-          {isMuted === true && (
-            <button
-              onClick={handleUnmute}
-              onTouchStart={() => {}} // Required for iOS :active to work
-              className="absolute bottom-2 left-2 z-20 p-1.5 rounded bg-black/70 text-corpo-text/70 hover:text-corpo-text active:text-lavender transition-colors"
-              aria-label="Unmute video"
-            >
-              <RiVolumeMuteLine className="w-4 h-4" />
-            </button>
-          )}
-        </div>
+                  : 'paused'
+              )}
+              onWaiting={e => {
+                bufferingRef.current = true
+                lastCurrentTimeRef.current = e.currentTarget.currentTime
+                lastProgressAtRef.current = performance.now()
+                setPlaybackStatus(status =>
+                  status === 'autoplay-blocked' || status === 'false-playing' || status === 'media-error'
+                    ? status
+                    : 'buffering'
+                )
+              }}
+              onCanPlay={e => {
+                bufferingRef.current = false
+                lastCurrentTimeRef.current = e.currentTarget.currentTime
+                lastProgressAtRef.current = performance.now()
+              }}
+              onSeeking={e => {
+                seekInProgressRef.current = true
+                lastCurrentTimeRef.current = e.currentTarget.currentTime
+                lastProgressAtRef.current = performance.now()
+              }}
+              onSeeked={e => {
+                seekInProgressRef.current = false
+                lastCurrentTimeRef.current = e.currentTarget.currentTime
+                lastProgressAtRef.current = performance.now()
+              }}
+              onError={e => {
+                const mediaError = e.currentTarget.error
+                console.error('[FoundFooty] video media error', {
+                  code: mediaError?.code,
+                  message: mediaError?.message,
+                  networkState: e.currentTarget.networkState,
+                })
+                setPlaybackStatus('media-error')
+              }}
+            />
+            {(playbackStatus === 'autoplay-blocked' || playbackStatus === 'false-playing' || playbackStatus === 'media-error') && (
+              <button
+                onClick={handlePlayRecovery}
+                onTouchStart={() => {}}
+                className="absolute inset-0 z-10 flex items-center justify-center bg-black/20 text-corpo-text"
+                aria-label={playbackStatus === 'media-error' ? 'Retry video' : 'Play video'}
+              >
+                <span className="flex items-center gap-2 border border-corpo-border bg-black/80 px-3 py-2 font-mono text-sm text-corpo-text hover:border-lavender hover:text-lavender active:border-lavender active:text-lavender">
+                  <RiPlayFill className="w-5 h-5" />
+                  {playbackStatus === 'media-error' ? 'retry video' : 'play video'}
+                </span>
+              </button>
+            )}
+            {/* Unmute button overlay - square to bottom-left corner */}
+            {isMuted === true && (
+              <button
+                onClick={handleUnmute}
+                onTouchStart={() => {}} // Required for iOS :active to work
+                className="absolute bottom-2 left-2 z-20 p-1.5 rounded bg-black/70 text-corpo-text/70 hover:text-corpo-text active:text-lavender transition-colors"
+                aria-label="Unmute video"
+              >
+                <RiVolumeMuteLine className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+        )}
       </div>
     </div>
   )
@@ -1800,5 +1842,6 @@ const MemoizedVideoModal = memo(function VideoModal({ url, title, subtitle, even
   return prevProps.url === nextProps.url &&
          prevProps.title === nextProps.title &&
          prevProps.subtitle === nextProps.subtitle &&
-         prevProps.eventId === nextProps.eventId
+         prevProps.eventId === nextProps.eventId &&
+         prevProps.mediaState === nextProps.mediaState
 })

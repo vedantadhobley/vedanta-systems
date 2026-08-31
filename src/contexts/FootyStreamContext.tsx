@@ -1,11 +1,18 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import type { Fixture, FootyDateIntent, SearchDateGroup } from '@/types/found-footy'
+import type {
+  Fixture,
+  FootyDateIntent,
+  SearchDateGroup,
+  SharedEventTarget,
+} from '@/types/found-footy'
 import { useTimezone } from '@/contexts/timezone-context'
 import {
   applyFootyLiveEvent,
   dateIntentForSelection,
   isFixturesResponse,
   isFootyLiveEvent,
+  isSharedEventTargetResponse,
+  mergeSharedTargetFixture,
   resolveRecoveryDate,
   type FootyLiveEvent,
 } from '@/lib/found-footy-live'
@@ -18,6 +25,8 @@ interface FootyState {
   dateIntent: FootyDateIntent
   availableDates: string[]
   fixtures: Fixture[]
+  sharedTarget: SharedEventTarget | null
+  sharedTargetStatus: 'idle' | 'loading' | 'ready' | 'not-found' | 'error'
 
   isConnected: boolean
   isBackendOnline: boolean
@@ -36,12 +45,10 @@ interface FootyState {
 interface FootyContextValue extends FootyState {
   navigableDates: string[]
   setDate: (date: string) => void
-  goToToday: () => void
-  goToPreviousDate: () => void
-  goToNextDate: () => void
   pauseStream: () => void
   resumeStream: () => void
-  navigateToEvent: (eventId: string) => Promise<boolean>
+  resolveSharedTarget: (eventId: string, shareId?: string) => Promise<boolean>
+  clearSharedTarget: () => void
   enterSearch: () => void
   exitSearch: () => void
   executeSearch: (query: string) => void
@@ -62,6 +69,8 @@ export function FootyStreamProvider({ children }: { children: ReactNode }) {
     dateIntent: 'live',
     availableDates: [],
     fixtures: [],
+    sharedTarget: null,
+    sharedTargetStatus: 'idle',
     isConnected: false,
     isBackendOnline: false,
     isLoading: true,
@@ -85,6 +94,9 @@ export function FootyStreamProvider({ children }: { children: ReactNode }) {
   const snapshotGenerationRef = useRef(0)
   const liveRevisionRef = useRef(0)
   const liveEventLogRef = useRef<RecordedLiveEvent[]>([])
+  const targetAbortRef = useRef<AbortController | null>(null)
+  const targetGenerationRef = useRef(0)
+  const targetRequestRef = useRef<{ eventId: string; shareId?: string } | null>(null)
 
   useEffect(() => { currentDateRef.current = state.currentDate }, [state.currentDate])
   useEffect(() => { dateIntentRef.current = state.dateIntent }, [state.dateIntent])
@@ -174,18 +186,110 @@ export function FootyStreamProvider({ children }: { children: ReactNode }) {
     }
   }, [fixtureDates])
 
+  const clearSharedTarget = useCallback(() => {
+    targetGenerationRef.current++
+    targetAbortRef.current?.abort()
+    targetAbortRef.current = null
+    targetRequestRef.current = null
+    setState(current => ({
+      ...current,
+      sharedTarget: null,
+      sharedTargetStatus: 'idle',
+    }))
+  }, [])
+
+  const resolveSharedTarget = useCallback(async (
+    eventId: string,
+    shareId?: string,
+    announceLoading = true,
+  ): Promise<boolean> => {
+    const request = { eventId, shareId }
+    targetRequestRef.current = request
+    const generation = ++targetGenerationRef.current
+    targetAbortRef.current?.abort()
+    const controller = new AbortController()
+    targetAbortRef.current = controller
+    if (announceLoading) {
+      setState(current => ({ ...current, sharedTargetStatus: 'loading' }))
+    }
+
+    try {
+      const query = shareId ? `?share_id=${encodeURIComponent(shareId)}` : ''
+      const response = await fetch(`${API_BASE}/event/${encodeURIComponent(eventId)}${query}`, {
+        signal: controller.signal,
+      })
+      if (generation !== targetGenerationRef.current) return false
+      if (response.status === 400 || response.status === 404) {
+        setState(current => ({
+          ...current,
+          sharedTarget: null,
+          sharedTargetStatus: 'not-found',
+          isBackendOnline: true,
+        }))
+        return false
+      }
+      if (!response.ok) throw new Error(`shared target returned ${response.status}`)
+      const body: unknown = await response.json()
+      if (!isSharedEventTargetResponse(body) || !body.found) {
+        throw new Error('shared target did not match the portal contract')
+      }
+      if (generation !== targetGenerationRef.current) return false
+
+      const targetDate = getDateForTimestamp(body.fixture.fixture.date)
+      currentDateRef.current = targetDate
+      dateIntentRef.current = 'pinned'
+      setState(current => ({
+        ...current,
+        currentDate: targetDate,
+        dateIntent: 'pinned',
+        sharedTarget: body,
+        sharedTargetStatus: 'ready',
+        isChangingDate: false,
+        isBackendOnline: true,
+        error: null,
+      }))
+      return true
+    } catch (error) {
+      if (controller.signal.aborted || generation !== targetGenerationRef.current) return false
+      console.error('[FootyStream] Failed to resolve shared target:', error)
+      setState(current => {
+        const hasCurrentTarget = current.sharedTarget?.eventId === eventId
+        return {
+          ...current,
+          // Reconnect recovery is revalidation, not replacement. Keep a
+          // previously committed projection visible through a transient
+          // upstream failure; an authoritative 404 still clears it above.
+          sharedTarget: hasCurrentTarget ? current.sharedTarget : null,
+          sharedTargetStatus: hasCurrentTarget ? 'ready' : 'error',
+          error: 'Failed to resolve shared event',
+        }
+      })
+      return false
+    }
+  }, [getDateForTimestamp])
+
   const reconcile = useCallback(async (reason: string) => {
-    const recoveredDate = resolveRecoveryDate(dateIntentRef.current, currentDateRef.current, getToday())
-    if (currentDateRef.current !== recoveredDate) {
-      currentDateRef.current = recoveredDate
-      setState(current => ({ ...current, currentDate: recoveredDate }))
+    const targetRequest = targetRequestRef.current
+    if (!targetRequest) {
+      const recoveredDate = resolveRecoveryDate(dateIntentRef.current, currentDateRef.current, getToday())
+      if (currentDateRef.current !== recoveredDate) {
+        currentDateRef.current = recoveredDate
+        setState(current => ({ ...current, currentDate: recoveredDate }))
+      }
     }
     console.log(`[FootyStream] Reconciling fixture snapshot (${reason})`)
     await fetchFixtureSnapshot(false)
-  }, [fetchFixtureSnapshot, getToday])
+    if (targetRequestRef.current === targetRequest && targetRequest) {
+      await resolveSharedTarget(targetRequest.eventId, targetRequest.shareId, false)
+    }
+  }, [fetchFixtureSnapshot, getToday, resolveSharedTarget])
 
   const connectSSE = useCallback(() => {
-    if (dateIntentRef.current !== 'live' || isPausedRef.current || document.visibilityState === 'hidden') return
+    if (
+      (dateIntentRef.current !== 'live' && !targetRequestRef.current) ||
+      isPausedRef.current ||
+      document.visibilityState === 'hidden'
+    ) return
 
     if (eventSourceRef.current) eventSourceRef.current.close()
     const eventSource = new EventSource(`${API_BASE}/stream`)
@@ -197,7 +301,7 @@ export function FootyStreamProvider({ children }: { children: ReactNode }) {
     }
 
     eventSource.onmessage = message => {
-      if (dateIntentRef.current !== 'live') return
+      if (dateIntentRef.current !== 'live' && !targetRequestRef.current) return
       try {
         const event: unknown = JSON.parse(message.data)
         if (!event || typeof event !== 'object') return
@@ -227,7 +331,11 @@ export function FootyStreamProvider({ children }: { children: ReactNode }) {
       setState(current => ({ ...current, isConnected: false }))
       eventSourceRef.current?.close()
       eventSourceRef.current = null
-      if (isPausedRef.current || dateIntentRef.current !== 'live' || document.visibilityState === 'hidden') return
+      if (
+        isPausedRef.current ||
+        (dateIntentRef.current !== 'live' && !targetRequestRef.current) ||
+        document.visibilityState === 'hidden'
+      ) return
 
       const delay = Math.min(1000 * Math.pow(2, reconnectAttempts.current), 30000)
       reconnectAttempts.current++
@@ -244,17 +352,19 @@ export function FootyStreamProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const setDate = useCallback((date: string) => {
+    clearSharedTarget()
     const intent = dateIntentForSelection(date, getToday())
     dateIntentRef.current = intent
     currentDateRef.current = date
     setState(current => ({ ...current, currentDate: date, dateIntent: intent, isChangingDate: true }))
     void fetchFixtureSnapshot(false)
-  }, [fetchFixtureSnapshot, getToday])
+  }, [clearSharedTarget, fetchFixtureSnapshot, getToday])
 
   useEffect(() => {
-    if (state.dateIntent === 'live' && !state.isChangingDate && !state.isLoading) connectSSE()
+    const targetActive = state.sharedTargetStatus !== 'idle'
+    if ((state.dateIntent === 'live' || targetActive) && !state.isChangingDate && !state.isLoading) connectSSE()
     else if (state.dateIntent === 'pinned') disconnectSSE()
-  }, [state.dateIntent, state.isChangingDate, state.isLoading, connectSSE, disconnectSSE])
+  }, [state.dateIntent, state.sharedTargetStatus, state.isChangingDate, state.isLoading, connectSSE, disconnectSSE])
 
   const today = getToday()
   const navigableDates = useMemo(() => {
@@ -264,49 +374,6 @@ export function FootyStreamProvider({ children }: { children: ReactNode }) {
     if (firstFuture) dates.add(firstFuture)
     return [...dates].sort().reverse()
   }, [state.availableDates, today])
-
-  const goToToday = useCallback(() => {
-    const nextToday = getToday()
-    dateIntentRef.current = 'live'
-    currentDateRef.current = nextToday
-    setState(current => ({ ...current, currentDate: nextToday, dateIntent: 'live', isChangingDate: true }))
-    void fetchFixtureSnapshot(false)
-  }, [fetchFixtureSnapshot, getToday])
-
-  const goToPreviousDate = useCallback(() => {
-    const currentDate = state.currentDate
-    const index = navigableDates.indexOf(currentDate)
-    if (index >= 0 && index < navigableDates.length - 1) setDate(navigableDates[index + 1])
-    else if (index === -1) {
-      const older = navigableDates.filter(date => date < currentDate)
-      if (older.length > 0) setDate(older[0])
-    }
-  }, [state.currentDate, navigableDates, setDate])
-
-  const goToNextDate = useCallback(() => {
-    const currentDate = state.currentDate
-    const index = navigableDates.indexOf(currentDate)
-    if (index > 0) setDate(navigableDates[index - 1])
-    else if (index === -1) {
-      const newer = navigableDates.filter(date => date > currentDate)
-      if (newer.length > 0) setDate(newer[newer.length - 1])
-    }
-  }, [state.currentDate, navigableDates, setDate])
-
-  const navigateToEvent = useCallback(async (eventId: string): Promise<boolean> => {
-    try {
-      const response = await fetch(`${API_BASE}/event/${eventId}`)
-      if (!response.ok) return false
-      const data = await response.json()
-      if (!data.found || (!data.kickoff && !data.date)) return false
-      const targetDate = data.kickoff ? getDateForTimestamp(data.kickoff) : data.date
-      setDate(targetDate)
-      return true
-    } catch (error) {
-      console.error('[FootyStream] Failed to look up event:', error)
-      return false
-    }
-  }, [getDateForTimestamp, setDate])
 
   const pauseStream = useCallback(() => {
     if (isPausedRef.current) return
@@ -318,7 +385,7 @@ export function FootyStreamProvider({ children }: { children: ReactNode }) {
     if (!isPausedRef.current) return
     isPausedRef.current = false
     void reconcile('deliberate-resume')
-    if (dateIntentRef.current === 'live') connectSSE()
+    if (dateIntentRef.current === 'live' || targetRequestRef.current) connectSSE()
   }, [connectSSE, reconcile])
 
   const initialSetupDone = useRef(false)
@@ -386,6 +453,7 @@ export function FootyStreamProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => () => {
     snapshotAbortRef.current?.abort()
+    targetAbortRef.current?.abort()
     if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current)
     eventSourceRef.current?.close()
   }, [])
@@ -436,16 +504,20 @@ export function FootyStreamProvider({ children }: { children: ReactNode }) {
     }, 300)
   }, [])
 
+  const renderedFixtures = useMemo(
+    () => mergeSharedTargetFixture(state.fixtures, state.sharedTarget),
+    [state.fixtures, state.sharedTarget],
+  )
+
   const contextValue: FootyContextValue = {
     ...state,
+    fixtures: renderedFixtures,
     navigableDates,
     setDate,
-    goToToday,
-    goToPreviousDate,
-    goToNextDate,
     pauseStream,
     resumeStream,
-    navigateToEvent,
+    resolveSharedTarget,
+    clearSharedTarget,
     enterSearch,
     exitSearch,
     executeSearch,

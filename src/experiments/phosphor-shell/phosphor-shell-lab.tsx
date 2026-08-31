@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useLocation } from 'react-router-dom'
 import { BtopMonitor } from '@/components/btop-monitor'
 import { FoundFootyBrowser } from '@/components/found-footy-browser'
@@ -81,10 +81,11 @@ function FoundFootySurface() {
     resumeStream,
     currentDate,
     navigableDates,
-    goToToday,
-    goToPreviousDate,
-    goToNextDate,
-    navigateToEvent,
+    setDate,
+    resolveSharedTarget,
+    clearSharedTarget,
+    sharedTarget,
+    sharedTargetStatus,
     searchMode,
     searchQuery,
     searchResults,
@@ -97,7 +98,15 @@ function FoundFootySurface() {
   const searchParams = new URLSearchParams(location.search)
   const eventId = searchParams.get('v')
   const shareId = searchParams.get('s')
-  const initialVideo = eventId ? { eventId, shareId: shareId || undefined } : null
+  const initialVideo = useMemo(() => eventId
+    ? { eventId, shareId: shareId || undefined, navigationKey: location.key }
+    : null,
+  [eventId, shareId, location.key])
+
+  useEffect(() => {
+    if (eventId) void resolveSharedTarget(eventId, shareId || undefined)
+    else clearSharedTarget()
+  }, [location.key, eventId, shareId, resolveSharedTarget, clearSharedTarget])
 
   return (
     <div className="ps2-project-content">
@@ -112,10 +121,12 @@ function FoundFootySurface() {
         onResumeStream={resumeStream}
         currentDate={currentDate}
         navigableDates={navigableDates}
-        onGoToToday={goToToday}
-        onPreviousDate={goToPreviousDate}
-        onNextDate={goToNextDate}
-        onNavigateToEvent={navigateToEvent}
+        onSelectDate={(date) => {
+          clearSharedTarget()
+          setDate(date)
+        }}
+        sharedTarget={sharedTarget}
+        sharedTargetStatus={sharedTargetStatus}
         searchMode={searchMode}
         searchQuery={searchQuery}
         searchResults={searchResults}

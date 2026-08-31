@@ -206,6 +206,10 @@ const [controlsEnabled, setControlsEnabled] = useState(false)
    recovery logic must not intercept or reinterpret the native timeline. Test
    the complete drag, precision adjustment, release, and resumed-play sequence
    on WebKit rather than inferring it from desktop events.
+8. **Terminal media never enters playback recovery:** an authoritative removed
+   share renders **video no longer available** and an unknown share renders
+   **video not found**. Neither state mounts `<video>` or exposes Retry,
+   download, or unmute controls.
 
 ---
 

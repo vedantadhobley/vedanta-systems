@@ -236,7 +236,7 @@ causes scroll lag or keeps the mobile radio awake fails the gate.
 
 ### 1. Rebuild Found Footy's runtime boundary
 
-- Mount its provider at the Found Footy route, not above the router.
+- **Landed:** mount its provider at the Found Footy route, not above the router.
 - **Landed in FF-077:** live versus pinned date intent; playing carryover;
   complete initial/recovery snapshots; wake, page restore, network, stream,
   midnight, timezone, and deliberate-resume reconciliation; abort/generation
@@ -244,7 +244,8 @@ causes scroll lag or keeps the mobile radio awake fails the gate.
   IANA-consistent date index derived from the complete snapshot.
 - Resolve the remaining split staging match-day defect in the
   [timezone todo](../todo.md).
-- Protect search and shared-link requests from stale responses.
+- **Landed for shared targets:** abort and generation-protect superseded
+  retained-event requests. Search request ownership remains open.
 - Expose transport and freshness as separate state.
 - Keep the current production markup while these invariants settle.
 

@@ -72,9 +72,14 @@ into a generic window refresh.
 
 ## Browser state and ordering
 
-The provider stores one fixture collection. It does not maintain processing
-state buckets. Structural replacements remove the requested IDs, insert the
-authoritative responses, deduplicate, and order:
+The provider stores one bounded snapshot collection. It does not maintain
+processing-state buckets. A `v=<event-id>` route may add one independent
+retained target projection; that target never changes snapshot membership or
+the ordinary date index. If the target fixture is already in the snapshot, its
+directly requested event is merged by ID so a removed event can remain visible.
+
+Structural replacements remove the requested IDs, insert the authoritative
+responses, deduplicate, and order:
 
 1. playing by `last_activity_at` descending;
 2. finished by `last_activity_at` descending;
@@ -107,6 +112,13 @@ commit. Live events that arrive during a snapshot are recorded and replayed
 after the response commits, so an older REST response cannot overwrite newer
 stream state. A failed refresh retains the last valid fixture collection.
 
+While a shared target remains in the URL, recovery also reacquires its targeted
+fixture, event, and media state. Snapshot replacement cannot discard that
+projection. Target requests have their own abort controller and generation, so
+an older share lookup cannot overwrite a newer URL or clean date action. A
+transient revalidation failure keeps the last valid target visible; an
+authoritative target `404` clears it.
+
 ## Live and pinned date intent
 
 The provider stores `dateIntent` separately from `currentDate`:
@@ -124,15 +136,20 @@ match that kicked off on the previous day. Non-playing fixtures remain scoped
 to the selected timezone-local kickoff date. Pinned views scope every fixture
 to their selected date.
 
+A shared target uses pinned date behavior but remains separate route intent.
+Its programmatic timezone-local date selection preserves `v` and `s`; only a
+user date action or restored clean history entry releases the target. Clean
+historical entries use `d=YYYY-MM-DD`, while the canonical today route omits
+`d`. This lets Back restore the target and Forward restore the exact clean date.
+
 ## Remaining re-foundation work
 
 FF-077 fixes the data contract, targeted delivery, request ordering, live
 intent, carryover, and recovery path. The broader frontend re-foundation still
 owns:
 
-- mounting the provider only while the Found Footy route is active;
 - exposing freshness separately from transport health in the visible UI;
-- aborting superseded search and shared-link requests;
+- aborting superseded search requests;
 - resolving the next-match-day staging cutoff; and
 - the accessible interaction/component migration.
 

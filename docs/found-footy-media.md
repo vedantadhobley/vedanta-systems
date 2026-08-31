@@ -45,17 +45,14 @@ redirect. It is used as `<video src>` and by Open Graph video metadata.
 
 Current portal share URLs contain both `v=<event-id>` and `s=<share-id>`. The
 retained event ID is sufficient to request the historical context without a
-new share lookup. The current BFF does make those targeted event and fixture
-requests, but its `/event/<event-id>` adapter returns only the kickoff date.
-React then depends on the ordinary fixture snapshot, which excludes completed
-fixtures outside the public window. An old link can therefore navigate to the
-right date and still have no fixture to render.
+new share lookup. The BFF's `/event/<event-id>` adapter now returns the targeted
+fixture and event instead of reducing them to a kickoff date. React stores that
+target independently of the ordinary bounded snapshot, so an old link can
+render after its fixture leaves the public window.
 
-The consumer needs one targeted historical-context path that returns or inserts
-the retained fixture and target event independently of the public snapshot.
-It must also distinguish unavailable media from a retryable media failure,
-keep the fixture/event context open, and display **video no longer available**
-instead of a player retry loop.
+The target response also distinguishes unavailable media from a retryable
+media failure. It keeps fixture/event context open and displays **video no
+longer available** without mounting a player retry loop.
 
 The `v=<event-id>` query owns that targeted projection:
 
@@ -82,33 +79,38 @@ target overrides normal live-date advancement until the user leaves it.
 A new Found Footy context endpoint is not required for current portal links.
 The existing `v=<event-id>` identifies the retained event, and the existing
 targeted event and fixture reads provide its history. The BFF must preserve
-that projection instead of reducing it to a date.
+that projection instead of reducing it to a date; the current adapter does.
 
-React still needs authoritative media availability before it can distinguish
-retention from a retryable player error. The BFF sends a server-side `GET` to
+React receives authoritative media availability before it decides whether to
+mount a player. The BFF sends a server-side `GET` to
 the existing media endpoint with redirect following disabled. Found Footy's
 `302` means available, `410` means removed, and `404` means unknown. Because
 the BFF does not follow the `302`, it never requests the Garage bytes during
-this probe. It exposes a small frontend projection without changing Found
-Footy's API:
+this probe. It exposes one composite frontend projection without changing
+Found Footy's API:
 
 ```json
 {
-  "share_id": "s_abc123",
-  "media_state": "removed",
-  "fixture_id": 123,
-  "event_id": "00000000-0000-0000-0000-000000000000"
+  "found": true,
+  "eventId": "00000000-0000-0000-0000-000000000000",
+  "kickoff": "2026-08-14T16:00:00Z",
+  "fixture": { "_id": 123, "events": [] },
+  "media": {
+    "share_id": "s_abc123",
+    "state": "removed"
+  }
 }
 ```
 
-`media_state` should be `available` or `removed`; active versus superseded is
-not a frontend distinction because both play through the stable media URL. A
-known removed share returns this representation successfully. An unknown share
-returns `404`. The BFF combines this status with the targeted fixture/event
-projection before React opens media. A future share-only canonical URL would
+`media.state` is `available`, `removed`, or `unknown`; active versus superseded
+is not a frontend distinction because both play through the stable media URL.
+Found Footy's upstream `404` becomes `unknown` inside a successful composite
+response when the event context exists. Event absence remains a BFF `404`, and
+upstream failure remains `502`. This preserves valid historical context even
+when a supplied share ID is unknown. A future share-only canonical URL would
 require a Found Footy-owned share-to-event lookup, but that is not required for
-the current `v` plus `s` contract. The OG server must omit `og:video` for
-removed media while retaining historical page metadata.
+the current `v` plus `s` contract. The OG server uses the same target projection
+and omits `og:video` for removed or unknown media while retaining page metadata.
 
 ## Required interaction contract
 
@@ -139,8 +141,11 @@ Keep these states distinct:
 | false-playing | unpaused timeline is stationary despite buffered future data | one startup-only reset |
 | media-error | media element exposes an error | **Retry video** |
 
-An authoritative `media_state: removed` is not `media-error`. It renders the
+An authoritative `media.state: removed` is not `media-error`. It renders the
 historical context and unavailable message without mounting a retrying player.
+
+The same rule applies to `unknown`, with **video not found** as the terminal
+copy. Neither state exposes download, unmute, autoplay recovery, or Retry.
 
 Stale play promises must not overwrite a newer state. Seeking, a deliberate
 pause, a hidden document, and an ended video are never false-playing evidence.

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useNavigate, useLocation, Routes, Route } from 'react-router-dom'
 import { RiFolder2Line, RiFolder2Fill } from '@remixicon/react'
 import { GitHubContributionGraph } from '@/components/github-contribution-graph'
@@ -12,9 +12,14 @@ import { LongExposureBrowser } from '@/components/long-exposure-browser'
 import { ResumeViewer } from '@/components/resume-viewer'
 import { ProjectStatus } from '@/components/project-status'
 import { BtopMonitor } from '@/components/btop-monitor'
+import {
+  foundFootyDateUrl,
+  foundFootyVideoUrl,
+  readFoundFootyRoute,
+} from '@/lib/found-footy-route'
 import { FootyStreamProvider, useFootyStream } from '@/contexts/FootyStreamContext'
 import { SpinCycleStreamProvider, useSpinCycleStream } from '@/contexts/SpinCycleStreamContext'
-import { TimezoneProvider } from '@/contexts/timezone-context'
+import { TimezoneProvider, useTimezone } from '@/contexts/timezone-context'
 import './App.css'
 
 // Project GitHub links - maps project paths to their repos
@@ -161,7 +166,7 @@ function DirectoryListing() {
         <div className="portal-content w-full max-w-[1140px] mx-auto pt-4 pb-8">
           {/* Found Footy Browser - ~/workspace/found-footy */}
           {fsPath === '~/workspace/found-footy' && (
-            <FoundFootyContent />
+            <FoundFootyRoute />
           )}
 
           {/* Spin Cycle Browser - ~/workspace/spin-cycle */}
@@ -271,7 +276,15 @@ function AboutContent() {
   )
 }
 
-// FoundFooty content component - rendered inside DirectoryListing
+function FoundFootyRoute() {
+  return (
+    <FootyStreamProvider>
+      <FoundFootyContent />
+    </FootyStreamProvider>
+  )
+}
+
+// FoundFooty content component - rendered inside its route-scoped provider
 function FoundFootyContent() {
   const { 
     fixtures,
@@ -283,10 +296,11 @@ function FoundFootyContent() {
     resumeStream,
     currentDate,
     navigableDates,
-    goToToday,
-    goToPreviousDate,
-    goToNextDate,
-    navigateToEvent,
+    setDate,
+    resolveSharedTarget,
+    clearSharedTarget,
+    sharedTarget,
+    sharedTargetStatus,
     searchMode,
     searchQuery,
     searchResults,
@@ -296,13 +310,43 @@ function FoundFootyContent() {
     executeSearch
   } = useFootyStream()
   const location = useLocation()
+  const navigate = useNavigate()
+  const { getToday } = useTimezone()
+  const today = getToday()
   
-  // Parse URL params for deep linking (e.g., ?v=event_id&s=share_id)
-  const searchParams = new URLSearchParams(location.search)
-  const eventId = searchParams.get('v')
-  const shareId = searchParams.get('s')
+  const routeSelection = useMemo(
+    () => readFoundFootyRoute(location.search, today, location.key),
+    [location.search, location.key, today],
+  )
+  const initialVideo = routeSelection.target
+  const eventId = initialVideo?.eventId
+  const shareId = initialVideo?.shareId
+  const cleanDate = routeSelection.cleanDate
 
-  const initialVideo = eventId ? { eventId, shareId: shareId || undefined } : null
+  useEffect(() => {
+    if (eventId) {
+      void resolveSharedTarget(eventId, shareId)
+      return
+    }
+    clearSharedTarget()
+  }, [location.key, eventId, shareId, resolveSharedTarget, clearSharedTarget])
+
+  useEffect(() => {
+    const desiredIntent = cleanDate === today ? 'live' : 'pinned'
+    if (eventId || (currentDate === cleanDate && dateIntent === desiredIntent)) return
+    setDate(cleanDate)
+  }, [eventId, cleanDate, currentDate, dateIntent, today, setDate])
+
+  const handleSelectDate = useCallback((date: string) => {
+    navigate(foundFootyDateUrl(date, today))
+  }, [navigate, today])
+
+  const handleOpenVideoRoute = useCallback((targetEventId: string, targetShareId: string) => {
+    navigate(
+      foundFootyVideoUrl(targetEventId, targetShareId),
+      { replace: true },
+    )
+  }, [navigate])
   
   return (
     <>
@@ -320,10 +364,10 @@ function FoundFootyContent() {
         onResumeStream={resumeStream}
         currentDate={currentDate}
         navigableDates={navigableDates}
-        onGoToToday={goToToday}
-        onPreviousDate={goToPreviousDate}
-        onNextDate={goToNextDate}
-        onNavigateToEvent={navigateToEvent}
+        onSelectDate={handleSelectDate}
+        sharedTarget={sharedTarget}
+        sharedTargetStatus={sharedTargetStatus}
+        onOpenVideoRoute={handleOpenVideoRoute}
         searchMode={searchMode}
         searchQuery={searchQuery}
         searchResults={searchResults}
@@ -366,15 +410,13 @@ function SpinCycleContent() {
 function App() {
   return (
     <TimezoneProvider>
-      <FootyStreamProvider>
-        <SpinCycleStreamProvider>
-          {/* TODO: Re-enable moon background video when performance issues are resolved */}
-          {/* <MoonBackground /> */}
-          <Routes>
-            <Route path="*" element={<DirectoryListing />} />
-          </Routes>
-        </SpinCycleStreamProvider>
-      </FootyStreamProvider>
+      <SpinCycleStreamProvider>
+        {/* TODO: Re-enable moon background video when performance issues are resolved */}
+        {/* <MoonBackground /> */}
+        <Routes>
+          <Route path="*" element={<DirectoryListing />} />
+        </Routes>
+      </SpinCycleStreamProvider>
     </TimezoneProvider>
   )
 }

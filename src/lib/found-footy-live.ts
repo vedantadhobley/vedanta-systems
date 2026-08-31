@@ -4,6 +4,7 @@ import type {
   FixturesResponse,
   FootyDateIntent,
   GoalEvent,
+  SharedEventTargetResponse,
 } from '@/types/found-footy'
 import { orderFixturesForPresentation } from '@/lib/found-footy-presentation'
 
@@ -93,11 +94,49 @@ export function dateIntentForSelection(selectedDate: string, today: string): Foo
   return selectedDate === today ? 'live' : 'pinned'
 }
 
+export function mergeSharedTargetFixture(
+  fixtures: readonly Fixture[],
+  target: SharedEventTargetResponse | null,
+): Fixture[] {
+  if (!target?.found) return [...fixtures]
+
+  const targetEvent = target.fixture.events.find(event => event._event_id === target.eventId)
+  const existing = fixtures.find(fixture => fixture._id === target.fixture._id)
+  if (!existing) return orderFixturesForPresentation([...fixtures, target.fixture])
+  if (!targetEvent) return [...fixtures]
+
+  const merged: Fixture = {
+    ...existing,
+    events: [
+      ...existing.events.filter(event => event._event_id !== target.eventId),
+      targetEvent,
+    ],
+  }
+  return fixtures.map(fixture => fixture._id === merged._id ? merged : fixture)
+}
+
 export function isFixturesResponse(value: unknown): value is FixturesResponse {
   if (!value || typeof value !== 'object') return false
   const fixtures = (value as { fixtures?: unknown }).fixtures
   if (!Array.isArray(fixtures)) return false
   return fixtures.every(isFixture)
+}
+
+export function isSharedEventTargetResponse(value: unknown): value is SharedEventTargetResponse {
+  if (!value || typeof value !== 'object') return false
+  const target = value as Record<string, unknown>
+  if (typeof target.eventId !== 'string' || typeof target.found !== 'boolean') return false
+  if (target.found === false) return true
+  if (
+    typeof target.date !== 'string' ||
+    typeof target.kickoff !== 'string' ||
+    !isFixture(target.fixture)
+  ) return false
+  if (target.media === null) return true
+  if (!target.media || typeof target.media !== 'object') return false
+  const media = target.media as Record<string, unknown>
+  return typeof media.share_id === 'string' &&
+    ['available', 'removed', 'unknown'].includes(String(media.state))
 }
 
 function isFixture(value: unknown): value is Fixture {

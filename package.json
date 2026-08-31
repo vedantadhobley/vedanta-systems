@@ -9,7 +9,7 @@
     "preview": "vite preview",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "type-check": "tsc --noEmit",
-    "test:found-footy": "node --import tsx --test src/lib/found-footy-presentation.test.ts src/lib/found-footy-live.test.ts src/server/routes/found-footy.test.ts",
+    "test:found-footy": "node --import tsx --test src/lib/found-footy-presentation.test.ts src/lib/found-footy-live.test.ts src/lib/found-footy-route.test.ts src/server/routes/found-footy.test.ts",
     "test:scroll": "node --import tsx --test src/lib/use-transient-scroll-space.test.ts",
     "test:btop": "node --import tsx --test src/server/routes/btop.test.ts",
     "test:btop-agent": "python3 -m unittest btop/test_frame_protocol.py",

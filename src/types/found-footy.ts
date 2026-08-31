@@ -139,6 +139,29 @@ export interface FixturesResponse {
   fixtures: Fixture[]
 }
 
+export type SharedMediaState = 'available' | 'removed' | 'unknown'
+
+export interface SharedTargetMedia {
+  share_id: string
+  state: SharedMediaState
+}
+
+export interface SharedEventTarget {
+  eventId: string
+  found: true
+  date: string
+  kickoff: string
+  fixture: Fixture
+  media: SharedTargetMedia | null
+}
+
+export interface SharedEventTargetNotFound {
+  eventId: string
+  found: false
+}
+
+export type SharedEventTargetResponse = SharedEventTarget | SharedEventTargetNotFound
+
 // Search result types
 export interface SearchMeta {
   teamMatch: boolean

@@ -1,6 +1,11 @@
 import { Router, Response, Request } from 'express'
 import { Readable } from 'node:stream'
-import type { Fixture, GoalEvent, SearchFixture } from '../../types/found-footy'
+import type {
+  Fixture,
+  GoalEvent,
+  SearchFixture,
+  SharedMediaState,
+} from '../../types/found-footy'
 import type { EventVideoPatch } from '../../lib/found-footy-live'
 
 /**
@@ -170,6 +175,20 @@ export function createFoundFootyRouter(config: FoundFootyConfig): Router {
   }
 
   const videoUrl = (shareId: string) => `/api/found-footy/video/${shareId}`
+  const eventIdPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+  const shareIdPattern = /^s_[a-f0-9]{12}$/i
+
+  async function probeMediaState(shareId: string): Promise<SharedMediaState> {
+    const response = await fetch(`${API}/api/v1/videos/${encodeURIComponent(shareId)}`, {
+      redirect: 'manual',
+      signal: AbortSignal.timeout(10_000),
+    })
+    await response.body?.cancel()
+    if (response.status === 302) return 'available'
+    if (response.status === 410) return 'removed'
+    if (response.status === 404) return 'unknown'
+    throw new Error(`found-footy-api media probe ${shareId} -> ${response.status}`)
+  }
 
   function legacyEventFlags(e: GoEvent) {
     switch (e.phase) {
@@ -249,18 +268,25 @@ export function createFoundFootyRouter(config: FoundFootyConfig): Router {
     let a = 0
     const goalEvents = goals.map((e): GoalEvent => {
       const scoringTeam: 'home' | 'away' = e.team.id === g.home.id ? 'home' : 'away'
+      const { monitorComplete, downloadComplete, removed } = legacyEventFlags(e)
       const before = { home: h, away: a }
-      if (scoringTeam === 'home') h++
-      else a++
-      const after = { home: h, away: a }
+      const after = {
+        home: h + (scoringTeam === 'home' ? 1 : 0),
+        away: a + (scoringTeam === 'away' ? 1 : 0),
+      }
+      // A directly requested removed goal is historical evidence, not part of
+      // the fixture score. Show its attempted score on that row without
+      // contaminating every surviving goal that follows it.
+      if (!removed) {
+        h = after.home
+        a = after.away
+      }
       const displayTitle = scoringTeam === 'home'
         ? `${g.home.name} (${after.home}) - ${after.away} ${g.away.name}`
         : `${g.home.name} ${after.home} - (${after.away}) ${g.away.name}`
       const minuteStr = `${e.minute}${e.extra ? `+${e.extra}` : ''}`
       const playerName = e.player?.name || 'Unknown'
       const videos = [...(e.videos || [])].sort((x, y) => x.rank - y.rank)
-
-      const { monitorComplete, downloadComplete, removed } = legacyEventFlags(e)
 
       return {
         type: 'Goal',
@@ -557,20 +583,52 @@ export function createFoundFootyRouter(config: FoundFootyConfig): Router {
     }
   })
 
-  // GET /event/:eventId - which date an event is on (for shared-link navigation). found-footy
-  // dropped single-resource GETs (N7) — everything is the batch ?ids= form now, even for one id
-  // ("single event is just ?ids=<one>"). Take the first result; empty array => not found.
+  // GET /event/:eventId?share_id=<share-id> - retained context for a GUI share.
+  // Targeted reads reach outside the bounded fixture snapshot. A directly
+  // requested removed event is merged back into its fixture projection so the
+  // browser can render the historical row. Media is probed without following
+  // the Garage redirect; this route never downloads video bytes.
   router.get('/event/:eventId', async (req: Request, res: Response) => {
+    const eventId = req.params.eventId
+    const rawShareId = req.query.share_id
+    const shareId = typeof rawShareId === 'string' && rawShareId ? rawShareId : null
+    if (!eventIdPattern.test(eventId)) {
+      return res.status(400).json({ error: 'invalid event id' })
+    }
+    if (rawShareId !== undefined && (!shareId || !shareIdPattern.test(shareId))) {
+      return res.status(400).json({ error: 'invalid share id' })
+    }
+
     try {
-      const [ev] = await goJson<GoEvent[]>(`/api/v1/events?ids=${encodeURIComponent(req.params.eventId)}`)
-      if (!ev) return res.json({ eventId: req.params.eventId, found: false })
-      const [fx] = await goJson<GoFixture[]>(`/api/v1/fixtures?ids=${ev.fixture_id}`)
-      if (!fx) return res.json({ eventId: req.params.eventId, found: false })
-      // `date` is the UTC day; also return the raw kickoff so the client can navigate to the
-      // event's date in the USER's timezone (fixtures bucket by local date, not UTC).
-      res.json({ eventId: req.params.eventId, date: fx.kickoff.slice(0, 10), kickoff: fx.kickoff, found: true })
-    } catch {
-      res.json({ eventId: req.params.eventId, found: false })
+      const events = await goJson<GoEvent[]>(`/api/v1/events?ids=${encodeURIComponent(eventId)}`)
+      const event = events.find(candidate => candidate.id === eventId)
+      if (!event) return res.status(404).json({ eventId, found: false })
+
+      const [fixtures, mediaState] = await Promise.all([
+        goJson<GoFixture[]>(`/api/v1/fixtures?ids=${event.fixture_id}`),
+        shareId ? probeMediaState(shareId) : Promise.resolve(null),
+      ])
+      const fixture = fixtures.find(candidate => candidate.id === event.fixture_id)
+      if (!fixture) return res.status(404).json({ eventId, found: false })
+
+      const targetedFixture: GoFixture = {
+        ...fixture,
+        events: [
+          ...(fixture.events || []).filter(candidate => candidate.id !== event.id),
+          event,
+        ],
+      }
+      res.json({
+        eventId,
+        date: fixture.kickoff.slice(0, 10),
+        kickoff: fixture.kickoff,
+        found: true,
+        fixture: reshapeFixture(targetedFixture),
+        media: shareId ? { share_id: shareId, state: mediaState } : null,
+      })
+    } catch (error) {
+      console.error('[found-footy] /event:', (error as Error).message)
+      res.status(502).json({ error: 'found-footy api unavailable' })
     }
   })
 

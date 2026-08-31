@@ -5,8 +5,9 @@
  * crawlers. nginx routes crawler requests here via
  * `error_page 418 = @og_server` (see `nginx.conf`); requests arrive
  * with the `X-Is-Crawler: 1` header set by nginx. Looks up event
- * details by the `v=<event_id>` query param against
- * `/api/found-footy/fixtures`.
+ * details by the `v=<event_id>` query param against the retained target
+ * projection. Historical shares therefore keep their fixture metadata after
+ * the event leaves the bounded public snapshot.
  *
  * Runs alongside nginx in the `vedanta-systems-prod` container
  * (started by `start.sh`).
@@ -47,19 +48,16 @@ function fetchJson(url) {
   });
 }
 
-// Find event by ID in the FF-077 fixture collection.
-async function findEvent(eventId) {
+// Resolve the retained event and optional media state through the BFF.
+async function findEvent(eventId, shareId) {
   try {
-    const data = await fetchJson(`${API_BASE}/api/found-footy/fixtures`);
-    const allFixtures = Array.isArray(data.fixtures) ? data.fixtures : [];
-
-    for (const fixture of allFixtures) {
-      const event = fixture.events?.find(e => e._event_id === eventId);
-      if (event) {
-        return { fixture, event };
-      }
-    }
-    return null;
+    const query = shareId ? `?share_id=${encodeURIComponent(shareId)}` : '';
+    const data = await fetchJson(
+      `${API_BASE}/api/found-footy/event/${encodeURIComponent(eventId)}${query}`,
+    );
+    if (!data?.found || !data.fixture) return null;
+    const event = data.fixture.events?.find(candidate => candidate._event_id === eventId);
+    return event ? { fixture: data.fixture, event, mediaState: data.media?.state || null } : null;
   } catch (e) {
     console.error('Error finding event:', e);
     return null;
@@ -147,7 +145,7 @@ function generateEventSubtitle(event) {
 // inline player. Because the OG URL is the *stable* share_id, we never re-mint per clip
 // version: unfurlers cache a snapshot at share time, and opening the link always resolves
 // to the current best.
-function generateVideoOgHtml(fixture, event, shareId) {
+function generateVideoOgHtml(fixture, event, shareId, mediaState) {
   const { league } = fixture;
 
   const title = generateEventTitle(fixture, event);
@@ -162,17 +160,18 @@ function generateVideoOgHtml(fixture, event, shareId) {
   // superseded share). Use the matched clip's real dimensions when it's still present.
   let videoUrl = null;
   let vw = 1280, vh = 720; // 16:9 fallback; players read the real dimensions from the video itself
-  if (shareId) {
-    videoUrl = `https://vedanta.systems/api/found-footy/video/${shareId}`;
+  if (shareId && mediaState === 'available') {
+    videoUrl = `https://vedanta.systems/api/found-footy/video/${encodeURIComponent(shareId)}`;
     const video = event._s3_videos?.find(v => v.url?.includes(shareId));
     if (video && video.width && video.height) { vw = video.width; vh = video.height; }
   }
 
   // Use site OG image as fallback (a real per-clip poster frame is a future enhancement).
   const imageUrl = 'https://vedanta.systems/og-image.png?v=3';
+  const encodedEventId = encodeURIComponent(event._event_id);
   const pageUrl = shareId
-    ? `https://vedanta.systems/workspace/found-footy?v=${event._event_id}&s=${shareId}`
-    : `https://vedanta.systems/workspace/found-footy?v=${event._event_id}`;
+    ? `https://vedanta.systems/workspace/found-footy?v=${encodedEventId}&s=${encodeURIComponent(shareId)}`
+    : `https://vedanta.systems/workspace/found-footy?v=${encodedEventId}`;
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -280,9 +279,9 @@ const server = http.createServer(async (req, res) => {
 
     let html;
     if (eventId) {
-      const result = await findEvent(eventId);
+      const result = await findEvent(eventId, shareId);
       if (result) {
-        html = generateVideoOgHtml(result.fixture, result.event, shareId);
+        html = generateVideoOgHtml(result.fixture, result.event, shareId, result.mediaState);
       } else {
         html = generateDefaultOgHtml(path);
       }

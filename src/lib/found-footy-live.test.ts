@@ -12,6 +12,8 @@ import {
   dateIntentForSelection,
   formatFixtureIndicator,
   isFixturesResponse,
+  isSharedEventTargetResponse,
+  mergeSharedTargetFixture,
   replaceEventVideo,
   replaceFixturesById,
   resolveRecoveryDate,
@@ -78,6 +80,53 @@ test('accepts the breaking FF-077 snapshot and rejects the legacy nested clock s
   const nestedFixture = legacy.fixture as Record<string, unknown>
   nestedFixture.status = { short: '2H', long: 'Second Half', elapsed: 62, extra: null }
   assert.equal(isFixturesResponse({ fixtures: [legacy] }), false)
+})
+
+test('keeps a retained target separate from snapshot membership while merging its event for display', () => {
+  const current = fixture(1, 'finished', 'FT')
+  const targetFixture = fixture(1, 'finished', 'FT')
+  targetFixture.events = [{
+    type: 'Goal',
+    detail: 'Normal Goal',
+    time: { elapsed: 10, extra: null },
+    team: { id: 2, name: 'Home' },
+    player: { id: 1, name: 'Scorer' },
+    assist: { id: null, name: null },
+    comments: null,
+    _event_id: 'target-event',
+    _display_title: '',
+    _display_subtitle: '',
+    _score_before: { home: 0, away: 0 },
+    _score_after: { home: 1, away: 0 },
+    _scoring_team: 'home',
+    _twitter_search: '',
+    _discovered_videos: [],
+    _s3_urls: [],
+    _perceptual_hashes: [],
+    _monitor_complete: true,
+    _download_complete: true,
+    _removed: true,
+    _first_seen: '2026-08-30T10:10:00Z',
+  }]
+  const target = {
+    eventId: 'target-event',
+    found: true as const,
+    date: '2026-08-30',
+    kickoff: targetFixture.fixture.date,
+    fixture: targetFixture,
+    media: { share_id: 's_5b7b39d48133', state: 'removed' as const },
+  }
+
+  const merged = mergeSharedTargetFixture([current], target)
+  assert.equal(merged.length, 1)
+  assert.equal(merged[0].events[0]._event_id, 'target-event')
+  assert.equal(merged[0].events[0]._removed, true)
+  assert.equal(current.events.length, 0)
+
+  const historical = mergeSharedTargetFixture([], target)
+  assert.deepEqual(historical.map(item => item._id), [1])
+  assert.equal(isSharedEventTargetResponse(target), true)
+  assert.equal(isSharedEventTargetResponse({ ...target, media: { share_id: 'x', state: 'retry' } }), false)
 })
 
 test('patches inline clock movement without changing fixture order', () => {

@@ -69,34 +69,31 @@ visual redesign.
   foreground, page restore, autoplay rejection, range seeking, and real media
   errors. Both entry paths must converge on one player contract.
 
-  **Development path restored (2026-08-24):** the owning repo's checked-in
-  additive `20260817_01_add_video_asset_hash_version.sql` migration is applied
-  to the retained development database. Found Footy Postgres, Garage, and the
-  read API are running; workers, Temporal, and Twitter remain stopped. The Go
-  API and vedanta-systems BFF fixture routes return `200`, and a retained clip
-  returns a valid `206 Partial Content` range through the BFF. Physical-device
-  interaction testing remains the release gate.
+  **Development validation blocked (2026-08-30):** the Found Footy development
+  API container is present, but its binary exits on migration-chain drift for
+  `20260825_01_add_terminal_observed_at`. The Vedanta Systems BFF therefore
+  receives connection failures from that upstream. Focused mock-upstream tests
+  cover the consumer contract; live browser verification resumes after the
+  owning repo repairs its development migration state.
 
-- [ ] Add a BFF historical-share projection for the current `v` plus `s` URL.
+- [x] Add a BFF historical-share projection for the current `v` plus `s` URL.
   Preserve the targeted fixture/event instead of reducing it to a date, and
-  derive `media_state` with a server-side `GET` to the existing Found Footy
+  derive `media.state` with a server-side `GET` to the existing Found Footy
   media route with redirects disabled: `302` available, `410` removed, `404`
   unknown. Do not follow the Garage redirect or download media. No new Found
   Footy endpoint is needed unless a later canonical URL removes `v` and keeps
   only the share ID.
-- [ ] Make retained GUI share links open their historical fixture/event and
+- [x] Make retained GUI share links open their historical fixture/event and
   show **video no longer available** for authoritative removed media. Do not
   classify that terminal state as autoplay failure or a retryable media error.
-  The current BFF `/event/<event-id>` route discards the targeted fixture/event
-  projection after deriving its date, so an out-of-window link still cannot
-  render from the ordinary snapshot. Return a targeted historical projection
-  and keep it separate from the bounded public window. Retain it through
-  reload, reconnect, midnight, timezone changes, and its programmatic date
-  switch while `v` remains present. Only a user date action—including a skip
-  to the next non-empty date—pushes a clean history entry and releases it.
-  Back and Forward restore both states.
-- [ ] Update crawler metadata to omit `og:video` when a known share is removed
-  while keeping the historical fixture/event page card.
+  The BFF `/event/<event-id>` route returns the targeted fixture/event, and
+  React keeps it separate from the bounded public window. It survives reload,
+  reconnect, midnight, timezone changes, and its programmatic date switch while
+  `v` remains present. Only a user date action—including a skip to the next
+  non-empty date—pushes a clean history entry and releases it. Back and Forward
+  restore both states.
+- [x] Update crawler metadata to omit `og:video` when a known share is removed
+  or unknown while keeping the historical fixture/event page card.
 
 ---
 
@@ -313,8 +310,8 @@ preview edge remains in `docs/found-footy-timezone.md`:
 
 ## Deferred runtime cleanup
 
-- Remove the disabled OG data-injection path while retaining crawler metadata
-  generation.
+- Add automated coverage around the production-only OG server's retained-event
+  metadata and available-versus-terminal video tags.
 - Replace the global production CORS policy with route-specific behavior.
 - Add upstream request deadlines, SQL statement timeouts, consistent health
   semantics, and generic public error bodies.
