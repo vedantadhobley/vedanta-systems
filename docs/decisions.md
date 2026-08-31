@@ -778,6 +778,13 @@ event, disclosure path, and player. This supersedes the in-memory local-origin
 marker mechanism from the preceding decision; the one-player/two-entry-adapter
 model remains unchanged.
 
-**Deployment status.** Not deployed.
+**Deployment status (2026-08-31).** Production runs `cfde00d` from frontend
+image
+`sha256:83f65315b0e9db5c16e3bc706443ccf127b474be74b21cd85ef0a81a8f89b09a`
+and serves `index-BYJutods.js`. Only the frontend was rebuilt and recreated
+with `--no-deps`; the API and btop containers retained their prior IDs, images,
+and start times. The public portal, JavaScript asset, global API health, and
+Found Footy health pass. Physical iPhone scroll preservation remains
+validating.
 
 ---
