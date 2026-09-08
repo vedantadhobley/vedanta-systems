@@ -3,17 +3,15 @@ import type {
   FixtureStatusProjection,
   FixturesResponse,
   FootyDateIntent,
-  GoalEvent,
   SharedEventTargetResponse,
 } from '@/types/found-footy'
 import { orderFixturesForPresentation } from '@/lib/found-footy-presentation'
-
-export type EventVideoPatch = Partial<GoalEvent> & { _event_id: string }
+import { withEventContext, type EventProjection } from './found-footy-event'
 
 export type FootyLiveEvent =
   | { type: 'fixture_status'; fixtures: FixtureStatusProjection[] }
   | { type: 'fixture_update'; fixture_ids: number[]; fixtures: Fixture[] }
-  | { type: 'event_video'; fixture_id: number; event_id: string; event: EventVideoPatch | null }
+  | { type: 'event_update'; fixture_id: number; event_id: string; event: EventProjection }
 
 export function applyFixtureStatus(
   fixtures: readonly Fixture[],
@@ -44,24 +42,22 @@ export function replaceFixturesById(
   return orderFixturesForPresentation([...retained, ...replacements])
 }
 
-export function replaceEventVideo(
+export function upsertEvent(
   fixtures: readonly Fixture[],
   fixtureId: number,
   eventId: string,
-  replacement: EventVideoPatch | null,
+  replacement: EventProjection,
 ): Fixture[] {
   return fixtures.map(fixture => {
     if (fixture._id !== fixtureId) return fixture
 
-    let found = false
-    const events = fixture.events.flatMap(event => {
-      if (event._event_id !== eventId) return [event]
-      found = true
-      return replacement ? [{ ...event, ...replacement }] : []
-    })
-
-    if (!found) return fixture
-    return { ...fixture, events }
+    const exists = fixture.events.some(event => event._event_id === eventId)
+    const projections = exists
+      ? fixture.events.map(event => event._event_id === eventId ? replacement : event)
+      : [...fixture.events, replacement]
+    // Fixture classification and recency remain untouched. Shared score labels
+    // derive from membership, so a recovered missing goal has a valid row.
+    return { ...fixture, events: withEventContext(fixture, projections) }
   })
 }
 
@@ -73,8 +69,8 @@ export function applyFootyLiveEvent(fixtures: readonly Fixture[], event: FootyLi
       return applyFixtureStatus(fixtures, event.fixtures)
     case 'fixture_update':
       return replaceFixturesById(fixtures, event.fixture_ids, event.fixtures)
-    case 'event_video':
-      return replaceEventVideo(fixtures, event.fixture_id, event.event_id, event.event)
+    case 'event_update':
+      return upsertEvent(fixtures, event.fixture_id, event.event_id, event.event)
   }
 }
 
@@ -168,18 +164,73 @@ export function isFootyLiveEvent(value: unknown): value is FootyLiveEvent {
       event.fixtures.every(isFixture)
     )
   }
-  if (event.type === 'event_video') {
+  if (event.type === 'event_update') {
     return (
       Number.isSafeInteger(event.fixture_id) &&
+      Number(event.fixture_id) > 0 &&
       typeof event.event_id === 'string' &&
-      (event.event === null || (
-        !!event.event &&
-        typeof event.event === 'object' &&
-        (event.event as { _event_id?: unknown })._event_id === event.event_id
-      ))
+      isEventProjection(event.event) && event.event._event_id === event.event_id
     )
   }
   return false
+}
+
+function isEventProjection(value: unknown): value is EventProjection {
+  if (!value || typeof value !== 'object') return false
+  const e = value as Partial<EventProjection>
+  return e.type === 'Goal' && typeof e._event_id === 'string' &&
+    typeof e.detail === 'string' && typeof e.time?.elapsed === 'number' &&
+    (e.time.extra === null || typeof e.time.extra === 'number') &&
+    typeof e.team?.id === 'number' && typeof e.team.name === 'string' &&
+    !!e.player && !!e.assist && Array.isArray(e._s3_urls) &&
+    Array.isArray(e._s3_videos) && typeof e._monitor_complete === 'boolean' &&
+    typeof e._download_complete === 'boolean' && typeof e._removed === 'boolean'
+}
+
+// Every asynchronous REST read records a cursor. Replay later live updates;
+// when the bounded history cannot prove ordering, discard REST and resync.
+export function createFootyLiveJournal(limit = 200) {
+  let revision = 0
+  const entries: Array<{ revision: number; event: FootyLiveEvent }> = []
+  return {
+    revision: () => revision,
+    record(event: FootyLiveEvent) {
+      entries.push({ revision: ++revision, event })
+      if (entries.length > limit) entries.shift()
+      return revision
+    },
+    missingParents(fixtures: readonly Fixture[], after: number): number[] {
+      const missing = new Set<number>()
+      for (const { revision: at, event } of entries) {
+        if (at <= after) continue
+        if (event.type === 'event_update') missing.add(event.fixture_id)
+        // Provider-authoritative membership wins over earlier event hints.
+        if (event.type === 'fixture_update') for (const id of event.fixture_ids) missing.delete(id)
+      }
+      return [...missing].filter(id => !fixtures.some(fixture => fixture._id === id))
+    },
+    replay(fixtures: readonly Fixture[], after: number): Fixture[] | null {
+      if (entries.length && after < entries[0].revision - 1) return null
+      return entries.filter(entry => entry.revision > after)
+        .reduce((current, entry) => applyFootyLiveEvent(current, entry.event), [...fixtures])
+    },
+  }
+}
+
+export async function recoverFootyParent(
+  fixtureId: number,
+  load: () => Promise<unknown>,
+  journal: ReturnType<typeof createFootyLiveJournal>,
+  after = journal.revision(),
+): Promise<Fixture | null> {
+  const response = await load()
+  if (!isFixturesResponse(response) || response.fixtures.length !== 1 || response.fixtures[0]._id !== fixtureId) {
+    throw new Error('parent fixture missing or invalid')
+  }
+  const replayed = journal.replay(response.fixtures, after)
+  if (!replayed) throw new Error('parent recovery replay overflow')
+  // A later authoritative fixture removal wins over this older REST read.
+  return replayed.find(fixture => fixture._id === fixtureId) || null
 }
 
 function isStatusProjection(value: unknown): value is FixtureStatusProjection {

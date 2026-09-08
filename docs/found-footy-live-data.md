@@ -1,9 +1,15 @@
 # Found Footy live-data lifecycle
 
-This document is the as-built browser contract for Found Footy FF-077. Fixture
+This document describes the source contract for Found Footy live data. Fixture
 visibility and navigation policy live in
 [timezone-aware fixture scoping](./found-footy-timezone.md). Found Footy's
 producer contract is authoritative in its `docs/api.md`.
+
+**Release state (2026-09-08):** FF-077 is deployed. FF-085/FF-086 consumer
+changes below are implemented but **not deployed**. They require a coordinated
+hard cutover with Found Footy `dbc2a76` and shared schemas `fcfb28f`. Production
+still uses `event.video` until that cutover; this source accepts only
+`event.update`. See [the release gate](#coordinated-release-gate).
 
 ## System path
 
@@ -58,7 +64,7 @@ The BFF retains one environment-wide subscription:
 |---|---|---|
 | `fixture.status` | Forward the complete projection | Replace the four presentation fields by fixture ID without fetching or reordering |
 | `fixture.update` | Union IDs across the short coalescing window and fetch `/api/v1/fixtures?ids=...` once | Replace only those IDs, then regroup and reorder by `presentation_state` and `last_activity_at` |
-| `event.video` | Fetch `/api/v1/events?ids=<event_id>` | Replace only that event's video projection inside `fixture_id` |
+| `event.update` | Fetch `/api/v1/events?ids=<event_id>` and emit SSE `event_update` with both IDs and the complete event projection | Upsert that event inside `fixture_id`; preserve fixture recency and order |
 | NATS connect or reconnect | Emit `resync` | Take a complete fixture snapshot |
 
 `fixture.status` replaces the obsolete `fixture.clock` path. A minute change
@@ -67,8 +73,35 @@ the inline path. Kickoff, final whistle, postponed resumption, score/event
 changes, and other presentation boundaries use targeted `fixture.update`.
 
 The BFF resolves dirty signals once and broadcasts their resulting resource
-projection to all connected browsers. It does not turn fixture or video events
-into a generic window refresh.
+projection to all connected browsers. It does not turn ordinary fixture or
+event updates into a generic window refresh. `event.update` covers asynchronous
+clip changes and discovery completion, including completion with zero clips.
+Provider-driven event additions, removals, and corrections remain
+`fixture.update` responsibilities.
+
+### Event recovery
+
+- A valid event response includes row data, clips, and discovery flags. React
+  replaces or inserts it by ID. The BFF and browser share one pure helper for
+  fixture-dependent event labels, so insertion needs no extra fixture read
+  when the parent already exists.
+- A missing parent triggers `GET /api/found-footy/fixtures?ids=<fixture_id>`;
+  the BFF forwards the targeted fixture read. Requests deduplicate by parent,
+  have a 15-second deadline, and are capped at 16 pending parents. Overflow
+  requests a full resynchronization.
+- Parent recovery replays the triggering event and later live messages over
+  the fixture response. A later authoritative fixture replacement/removal
+  wins over an older parent read. A late read cannot replace an already
+  recovered parent.
+- An empty, mismatched, or failed event read is **not deletion evidence**.
+  The BFF recovers its parent and emits an authoritative `fixture_update`.
+  If that also fails or returns no parent, it emits `resync`. The browser
+  likewise requests resynchronization when its parent recovery fails.
+- Event updates patch the retained shared target and existing search-result
+  copies too. A stale retained target must not mask a newer event completion.
+
+Only authoritative fixture membership can remove an event from the normal
+collection. An `event_update` never carries a null event as a deletion command.
 
 ## Browser state and ordering
 
@@ -87,7 +120,9 @@ responses, deduplicate, and order:
 4. deferred by kickoff.
 
 Equal recency uses kickoff and fixture ID as deterministic tie breakers.
-Inline `fixture.status` updates preserve the exact array order.
+Inline `fixture.status` and `event.update` applications preserve the exact
+fixture array order. Clip changes and discovery completion do not create
+fixture recency; recovered parents use the backend's existing recency.
 
 `last_activity_at` comes from Found Footy. Polls, clock ticks, and ordinary
 within-group status changes do not advance it. The portal never manufactures a
@@ -108,9 +143,12 @@ The browser takes one complete `GET /api/found-footy/fixtures` snapshot on:
 - timezone-mode change.
 
 Requests have an abort controller and generation. Only the newest snapshot may
-commit. Live events that arrive during a snapshot are recorded and replayed
-after the response commits, so an older REST response cannot overwrite newer
-stream state. A failed refresh retains the last valid fixture collection.
+commit. A shared journal retains the latest 200 live messages. Snapshot,
+parent, and retained-target reads replay later messages before committing, so
+an older REST response cannot overwrite newer stream state. If the required
+history has overflowed, the response cannot commit; request fresh recovery.
+A failed refresh retains the last valid fixture collection. A NATS disconnect
+also invalidates in-flight bridge reads; reconnect forces a new REST snapshot.
 
 While a shared target remains in the URL, recovery also reacquires its targeted
 fixture, event, and media state. Snapshot replacement cannot discard that
@@ -118,6 +156,77 @@ projection. Target requests have their own abort controller and generation, so
 an older share lookup cannot overwrite a newer URL or clean date action. A
 transient revalidation failure keeps the last valid target visible; an
 authoritative target `404` clears it.
+
+## Bounded delivery diagnostics
+
+The BFF records `nats_receipt`, `targeted_event`, `targeted_fixture`,
+`parent_recovery`, and `sse_delivery` in `[found-footy-live]` JSON logs. The
+browser records receipt, application, snapshots, and parent recovery under
+`[FootyLive]`. Outcomes distinguish received, applied/written, ignored, failed,
+and recovery paths. Event and fixture IDs correlate targeted updates; logs do
+not include event bodies, player names, media URLs, or tokens.
+
+Each instance retains 100 recent records and emits at most 60 console records
+per minute. The next emitted record reports suppressed output. The browser's
+provider exposes `getLiveDiagnostics()` for inspection through React tooling;
+there is no public diagnostic endpoint. SSE `written` means accepted by the
+server response buffer, **not** proof of browser application. Slow SSE clients
+with more than 1 MiB buffered are disconnected and recover with a snapshot.
+
+Successful backend publication in the Mbappé incident is established. The
+exact delivery failure is not. Missing completion publication and the former
+replacement-only client were separate defects; these diagnostics do not
+retroactively prove which hop failed.
+
+## Coordinated release gate
+
+1. Before deployment, the backend owner must verify **zero active discovery
+   workflows** and record the check time. Recheck if the release is delayed.
+   A quiet fixture window alone is not this check.
+2. Stage the exact producer, BFF, frontend, and schema commits together. The
+   producer's current handoff still describes a transitional old-subject
+   listener; the approved hard-cutover instruction supersedes that text.
+   Reconcile that producer documentation during coordination.
+3. Coordinate producer workers/API and this frontend/API release in that
+   window. No temporary dual-subject route exists. A quiet window limits
+   exposure; it does not make mixed versions compatible.
+4. Reload existing browser sessions onto the new frontend bundle. Reconnect
+   replaces REST data but cannot upgrade an already-loaded old JavaScript
+   consumer. With the new bundle, SSE and NATS reconnect both force a full
+   fixture snapshot. Subscribe before emitting the NATS-connect resync.
+5. Verify exact release identities and health, then trace a clip update and
+   zero-candidate completion from NATS receipt through client application.
+   Verify targeted missing-event/parent recovery and reconnect recovery.
+6. If rollback is needed, roll back producer and consumers together. Do not
+   leave a split-subject deployment. Record release evidence only after it runs.
+
+Found Footy's retained `PublishEventVideo` Temporal activity name is workflow
+history compatibility, not permission to retain the old NATS subject.
+
+### Reproducible verification
+
+Run `npm run type-check` and `npm run test:found-footy` for the focused suite.
+The latter skips the real-NATS case unless `NATS_TEST_URL` is set. The isolated
+Docker gate runs it too, without host ports or production services:
+
+```sh
+docker compose -f docker-compose.test.yml up --abort-on-container-exit --exit-code-from tests
+docker compose -f docker-compose.test.yml down
+```
+
+That integration test publishes through real NATS, reads BFF SSE, applies the
+client state function, and interrupts the BFF connection to check resync and
+REST recovery. It is not a physical-browser test. Validation also builds both
+production Dockerfiles and smoke-loads the BFF router from its built image;
+the API image must include the shared event and diagnostics helpers.
+
+**Verification record (2026-09-08):** all 38 focused tests passed in the
+isolated NATS gate, with no skipped tests. Type-check, both production image
+builds, and the API-image router smoke test passed. Changed-file ESLint has no
+errors and retains the provider's pre-existing Fast Refresh warning. Existing
+Node/dependency and bundle-size warnings remain in the audit backlog. No
+deployment or natural browser-session acceptance was performed; the live BFF
+source was checked and still routes the legacy subject.
 
 ## Live and pinned date intent
 

@@ -5,7 +5,6 @@ import type {
   Fixture,
   FixturePresentationState,
   FixtureStatusProjection,
-  GoalEvent,
 } from '@/types/found-footy'
 import {
   applyFixtureStatus,
@@ -14,10 +13,15 @@ import {
   isFixturesResponse,
   isSharedEventTargetResponse,
   mergeSharedTargetFixture,
-  replaceEventVideo,
+  applyFootyLiveEvent,
+  createFootyLiveJournal,
+  isFootyLiveEvent,
+  recoverFootyParent,
+  upsertEvent,
   replaceFixturesById,
   resolveRecoveryDate,
 } from './found-footy-live'
+import { withEventContext, type EventProjection } from './found-footy-event'
 
 function fixture(
   id: number,
@@ -175,28 +179,127 @@ test('targeted kickoff, final whistle, and postponed resumption replacements reg
   assert.equal(fixtures.find(item => item._id === 3)?.presentation_state, 'upcoming')
 })
 
-test('targeted event.video replaces only the indicated event projection', () => {
-  const target = {
-    _event_id: 'event-1',
-    _s3_urls: ['/old'],
+function eventProjection(id = 'event-1'): EventProjection {
+  return {
+    type: 'Goal', detail: 'Normal Goal', time: { elapsed: 10, extra: null },
+    team: { id: 2, name: 'Home' }, player: { id: 1, name: 'Scorer' },
+    assist: { id: null, name: null }, comments: null, _event_id: id,
+    _twitter_search: '', _discovered_videos: [], _s3_urls: ['/old'],
     _s3_videos: [{ url: '/old', perceptual_hash: '', resolution_score: 1, popularity: 0, rank: 1 }],
-    _monitor_complete: true,
-    _download_complete: false,
-    _removed: false,
-  } as GoalEvent
-  const untouched = { ...target, _event_id: 'event-2' }
-  const source = fixture(1, 'playing', '2H')
-  source.events = [target, untouched]
+    _perceptual_hashes: [], _monitor_complete: true, _download_complete: false, _removed: false,
+  }
+}
 
-  const [patched] = replaceEventVideo([source], 1, 'event-1', {
-    _event_id: 'event-1',
-    _s3_urls: ['/new'],
-    _download_complete: true,
+test('event.update replaces clips and inserts missing events without fixture recency or order changes', () => {
+  const source = fixture(1, 'playing', '2H', '2026-08-30T11:10:00Z')
+  const other = fixture(2, 'playing', '2H', '2026-08-30T12:10:00Z')
+  source.events = withEventContext(source, [eventProjection()])
+  const update = { ...eventProjection(), _s3_urls: ['/new'], _download_complete: true }
+  const patched = upsertEvent([other, source], 1, update._event_id, update)
+  assert.deepEqual(patched.map(item => item._id), [2, 1])
+  assert.equal(patched[1]._last_activity, source._last_activity)
+  assert.equal(patched[0], other)
+  assert.deepEqual(patched[1].events[0]._s3_urls, ['/new'])
+  const added = { ...eventProjection('missing-event'), time: { elapsed: 20, extra: null } }
+  const inserted = upsertEvent(patched, 1, added._event_id, added)
+  assert.equal(inserted[1].events.length, 2)
+  assert.deepEqual(inserted[1].events[1]._score_after, { home: 2, away: 0 })
+  assert.equal(inserted[1]._last_activity, source._last_activity)
+  assert.equal(upsertEvent(inserted, 1, added._event_id, added)[1].events.length, 2)
+})
+
+test('no-candidate searching to complete is independent of clip count', () => {
+  const source = fixture(1, 'playing')
+  const searching = { ...eventProjection(), _s3_urls: [], _s3_videos: [] }
+  source.events = withEventContext(source, [searching])
+  const updated = applyFootyLiveEvent([source], {
+    type: 'event_update', fixture_id: 1, event_id: searching._event_id,
+    event: { ...searching, _download_complete: true },
   })
+  assert.equal(updated[0].events[0]._download_complete, true)
+  assert.deepEqual(updated[0].events[0]._s3_urls, [])
+})
 
-  assert.deepEqual(patched.events[0]._s3_urls, ['/new'])
-  assert.equal(patched.events[0]._download_complete, true)
-  assert.equal(patched.events[1], untouched)
+test('empty, mismatched, or old video messages cannot become removal patches', () => {
+  const update = { type: 'event_update', fixture_id: 1, event_id: 'event-1', event: eventProjection() }
+  assert.equal(isFootyLiveEvent(update), true)
+  assert.equal(isFootyLiveEvent({ ...update, event: null }), false)
+  assert.equal(isFootyLiveEvent({ ...update, event: { _event_id: 'event-1' } }), false)
+  assert.equal(isFootyLiveEvent({ ...update, event_id: 'different' }), false)
+  assert.equal(isFootyLiveEvent({ ...update, type: 'event_video' }), false)
+})
+
+test('parent recovery fetches once and replays newer completion over stale REST', async () => {
+  const journal = createFootyLiveJournal()
+  const source = fixture(1, 'playing')
+  source.events = withEventContext(source, [eventProjection()])
+  let resolve!: (value: unknown) => void
+  let reads = 0
+  const pending = recoverFootyParent(1, () => {
+    reads++
+    return new Promise(done => { resolve = done })
+  }, journal)
+  journal.record({ type: 'event_update', fixture_id: 1, event_id: 'event-1',
+    event: { ...eventProjection(), _download_complete: true, _s3_urls: ['/new'] } })
+  resolve({ fixtures: [source] })
+  const recovered = await pending
+  assert.equal(reads, 1)
+  assert.equal(recovered?.events[0]._download_complete, true)
+  assert.deepEqual(recovered?.events[0]._s3_urls, ['/new'])
+})
+
+test('a fixture removal arriving during parent recovery cannot be resurrected', async () => {
+  const journal = createFootyLiveJournal()
+  let resolve!: (value: unknown) => void
+  const pending = recoverFootyParent(1, () => new Promise(done => { resolve = done }), journal)
+  journal.record({ type: 'fixture_update', fixture_ids: [1], fixtures: [] })
+  resolve({ fixtures: [fixture(1, 'playing')] })
+  assert.equal(await pending, null)
+})
+
+test('parent recovery includes the triggering event even if its row is absent from the fixture read', async () => {
+  const journal = createFootyLiveJournal()
+  const after = journal.revision()
+  const event = { ...eventProjection(), _download_complete: true, _s3_urls: [], _s3_videos: [] }
+  journal.record({ type: 'event_update', fixture_id: 1, event_id: event._event_id, event })
+  const recovered = await recoverFootyParent(1, async () => ({ fixtures: [fixture(1, 'playing')] }), journal, after)
+  assert.equal(recovered?.events.length, 1)
+  assert.equal(recovered?.events[0]._download_complete, true)
+  assert.deepEqual(recovered?.events[0]._s3_urls, [])
+})
+
+test('a retained target cannot mask a newer event completion from the live collection', () => {
+  const source = fixture(1, 'playing')
+  source.events = withEventContext(source, [eventProjection()])
+  const target = { eventId: 'event-1', found: true as const, fixture: source,
+    date: '2026-08-30', kickoff: source.fixture.date, media: null }
+  const event = { type: 'event_update' as const, fixture_id: 1, event_id: 'event-1',
+    event: { ...eventProjection(), _download_complete: true } }
+  const current = applyFootyLiveEvent([source], event)
+  const updatedTarget = { ...target, fixture: applyFootyLiveEvent([target.fixture], event)[0] }
+  assert.equal(mergeSharedTargetFixture(current, updatedTarget)[0].events[0]._download_complete, true)
+})
+
+test('failed or empty parent reads and journal overflow require resync', async () => {
+  const journal = createFootyLiveJournal(1)
+  await assert.rejects(recoverFootyParent(1, async () => ({ fixtures: [] }), journal))
+  await assert.rejects(recoverFootyParent(1, async () => { throw new Error('offline') }, journal))
+  journal.record({ type: 'fixture_status', fixtures: [] })
+  journal.record({ type: 'fixture_status', fixtures: [] })
+  assert.equal(journal.replay([], 0), null)
+})
+
+test('snapshot and retained-target recovery replay event updates and flag missing parents', () => {
+  const journal = createFootyLiveJournal()
+  const source = fixture(1, 'finished', 'FT')
+  source.events = withEventContext(source, [eventProjection()])
+  const cursor = journal.revision()
+  journal.record({ type: 'event_update', fixture_id: 1, event_id: 'event-1',
+    event: { ...eventProjection(), _download_complete: true } })
+  assert.equal(journal.replay([source], cursor)?.[0].events[0]._download_complete, true)
+  assert.deepEqual(journal.missingParents([], cursor), [1])
+  journal.record({ type: 'fixture_update', fixture_ids: [1], fixtures: [] })
+  assert.deepEqual(journal.missingParents([], cursor), [])
 })
 
 test('recovery advances a live view after wake while preserving a pinned date', () => {

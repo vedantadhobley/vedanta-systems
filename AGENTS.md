@@ -158,6 +158,14 @@ Pattern A vs B is the central architectural call here — see
   live updates, live/pinned intent, carryover, and recovery. Route ownership,
   explicit freshness UI, accessible primitives, and the two-plane visual
   migration remain. Do not apply the visual system until its design is ready.
+- **FF-085/FF-086 consumer staged, not deployed (2026-09-08)**: source now
+  accepts only `event.update` / SSE `event_update`, with full event upserts,
+  missing-parent recovery, and bounded diagnostics. Production still uses
+  `event.video`. Coordinate with Found Footy `dbc2a76` and shared schemas
+  `fcfb28f`; require zero active discovery workflows immediately before
+  cutover, new browser bundles, and reconnect snapshots. No independent
+  consumer deployment or temporary dual listener. See
+  [the live-data release gate](./docs/found-footy-live-data.md#coordinated-release-gate).
 - **found-footy FF-077 live, validating**: the coordinated production rollout
   landed 2026-08-30 with Found Footy `e26966a`, this consumer `81db099`, and
   shared schema `fb04fee`; Found Footy records rollout evidence in `36fcf62`.

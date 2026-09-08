@@ -49,6 +49,19 @@ visual redesign.
   IDs fetch only those fixtures; `event.video` fetches only that event. Full
   REST snapshots recover initial connection, stream/NATS reconnect, browser
   wake, page restore, online, video resume, midnight, and timezone changes.
+- [x] Implement FF-085/FF-086 consumer recovery in source: `event.update` to
+  SSE `event_update`, complete event upserts, targeted missing-parent recovery,
+  non-destructive failed-read recovery, stale-response protection, and bounded
+  BFF/browser diagnostics. No old-subject listener. This supersedes FF-077's
+  `event.video` path **only when deployed**.
+- [ ] Coordinate the FF-085/FF-086 hard cutover with Found Footy `dbc2a76`
+  and shared schemas `fcfb28f`; neither side is deployed as of 2026-09-08.
+  Require a fresh zero-active-discovery check, matched releases, new browser
+  bundles, and reconnect snapshots. Then trace clip changes and zero-candidate
+  completion through client application. The
+  [live-data release gate](./found-footy-live-data.md#coordinated-release-gate)
+  owns the checklist and test commands. The Mbappé incident's exact failed
+  delivery hop remains unproven; do not close that question by inference.
 - [x] Replace the video watchdog's `readyState >= 2` heuristic. Ordinary
   loading/buffering must never trigger pause/play recovery or the custom play
   overlay. A rejected `play()` may show **Play video**; a confirmed media error

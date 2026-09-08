@@ -18,8 +18,9 @@ Use this index to route project work before searching the full docs tree.
   primitives.
 - [Found Footy timezone behavior](./found-footy-timezone.md) — fixture
   visibility and timezone-aware navigation behavior.
-- [Found Footy live data](./found-footy-live-data.md) — FF-077 targeted
-  NATS/SSE/REST lifecycle, recovery, live intent, and carryover contract.
+- [Found Footy live data](./found-footy-live-data.md) — targeted NATS/SSE/REST
+  lifecycle, recovery, bounded diagnostics, and the staged FF-085/FF-086
+  coordinated cutover.
 - [Found Footy media playback](./found-footy-media.md) — delivery path,
   autoplay and buffering states, native-control ownership, iOS scrubbing risks,
   and the physical-device acceptance matrix.

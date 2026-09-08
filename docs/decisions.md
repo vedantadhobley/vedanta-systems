@@ -788,3 +788,34 @@ Found Footy health pass. Physical iPhone scroll preservation remains
 validating.
 
 ---
+
+## 2026-09-08 — Recover complete asynchronous event updates (FF-085/FF-086)
+
+**Context.** Discovery can complete without producing clips. The old video
+notification missed that phase change, and the browser's replacement-only
+handler discarded event updates when the event row was missing locally. The
+Mbappé incident had successful producer publications, but the exact failed
+delivery hop remains unproven.
+
+**Decision.** Replace `event.video` with `event.update` and SSE `event_update`
+in one coordinated hard cutover. Preserve both resource IDs, fetch the
+authoritative event once in the BFF, and upsert its complete projection in
+React. Recover a missing parent through a targeted fixture read. An empty or
+failed event read cannot become a deletion patch; recover the fixture or
+request resynchronization. Clip/discovery changes never manufacture fixture
+recency. Keep inline status and provider-owned fixture updates separate.
+
+**Consequences.** Snapshots and targeted recovery share bounded live-message
+replay so late REST cannot erase newer updates. BFF receipt/fetch/SSE and
+browser receipt/application have bounded, ID-correlated diagnostics. The
+shared event-shaping helpers ship in both frontend and BFF images. This is a
+data-correctness change, not a visual or modal/route refoundation change.
+
+**Release state.** Implemented and tested in source, not deployed. Coordinate
+with Found Footy `dbc2a76` and shared schemas `fcfb28f`. Require a fresh
+zero-active-discovery check, matched releases, freshly loaded browser bundles,
+and complete REST snapshots on reconnect. No temporary dual listener. The
+[live-data release gate](./found-footy-live-data.md#coordinated-release-gate)
+owns verification and deployment requirements.
+
+---
