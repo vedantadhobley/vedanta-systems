@@ -53,12 +53,13 @@ visual redesign.
   SSE `event_update`, complete event upserts, targeted missing-parent recovery,
   non-destructive failed-read recovery, stale-response protection, and bounded
   BFF/browser diagnostics. No old-subject listener. This supersedes FF-077's
-  `event.video` path **only when deployed**.
-- [ ] Coordinate the FF-085/FF-086 hard cutover with Found Footy `dbc2a76`
-  and shared schemas `fcfb28f`; neither side is deployed as of 2026-09-08.
-  Require a fresh zero-active-discovery check, matched releases, new browser
-  bundles, and reconnect snapshots. Then trace clip changes and zero-candidate
-  completion through client application. The
+  `event.video` path in the coordinated 2026-09-08 production rollout.
+- [x] Coordinate the FF-085/FF-086 hard cutover: production runs consumer
+  `ca1f8e5`, Found Footy `3723ce2` (includes `dbc2a76`), and schemas `fcfb28f`.
+  Independent release, REST, NATS subscription, and SSE checks passed.
+- [ ] Trace natural clip changes and zero-candidate completion through client
+  application before closing FF-085/FF-086. Existing browser tabs must load
+  the new bundle; reconnect alone does not update JavaScript. The
   [live-data release gate](./found-footy-live-data.md#coordinated-release-gate)
   owns the checklist and test commands. The Mbappé incident's exact failed
   delivery hop remains unproven; do not close that question by inference.
@@ -176,6 +177,10 @@ marking the behavior validated, verify on a physical iPhone that:
 The production correction is an interim baseline, not the final shared shell.
 Next:
 
+- [ ] Apply the [component review gate](./interaction-principles.md#component-review-gate)
+  as primitives migrate. Record input, hit-area, focus, context, text-scaling,
+  state-feedback, and reduced-effect evidence; adopting the guidelines does
+  not mark existing components as validated.
 - [x] add opt-in viewport and safe-area diagnostics;
 - [ ] add desktop scroll-owner and structural-transition browser tests;
 - [x] extract a visually unchanged `AppShell` and centralize bottom occlusion;

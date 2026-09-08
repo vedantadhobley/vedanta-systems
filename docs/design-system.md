@@ -9,7 +9,10 @@ behavioral shell is governed separately by the
 This document owns visual material and component anatomy. The
 [frontend re-foundation plan](./plans/frontend-refoundation.md) owns runtime,
 route, input, accessibility, and migration order. A component enters the
-source-owned system only when it satisfies both contracts.
+source-owned system only when it satisfies both contracts and the
+[adopted interaction principles](./interaction-principles.md). Apple's
+layering guidance informs hierarchy, not our material choice or plane
+classification; no Apple visual treatment is adopted by reference.
 
 The site is made from two visual element types: **containers** and **data**.
 This mirrors the system it represents: containers provide structure and

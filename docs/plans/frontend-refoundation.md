@@ -34,6 +34,9 @@ have narrower jobs:
   BFF, infrastructure, security, and documentation evidence;
 - the [frontend shell plan](./frontend-shell.md) owns viewport geometry,
   safe areas, scroll ownership, fixed chrome, and structural handoffs;
+- the [adopted interaction principles](../interaction-principles.md) own
+  cross-component behavior and acceptance derived from selected Apple HIG
+  guidance, with explicit web adaptations;
 - the [Found Footy live-data contract](../found-footy-live-data.md) owns the
   current stream behavior and target reconciliation semantics;
 - the [design brief](../design.md) owns intent and confirmed product
@@ -182,6 +185,12 @@ and live-data ownership when testing shows the stream can remain open.
 
 ## Interaction and accessibility contract
 
+Apply the adopted interaction principles to every new or migrated component.
+They are acceptance requirements, not evidence that the existing interface
+already conforms. Apple HIG is a reference, not a replacement design authority:
+we do not adopt Liquid Glass, native widget geometry, fonts, or dependencies
+as part of this decision.
+
 - Use semantic buttons, links with real `href` values, lists, dialogs, and
   headings before styling them.
 - Use capability queries for visual hover and `:active` for press feedback.
@@ -234,6 +243,9 @@ causes scroll lag or keeps the mobile radio awake fails the gate.
 
 ### 0. Protect the baseline
 
+- Record applicable checks from the
+  [component review gate](../interaction-principles.md#component-review-gate)
+  for each migrated primitive, including deliberate exceptions and evidence.
 - Add the smallest browser interaction test harness needed for lifecycle,
   input, modal, and media contracts.
 - Record current Found Footy behavior and the shared-link video case.
@@ -252,8 +264,8 @@ causes scroll lag or keeps the mobile radio awake fails the gate.
   [timezone todo](../todo.md).
 - **Landed for shared targets:** abort and generation-protect superseded
   retained-event requests. Search request ownership remains open.
-- **Staged in FF-085/FF-086, not deployed:** complete `event.update` upserts,
-  targeted missing-parent recovery, a bounded live-message journal shared by
+- **Deployed in FF-085/FF-086, validating natural delivery:** complete
+  `event.update` upserts, targeted missing-parent recovery, a bounded live-message journal shared by
   recovery reads, and bounded delivery/application diagnostics. Carry these
   invariants into the route runtime; do not restore a replacement-only event
   path or make clip/discovery changes advance fixture recency. The

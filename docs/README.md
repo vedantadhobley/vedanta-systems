@@ -16,11 +16,14 @@ Use this index to route project work before searching the full docs tree.
 - [Interface design system](./design-system.md) — working two-plane contract
   for crisp containers, phosphor data, composite controls, and reusable
   primitives.
+- [Adopted interaction principles](./interaction-principles.md) — selected
+  Apple HIG principles translated into web-specific component acceptance;
+  not an Apple visual theme or a claim of current compliance.
 - [Found Footy timezone behavior](./found-footy-timezone.md) — fixture
   visibility and timezone-aware navigation behavior.
 - [Found Footy live data](./found-footy-live-data.md) — targeted NATS/SSE/REST
-  lifecycle, recovery, bounded diagnostics, and the staged FF-085/FF-086
-  coordinated cutover.
+  lifecycle, recovery, bounded diagnostics, and deployed FF-085/FF-086
+  verification with remaining natural-event acceptance.
 - [Found Footy media playback](./found-footy-media.md) — delivery path,
   autoplay and buffering states, native-control ownership, iOS scrubbing risks,
   and the physical-device acceptance matrix.

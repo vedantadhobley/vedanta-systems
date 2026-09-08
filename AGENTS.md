@@ -87,7 +87,7 @@ The proxy stack itself lives in `~/workspace/proxy/`; its
 
 | Project | What vs-api does today | Target shape |
 |---|---|---|
-| **found-footy** | **Pattern B, live both envs.** Proxies the Go read API, resolves targeted `fixture.update`/`event.video` hints, forwards inline `fixture.status`, and re-proxies share-id media. FF-077 is deployed and validating natural live transitions. | Done — no direct mongo/minio peers. |
+| **found-footy** | **Pattern B.** Proxies the Go read API, resolves targeted `fixture.update`/`event.update` hints, forwards inline `fixture.status`, and re-proxies share-id media. FF-085/FF-086 is deployed in production and validating natural event delivery. | Done — no direct mongo/minio peers. |
 | **spin-cycle** | Reads `spin-cycle-{env}-postgres` directly (Pattern A) | `spin-cycle-{env}-api:3000` already exists — vs-api just needs to swap from pg pool to HTTP proxy. |
 | **long-exposure** | Reads `long-exposure-{env}-postgres` directly (Pattern A, by design until LE grows its own API) | Pattern B once LE has a separate api service. The `caddy.d/long-exposure.caddy` file documents the current design. |
 | **btop-luv / btop-joi** | Express proxies `/api/btop-{luv,joi}/{health,stream}` to the per-node btop container via host gateway (4102/4103 dev, 3102/3103 prod). | n/a — `network_mode: host` is incompatible with Caddy fronting. |
@@ -158,13 +158,15 @@ Pattern A vs B is the central architectural call here — see
   live updates, live/pinned intent, carryover, and recovery. Route ownership,
   explicit freshness UI, accessible primitives, and the two-plane visual
   migration remain. Do not apply the visual system until its design is ready.
-- **FF-085/FF-086 consumer staged, not deployed (2026-09-08)**: source now
-  accepts only `event.update` / SSE `event_update`, with full event upserts,
-  missing-parent recovery, and bounded diagnostics. Production still uses
-  `event.video`. Coordinate with Found Footy `dbc2a76` and shared schemas
-  `fcfb28f`; require zero active discovery workflows immediately before
-  cutover, new browser bundles, and reconnect snapshots. No independent
-  consumer deployment or temporary dual listener. See
+- **FF-085/FF-086 deployed, validating (2026-09-08)**: production runs
+  consumer `ca1f8e5` with Found Footy `3723ce2` (includes producer `dbc2a76`)
+  and shared schemas `fcfb28f`. Only `event.update` / SSE `event_update` is
+  accepted, with full event upserts, missing-parent recovery, and bounded
+  diagnostics. Release identities, public REST, NATS subscription, and SSE
+  connection/heartbeat/reopening passed independent checks. Natural clip and
+  no-candidate completion delivery to React remains unproven. Existing tabs
+  need the new browser bundle; reconnect alone cannot replace old JavaScript.
+  Keep producer and consumer wire contracts matched. See
   [the live-data release gate](./docs/found-footy-live-data.md#coordinated-release-gate).
 - **found-footy FF-077 live, validating**: the coordinated production rollout
   landed 2026-08-30 with Found Footy `e26966a`, this consumer `81db099`, and

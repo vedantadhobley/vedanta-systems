@@ -819,3 +819,25 @@ and complete REST snapshots on reconnect. No temporary dual listener. The
 owns verification and deployment requirements.
 
 ---
+
+## 2026-09-08 — Adopt interaction principles, not an Apple visual theme
+
+**Context.** Apple HIG offers detailed guidance for interaction, hierarchy,
+feedback, and accessibility. Several principles support this site's existing
+context-preservation, input-modality, and layered-interface requirements, but
+native Apple components and materials are not a web implementation contract.
+
+**Decision.** Adopt a selected, source-linked set of
+[interaction principles](./interaction-principles.md) as acceptance criteria
+for new and migrated components. Preserve context, support distinct input
+paths, provide usable hit areas, maintain readable hierarchy, keep effects
+interruptible and optional, report truthful state, and respect the actual web
+viewport. Record exceptions and test evidence at the component boundary.
+
+**Consequences.** The refoundation and design-system docs route to this shared
+behavioral contract. Our visual language, fonts, icons, navigation, and
+technology choices remain independent. This documentation decision does not
+resume the paused visual redesign, implement components, establish a global
+cross-project convention, or certify the current site's accessibility.
+
+---

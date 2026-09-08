@@ -5,11 +5,13 @@ visibility and navigation policy live in
 [timezone-aware fixture scoping](./found-footy-timezone.md). Found Footy's
 producer contract is authoritative in its `docs/api.md`.
 
-**Release state (2026-09-08):** FF-077 is deployed. FF-085/FF-086 consumer
-changes below are implemented but **not deployed**. They require a coordinated
-hard cutover with Found Footy `dbc2a76` and shared schemas `fcfb28f`. Production
-still uses `event.video` until that cutover; this source accepts only
-`event.update`. See [the release gate](#coordinated-release-gate).
+**Release state (2026-09-08):** FF-085/FF-086 is **deployed, validating**.
+Production runs consumer `ca1f8e5`, Found Footy `3723ce2` (includes producer
+`dbc2a76`), and shared schemas `fcfb28f`. Only `event.update` is routed; there
+is no dual-subject listener. Deployment and connection checks passed, while
+natural event-to-React acceptance remains open. See
+[post-rollout verification](#post-rollout-verification) and
+[the coordinated release gate](#coordinated-release-gate).
 
 ## System path
 
@@ -183,10 +185,9 @@ retroactively prove which hop failed.
 1. Before deployment, the backend owner must verify **zero active discovery
    workflows** and record the check time. Recheck if the release is delayed.
    A quiet fixture window alone is not this check.
-2. Stage the exact producer, BFF, frontend, and schema commits together. The
-   producer's current handoff still describes a transitional old-subject
-   listener; the approved hard-cutover instruction supersedes that text.
-   Reconcile that producer documentation during coordination.
+2. Stage the exact producer, BFF, frontend, and schema commits together.
+   Producer `3723ce2` corrected its earlier transitional-listener guidance;
+   both sides now document the coordinated hard cutover.
 3. Coordinate producer workers/API and this frontend/API release in that
    window. No temporary dual-subject route exists. A quiet window limits
    exposure; it does not make mixed versions compatible.
@@ -220,13 +221,38 @@ REST recovery. It is not a physical-browser test. Validation also builds both
 production Dockerfiles and smoke-loads the BFF router from its built image;
 the API image must include the shared event and diagnostics helpers.
 
-**Verification record (2026-09-08):** all 38 focused tests passed in the
+**Pre-deployment verification (2026-09-08):** all 38 focused tests passed in the
 isolated NATS gate, with no skipped tests. Type-check, both production image
 builds, and the API-image router smoke test passed. Changed-file ESLint has no
 errors and retains the provider's pre-existing Fast Refresh warning. Existing
-Node/dependency and bundle-size warnings remain in the audit backlog. No
-deployment or natural browser-session acceptance was performed; the live BFF
-source was checked and still routes the legacy subject.
+Node/dependency and bundle-size warnings remain in the audit backlog. At that
+point no deployment or natural browser-session acceptance had occurred.
+
+### Post-rollout verification
+
+The independent read-only check on 2026-09-08 confirmed:
+
+- Both Found Footy workers, API, and Twitter reported the full `3723ce2`
+  release identity; all four application containers had zero restarts.
+- All 27 deployed BFF source files and dependency manifests checked matched
+  `ca1f8e5`. Running frontend/BFF image IDs matched the release record.
+- Public browser HTML served `index-ivFie9qv.js`. Its bytes matched the running
+  frontend container; it contained `event_update` and no `event_video` path.
+- Public health and fixture REST returned HTTP 200; all returned fixtures
+  passed the root presentation-shape check.
+- NATS connection `1320` subscribed to `found-footy.prod.>` with zero pending
+  bytes. Public SSE delivered `connected`, healthy state, a heartbeat, and
+  fresh connection/health messages after closing and reopening the request.
+
+At that check NATS had delivered no messages to the new BFF connection, so
+this is deployment and connection evidence, not proof of a natural event
+changing React state. Clip changes and no-candidate completion must still be
+traced through browser application. No synthetic production events were sent.
+The backend release record reports no migration or manual data repairs;
+this independent check did not audit database mutation history.
+
+Existing browser tabs must load the new bundle. Keep FF-085/FF-086 validating
+until the natural event acceptance passes.
 
 ## Live and pinned date intent
 
