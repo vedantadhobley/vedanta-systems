@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { cn } from '@/lib/utils'
 
 interface BtopMonitorProps {
@@ -20,6 +20,7 @@ const TERM_W = COLS * CELL_W
 const TERM_H = ROWS * CELL_H
 const ASPECT_RATIO = TERM_W / TERM_H
 const MAX_RECONNECT_DELAY = 30000
+const STALE_FRAME_MS = 5000
 const MAX_PHOSPHOR_EXCITATIONS_PER_DELTA = 64
 
 type Cell = [string, string | null, string | null, 0 | 1]
@@ -37,21 +38,6 @@ export function BtopMonitor({
   const terminalRef = useRef<HTMLDivElement>(null)
   const spansRef = useRef<HTMLSpanElement[]>([])
   const [isOnline, setIsOnline] = useState(false)
-
-  const checkHealth = useCallback(async () => {
-    try {
-      const res = await fetch(`${apiPrefix}/health`, { cache: 'no-store' })
-      setIsOnline(res.ok)
-    } catch {
-      setIsOnline(false)
-    }
-  }, [apiPrefix])
-
-  useEffect(() => {
-    checkHealth()
-    const interval = setInterval(checkHealth, 15000)
-    return () => clearInterval(interval)
-  }, [checkHealth])
 
   useEffect(() => {
     const terminal = terminalRef.current
@@ -77,6 +63,11 @@ export function BtopMonitor({
     let eventSource: EventSource | null = null
     let reconnectTimeout: ReturnType<typeof setTimeout> | null = null
     let reconnectAttempts = 0
+    let disposed = false
+    let suspended = false
+    let hasFullFrame = false
+    let lastFrameAt: number | null = null
+    let connectedAt = 0
 
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)')
 
@@ -118,12 +109,13 @@ export function BtopMonitor({
     }
 
     const handleMessage = (data: StreamMessage) => {
-      if (data.t === 'f') {
+      if (data.t === 'f' && Array.isArray(data.c) && data.c.length === TOTAL_CELLS) {
         for (let i = 0; i < TOTAL_CELLS; i++) {
           const [char, fg, bg, bold] = data.c[i]
           updateCell(i, char, fg, bg, bold)
         }
-      } else if (data.t === 'd') {
+        hasFullFrame = true
+      } else if (data.t === 'd' && hasFullFrame && Array.isArray(data.d) && data.d.length <= TOTAL_CELLS) {
         const excitationStride = Math.max(
           1,
           Math.ceil(data.d.length / MAX_PHOSPHOR_EXCITATIONS_PER_DELTA),
@@ -133,51 +125,83 @@ export function BtopMonitor({
           const excite = char !== ' ' && deltaIndex % excitationStride === 0
           updateCell(index, char, fg, bg, bold, excite)
         }
-      }
+      } else return false
+      return true
     }
 
-    const connect = () => {
-      if (eventSource) eventSource.close()
-      eventSource = new EventSource(`${apiPrefix}/stream`)
-      eventSource.onopen = () => { reconnectAttempts = 0 }
-      eventSource.onmessage = (event) => {
-        try {
-          handleMessage(JSON.parse(event.data))
-        } catch (e) {
-          console.error('[btop] Parse error:', e)
-        }
-      }
-      eventSource.onerror = () => {
-        eventSource?.close()
-        eventSource = null
-        if (document.visibilityState !== 'visible') return
-        const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), MAX_RECONNECT_DELAY)
-        reconnectAttempts++
-        reconnectTimeout = setTimeout(connect, delay)
-      }
-    }
+    // navigator.onLine is a platform heuristic, not reachability of this BFF.
+    // Keep bounded retries even on a private network reported as offline.
+    const canConnect = () => !disposed && !suspended
+      && document.visibilityState === 'visible'
 
     const disconnect = () => {
       if (reconnectTimeout) { clearTimeout(reconnectTimeout); reconnectTimeout = null }
       if (eventSource) { eventSource.close(); eventSource = null }
+      hasFullFrame = false
+      lastFrameAt = null
+      if (!disposed) setIsOnline(false)
     }
 
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        if (!eventSource || eventSource.readyState !== EventSource.OPEN) {
+    const retry = () => {
+      disconnect()
+      if (!canConnect()) return
+      const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), MAX_RECONNECT_DELAY)
+      reconnectAttempts = Math.min(reconnectAttempts + 1, 5)
+      reconnectTimeout = setTimeout(connect, delay)
+    }
+
+    const connect = () => {
+      disconnect()
+      if (!canConnect()) return
+      connectedAt = performance.now()
+      const source = new EventSource(`${apiPrefix}/stream`)
+      eventSource = source
+      source.onmessage = (event) => {
+        if (eventSource !== source || disposed) return
+        try {
+          if (!handleMessage(JSON.parse(event.data))) { retry(); return }
+          lastFrameAt = performance.now()
           reconnectAttempts = 0
-          connect()
+          setIsOnline(true)
+        } catch {
+          retry()
         }
-      } else {
-        disconnect()
+      }
+      source.onerror = () => {
+        if (eventSource === source && !disposed) retry()
       }
     }
 
+    const wake = () => {
+      reconnectAttempts = 0
+      connect()
+    }
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') wake()
+      else disconnect()
+    }
+    const hidePage = () => { suspended = true; disconnect() }
+    const showPage = () => { suspended = false; wake() }
+
+    // Only received frames prove freshness. HTTP health and SSE comments do not.
+    const watchdog = setInterval(() => {
+      if (eventSource && performance.now() - (lastFrameAt ?? connectedAt) > STALE_FRAME_MS) retry()
+    }, 1000)
     connect()
     document.addEventListener('visibilitychange', handleVisibilityChange)
+    window.addEventListener('pagehide', hidePage)
+    window.addEventListener('pageshow', showPage)
+    window.addEventListener('offline', retry)
+    window.addEventListener('online', wake)
 
     return () => {
+      disposed = true
+      clearInterval(watchdog)
       document.removeEventListener('visibilitychange', handleVisibilityChange)
+      window.removeEventListener('pagehide', hidePage)
+      window.removeEventListener('pageshow', showPage)
+      window.removeEventListener('offline', retry)
+      window.removeEventListener('online', wake)
       disconnect()
     }
   }, [apiPrefix, phosphor])
@@ -203,7 +227,9 @@ export function BtopMonitor({
   return (
     <div className={cn(className)}>
       <div className="flex items-center justify-center gap-1.5 md:gap-2 py-1 md:py-1.5">
-        <span className="relative flex h-1.5 w-1.5 md:h-2 md:w-2">
+        <span className="relative flex h-1.5 w-1.5 md:h-2 md:w-2"
+          role="status" aria-label={`${label}: ${isOnline ? 'live' : 'offline'}`}
+          title={isOnline ? 'Receiving live frames' : 'No current frame'}>
           <span className={cn(
             "absolute inline-flex h-full w-full rounded-full opacity-75",
             isOnline && "animate-ping",

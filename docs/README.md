@@ -9,6 +9,8 @@ Use this index to route project work before searching the full docs tree.
 - [btop source and profile](./btop-source.md) — source authority,
   public-display configuration, legacy patch history, and the Strix Halo
   utilization gap.
+- [btop browser acceptance](./btop-browser-acceptance.md) — frame-based
+  freshness, isolated packaged-stream browser tests, and physical-device gates.
 - [Decisions](./decisions.md) — append-only record of choices that have
   landed and should not be silently revisited.
 - [Design language](./design.md) — living visual brief, confirmed product

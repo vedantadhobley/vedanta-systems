@@ -83,39 +83,29 @@ state, profile options, legacy patch history, and the packaging gate live in
 [btop source and public-display profile](./btop-source.md). This repo's
 embedded `btop/src` remains only for the live legacy image.
 
-The luv hardware pilot uses read-only statistics with no GPU device grants or
-privileged mode. Freshness now requires new terminal output; repeatedly reading
-a frozen screen cannot keep it healthy. The capture-only hardware check starts
-no listener and never contacts production NATS. Private access, end-to-end
-recovery, and image publication remain cutover gates.
+Control published candidate `2026-09-10.2` from clean source `18e523e` and
+btop `4aca040` to its private registry. Both images were pulled and tested by
+immutable digest. Candidate `.1` is superseded: its unregistered theme path
+silently selected btop's default colors. Nothing from either candidate was
+deployed to the live broker or tiles.
 
-The 2026-09-10 source-overlay acceptance now connects real luv capture over
-its private socket through a credentialed Control relay, isolated authenticated
-NATS, and this BFF's SSE handler. Consumer reconnect invalidates its cached
-screen and recovers only from a full frame. All integrated portal tests pass,
-including authenticated Found Footy event delivery and REST recovery.
-This is not physical-browser wake/stale-indicator acceptance or a deployment.
-Immutable images remain a release gate. Production credentials belong to the
-deferred authentication rollout, not the current btop release.
+The luv probe uses read-only statistics without GPU devices or privileged
+mode. Two fresh packaged containers pass host-counter, lavender-palette, and
+freeze/resume/exit/replacement checks. Freshness requires new terminal output;
+repeatedly capturing a frozen screen cannot keep it healthy.
 
-The subsequent open-mode acceptance reuses Control's deployment declaration
-with an isolated broker/network and a source-overlay exporter. Both exporter
-and relay run as UID 65534. The relay mounts only the mode-0600 socket's
-private runtime volume, not credentials. This repo's
-[`docker-compose.btop-socket-test.yml`](../docker-compose.btop-socket-test.yml)
-runs the same full-frame/reconnect test without authentication plus the BFF
-state-machine and credential-option regressions. All 22 checks pass; this is
-still protocol acceptance, not a packaged release or browser deployment.
+The packaged exporter runs as UID 65534 and serves a mode-0600 Unix socket
+inside a mode-0700 runtime volume. The relay mounts that volume read-only and
+publishes to an isolated open-mode broker. The BFF/SSE suite passes all 22
+checks, including reconnect from a full frame. Earlier authenticated tests
+remain available for the deferred rollout; live credentials are not required.
 
-After starting Control's socket-test overlay, run:
-
-```bash
-docker compose --env-file /dev/null -f docker-compose.btop-socket-test.yml run --rm --no-deps tests
-```
-
-It joins only `control-telemetry-socket-test_broker`. Stop test clients before
-removing Control's test stack and socket volume. The existing authenticated
-harness remains available separately for the deferred rollout.
+The [browser acceptance harness](./btop-browser-acceptance.md) passes in
+Chromium and mobile-sized WebKit against the pulled artifacts. It also found
+and fixed stale live indicators and unreliable offline-heuristic gating.
+The monitor now proves freshness from frames and requires a full frame after
+resume. Physical iPhone and final-ingress interruption checks remain before
+cutover. No collector or public route has switched.
 
 ## Legacy and target capabilities
 

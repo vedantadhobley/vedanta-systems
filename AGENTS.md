@@ -192,10 +192,11 @@ Pattern A vs B is the central architectural call here — see
   profile have landed. The un-deployed direct agent publisher was a boundary
   mistake and is superseded. Control has an undeployed luv exporter/relay
   candidate with isolated transport and read-only luv hardware acceptance.
-  Frozen frames no longer renew freshness. Vulkan utilization, private access,
-  and end-to-end acceptance remain before any tile
-  switch. The target BFF now enforces configured inventory, bounded streams,
-  and full-frame recovery after disconnect; see `docs/btop.md`.
+  Published candidate `2026-09-10.2` passes packaged hardware and isolated
+  Chromium/WebKit acceptance. The private luv socket, bounded BFF streams,
+  full-frame reconnect, and browser frame-based freshness are tested. Actual
+  iPhone/final-ingress acceptance and Vulkan utilization remain; no tile has
+  switched. See `docs/btop.md`.
 - **NATS authentication deferred to joi's production transition (2026-09-10)**:
   follow the [cross-project decision](../../vedanta-dhobley/docs/decisions/2026-09-10-defer-nats-authentication.md).
   Authentication is not a btop migration gate. Both BFF bridges
@@ -203,7 +204,7 @@ Pattern A vs B is the central architectural call here — see
   NATS owns the isolated JWT/account candidate; Control owns luv's private
   Unix-socket exporter/relay. Authenticated terminal/SSE and Found Footy
   event/REST reconnect tests pass. Keep credential support and tests staged;
-  leave live credential settings unset. Immutable images and physical-browser
+  leave live credential settings unset. Physical-device and final-ingress
   acceptance remain btop gates; credential provisioning and coordinated
   broker/client activation belong to the later authentication rollout.
   Neither base Compose deployment nor the live open-mode broker was changed.

@@ -23,7 +23,11 @@ public tiles still use the legacy image.
 
 This repository's `btop/src` directory is the older child used by the live
 legacy image. Do not add new source patches there. Remove it after exporter
-packaging moves to the durable btop checkout.
+cutover; Control's published candidate already packages the durable checkout.
+Candidate `2026-09-10.2` also installs the lavender theme in btop's system
+theme directory and selects it by name. Both the hardware probe and browser
+test check the visible palette; an unregistered absolute theme path silently
+fell back to the default theme in the superseded `.1` candidate.
 
 ## Reconciled profile
 

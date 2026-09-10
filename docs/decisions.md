@@ -894,3 +894,20 @@ or live tile changes are part of this correction. Immutable images and
 physical-browser acceptance remain before deployment.
 
 ---
+
+## 2026-09-10 — Derive btop browser freshness from frames
+
+**Decision.** A valid full frame establishes each connection. Only delivered
+full/delta frames renew freshness; an open stream or successful health poll
+does not. Mark the retained screen offline after five seconds without frames
+at the next watchdog tick, then retry with bounded backoff. Resume requires a
+new full frame. Treat browser online/offline events as recovery hints, not a
+reliable reachability gate. Keep the existing renderer and visual design.
+
+**Consequences.** The isolated [browser harness](./btop-browser-acceptance.md)
+tests real packaged frames in Chromium and mobile-sized WebKit. It caught the
+old stale-live indicator and WebKit's false offline heuristic. These tests do
+not replace physical iPhone or final-ingress acceptance. Production tiles,
+the live broker, and Found Footy remain unchanged.
+
+---

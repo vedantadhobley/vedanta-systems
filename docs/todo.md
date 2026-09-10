@@ -150,8 +150,13 @@ are routed through the cross-project
   Real luv capture through its private socket, isolated open-mode NATS, and
   BFF/SSE full-frame reconnect passes without credentials. Optional auth stays
   in a separate overlay. This does not deploy a tile or test physical browsers.
-- [ ] Publish immutable Control images and verify physical-browser wake and
-  stale indication. Never deploy disposable test keys or source overlays.
+- [x] Publish immutable Control candidate `2026-09-10.2`, pull by digest, and
+  test real packaged frames in Chromium and mobile-sized WebKit. Fix theme
+  discovery and frame-based stale indication; verify reconnect and repeated
+  mount cleanup in the [browser harness](./btop-browser-acceptance.md).
+- [ ] Verify actual iPhone sleep/resume and the final ingress/interruption
+  path before switching a public tile. Synthetic lifecycle dispatch is not
+  physical-device acceptance. Never deploy test keys or source overlays.
 - [ ] At joi's production transition, coordinate NATS credentials and
   worker/BFF mounts with all clients. This is deferred, not a tile-switch gate.
 - [ ] Point the luv tile at the new route after the native exporter and relay
