@@ -981,3 +981,20 @@ containers retained their identities. Actual phone and host reboot checks
 remain open; production and joi tiles have not switched.
 
 ---
+
+## 2026-09-10 — retire only legacy telemetry that has no live consumer
+
+Both native nodes now feed the normal dev page through Control and NATS.
+Remove the duplicate dev luv collector and both obsolete SSH joi collectors,
+including their Compose declarations and retired port entries. Preserve image
+and source recovery inputs; do not delete host bind contents or SSH sockets.
+
+Keep the legacy production luv collector, embedded source, and proxy routes
+until public cutover passes its phone and final-ingress checks. Removing
+unused collectors does not authorize a public deployment, a host reboot,
+inference reconciliation, or broad Docker pruning.
+
+Type-check, btop regressions, Compose validation, and Chromium/mobile-WebKit
+checks pass for both dev tiles after cleanup. Control's guarded deployment
+commands and shared source are recorded through the
+[multi-node plan](../../../vedanta-dhobley/docs/plans/btop-multinode.md).

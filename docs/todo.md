@@ -124,7 +124,7 @@ are routed through the cross-project
   `/api/btop/<node>/{health,stream}` routes without replacing the live path.
 - [x] Resume source/transport work in the owning repos: durable btop profile
   `4aca040` builds both variants; Control's `feat/btop-telemetry` branch owns
-  the undeployed `luv/telemetry/` candidate and isolated acceptance harness.
+  common `shared/telemetry/` implementation and isolated acceptance harness.
   See [source and packaging state](./btop-source.md). This does not close the
   host/device or private-access deployment gates.
 - [x] Exercise luv's exposed counters and freeze/resume/exit handling in
@@ -139,9 +139,9 @@ are routed through the cross-project
   coordinated broker interruption and physical-browser wake tests remain.
 - [x] Inventory luv and joi before native deployment. The
   [pre-deployment inventory](./btop.md#2026-09-10-pre-deployment-inventory)
-  found no joi btop remnants; both obsolete SSH collectors remain stopped on
-  luv. Their removal still requires approval. Other projects' test containers
-  and joi's retained images are not part of this cleanup.
+  found no joi btop remnants. Subsequent approved cleanup removed the duplicate
+  dev luv collector and both obsolete SSH joi collectors on luv. Other projects'
+  containers and retained images are not part of this cleanup.
 - [x] Add server-only credentials to both BFF bridges, an opt-in credential
   mount, and authenticated integration acceptance with the NATS/Control
   candidates. Real terminal/SSE/full-frame recovery and Found Footy targeted
@@ -189,9 +189,12 @@ are routed through the cross-project
   [multi-node plan](../../../vedanta-dhobley/docs/plans/btop-multinode.md)
   routes to the owning deployment and rollback evidence.
 - [ ] Make the browser monitor list data-driven before adding Nexus nodes.
-- [ ] Remove `mountBtopProxy`, both legacy btop Compose pairs, their host-port
-  exceptions, embedded source child, and obsolete broadcaster publisher after
-  cutover.
+- [x] Remove the unused dev luv collector and both obsolete SSH joi collectors,
+  their Compose declarations, and host-port exceptions. Preserve images and
+  historical source for recovery; keep the public prod luv collector live.
+- [ ] Remove `mountBtopProxy`, the remaining prod luv collector/declaration and
+  port 3102, embedded source child, and obsolete broadcaster publisher after
+  public cutover.
 
 The two-plane visual system is not part of this migration.
 

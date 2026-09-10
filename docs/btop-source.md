@@ -14,12 +14,14 @@ The original dirty `~/workspace/btop/src` checkout and the prior
 `feature/vedanta-profiles` commit `6f76ec6` remain preserved. Do not overwrite
 them, reset them, or use that old dirty tree as the new image input.
 
-Control's `feat/btop-telemetry` branch owns the exporter/relay candidate
-under `luv/telemetry/`, with an exact btop source lock and isolated acceptance
-harness. The working checkout is `~/workspace/control/.worktrees/btop`.
+Control's `feat/btop-telemetry` branch owns the common exporter/relay source
+under `shared/telemetry/`, with an exact btop source lock. Node declarations,
+profiles, and hardware acceptance remain under `luv/` and `joi/`.
+The working checkout is `~/workspace/control/.worktrees/btop`.
 The initial transport commit is `6d6543f`; `e671cd3` adds actual-output
-freshness and the read-only luv hardware probe. This is not a live host rollout;
-public tiles still use the legacy image.
+freshness and the read-only luv hardware probe. Both native nodes now feed dev;
+the public bundle still uses the legacy path. Moving source did not replace
+the accepted `.3` image digests.
 
 This repository's `btop/src` directory is the older child used by the live
 legacy image. Do not add new source patches there. Remove it after exporter

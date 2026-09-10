@@ -53,7 +53,7 @@ The proxy stack itself lives in `~/workspace/proxy/`; its
   plus a fixed-user GitHub contribution router (`src/server/routes/github.ts`;
   server-only `GITHUB_TOKEN`, 15-minute cache),
   plus the NATS-backed btop router (`src/server/routes/btop.ts`) and legacy
-  host-gateway proxies. The dev luv tile uses NATS; production still uses
+  host-gateway proxies. Both dev tiles use NATS; production still uses
   the legacy image and routes.
 - **In-container nginx** (`nginx.conf`, prod only): the *internal*
   reverse proxy inside `vedanta-systems-prod`. Caddy fronts the outside
@@ -73,9 +73,9 @@ The proxy stack itself lives in `~/workspace/proxy/`; its
 - **Cloudflared**: extracted to `~/workspace/proxy/` as a sibling of
   caddy in commit `6c8c480`. Tunnel name `vedanta-systems-prod`;
   credentials at `~/.cloudflared/`.
-- **btop monitor**: the live legacy path still duplicates the luv collector by
-  environment. Both luv-hosted SSH collectors for joi are stopped and gated
-  behind the `legacy-joi` profile after joi's NixOS and network migration. The
+- **btop monitor**: only the legacy production luv collector remains. The
+  duplicate dev luv collector and both obsolete SSH joi collectors have been
+  removed from Docker and Compose. The
   replacement is one native exporter per physical node;
   its owning control plane consumes a private HTTP/SSE stream and publishes
   ordered frames through Core NATS to the BFF. The durable reconciled source
@@ -190,9 +190,9 @@ Pattern A vs B is the central architectural call here — see
 - **Legal Tender**: not surfaced. It must use Pattern B when it lands.
 - **btop**: production luv remains on the legacy path; both dev tiles use NATS
   on the normal `/workspace/vedanta-systems` page without visual changes. The
-  old duplicate collectors remain running for rollback. joi's failed
-  legacy collectors are stopped and disabled because that path SSHes from luv
-  into the pre-migration host.
+  duplicate dev luv collector and both failed SSH joi collectors are removed;
+  their images and historical declarations remain recovery inputs. Keep the
+  prod luv collector and legacy source until public cutover passes.
   The NATS consumer, shared frame schema, and current-upstream source
   profile have landed. The un-deployed direct agent publisher was a boundary
   mistake and is superseded. Control's permanent luv exporter/relay uses

@@ -63,8 +63,8 @@ function SystemsSurface() {
         <span>CHANGED CELLS EXCITE / 200MS DECAY</span>
       </div>
       <div className="ps2-monitor-grid">
-        <BtopMonitor label="luv" apiPrefix="/api/btop-luv" phosphor />
-        <BtopMonitor label="joi" apiPrefix="/api/btop-joi" phosphor />
+        <BtopMonitor label="luv" apiPrefix="/api/btop/luv" phosphor />
+        <BtopMonitor label="joi" apiPrefix="/api/btop/joi" phosphor />
       </div>
     </div>
   )

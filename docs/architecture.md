@@ -111,17 +111,15 @@ Vite substitutes those values into the public browser bundle.
 
 ### btop — the host-network exception
 
-btop needs real host process + network visibility, so its containers
-run with `network_mode: host` and bind directly to host ports —
+The legacy prod luv collector uses host process and network visibility,
+so it runs with `network_mode: host` and binds directly to a host port —
 they're invisible to docker DNS and can't be Caddy-fronted.
 
 ```
 browser
   → vedanta.systems/api/btop-luv/{health,stream}  (in-container nginx, prod)
-    or /api/btop-luv/* directly via Vite proxy    (dev)
-  → vedanta-systems-{env}-api  (Express; mountBtopProxy in src/server/index.ts)
-  → http://host-gateway:3102 / 4102  (luv node, prod / dev)
-    http://host-gateway:3103 / 4103  (joi node — same image, entrypoint SSHes to joi and runs btop there)
+  → vedanta-systems-prod-api  (Express; mountBtopProxy in src/server/index.ts)
+  → http://host-gateway:3102  (remaining legacy luv collector)
   → Python SSE broadcaster inside the btop container, capturing tmux running btop
 ```
 
@@ -129,7 +127,7 @@ Ports listed in `docs/ports.md`. The standalone viewer URL
 (`/btop-luv/`) is 404'd by nginx in prod — only `/stream` and
 `/health` are reachable from the browser.
 
-This is the legacy path. The native multi-node migration now has a dormant
+This is the legacy path. Both dev tiles now use the native multi-node
 consumer at `src/server/routes/btop.ts`:
 
 ```text
@@ -140,10 +138,9 @@ node-local exporter -> private HTTP/SSE on the compute network
   -> browser
 ```
 
-The luv routes and collectors stay active until the native luv exporter proves
-the new path. Both legacy joi SSH collectors are stopped and gated behind the
-explicit `legacy-joi` Compose profile after joi's NixOS and network migration.
-Do not revive them. The target has one native exporter per physical node, no
+The prod luv collector and legacy proxies stay until public cutover passes.
+The duplicate dev luv collector and both obsolete SSH joi collectors are
+removed from Docker and Compose. The target has one native exporter per physical node, no
 development/production duplication, and no browser-to-node or node-to-NATS
 connection. joi-control-plane relays joi; nexus-control-plane relays its
 workers. The luv path uses the same relay boundary locally. See the
@@ -180,8 +177,7 @@ is useful for poking endpoints with curl during development.
 ```
 vedanta-systems-{prod,dev}            frontend — nginx (prod only) + Vite-built SPA
 vedanta-systems-{prod,dev}-api        Express BFF
-vedanta-systems-{prod,dev}-btop-luv   patched btop + Python SSE, network_mode:host
-vedanta-systems-{prod,dev}-btop-joi   disabled legacy SSH collector (`legacy-joi` profile only)
+vedanta-systems-prod-btop-luv        remaining legacy collector until public cutover
 ```
 
 Per `~/workspace/proxy/CONVENTIONS.md`, the bare `vedanta-systems-{env}`
@@ -196,7 +192,7 @@ only frontend in the workspace.
 | Caddy public host | `~/workspace/proxy/caddy/caddy.d/public.caddy` | Edge-scheme redirect, baseline response headers, then the `vedanta.systems` frontend |
 | Caddy dev tailnet hosts | `~/workspace/proxy/caddy/caddy.d/vedanta-systems.caddy` | `vedanta-systems-dev.<base-domain>` + `vedanta-systems-dev-api.<base-domain>` |
 | In-container nginx | `nginx.conf` | Crawler routing, internal webhook 404s, SSE/range quirks, btop legacy block (see todo) |
-| Express + project routers | `src/server/index.ts`, `src/server/routes/<project>.ts` | Per-project routers (found-footy Pattern B; spin-cycle/long-exposure Pattern A), legacy inline btop proxy, and the dormant NATS-backed btop router |
+| Express + project routers | `src/server/index.ts`, `src/server/routes/<project>.ts` | Per-project routers (found-footy Pattern B; spin-cycle/long-exposure Pattern A), legacy inline btop proxy, and the dev-active NATS-backed btop router |
 | GitHub contribution BFF | `src/server/routes/github.ts` | Fixed-user GraphQL projection; server-only token; 15-minute cache |
 | Vite dev proxy | `vite.config.ts` | `/api/*` → `vedanta-systems-dev-api:3001` |
 | OG meta server | `og-server.js` + `start.sh` | Runs in vs-prod alongside nginx; resolves retained Found Footy targets and includes video metadata only for available media |

@@ -7,10 +7,10 @@ btop build, a terminal-frame encoder, the Express BFF, and CSS Grid rendering.
 
 Production still uses the legacy deployment described below:
 
-- luv runs separate development and production btop containers;
-- both legacy joi containers are luv-hosted SSH collectors, now stopped and
-  profile-gated after joi's NixOS and network migration;
-- Express proxies four host ports through `/api/btop-{luv,joi}`.
+- only the legacy production luv collector remains, on host port 3102;
+- the duplicate dev luv collector and both obsolete SSH joi collectors were
+  removed from Docker and Compose on 2026-09-10;
+- legacy Express proxies remain for the old public bundle until cutover.
 
 The normal dev page at `/workspace/vedanta-systems` now points both tiles
 at `/api/btop/{luv,joi}`, backed by native exporters on each node and their
@@ -58,8 +58,23 @@ optional credential support and isolated tests; do not activate auth overlays
 or provision live credentials now. Network reachability remains the broker's
 access boundary; node allowlisting does not authenticate publishers.
 
+### 2026-09-10 scoped legacy cleanup
+
+After both native dev feeds passed, remove only
+`vedanta-systems-dev-btop-luv`, `vedanta-systems-dev-btop-joi`, and
+`vedanta-systems-prod-btop-joi`, plus their Compose declarations. Their images,
+historical declarations, host bind contents, and SSH sockets are preserved.
+Ports 4102, 4103, and 3103 are retired. No broad image or volume prune ran.
+
+The live public luv collector, its port 3102, embedded source, and proxy routes
+remain until public ingress and phone acceptance allow cutover. Control's
+common exporter/relay source now lives in `shared/telemetry/`; node deployment
+and hardware profiles stay node-owned. The cross-project plan links its
+guarded `bin/telemetry` commands and deployment evidence.
+
 ### 2026-09-10 pre-deployment inventory
 
+Historical checkpoint, superseded by native activation and cleanup above.
 Read-only Docker and service checks confirmed:
 
 - luv remains on Ubuntu. Its two legacy luv collectors still serve the live
@@ -154,7 +169,7 @@ capabilities, not features of the deployed legacy image.
 │   btop ──► tmux ──► capture ──► ANSI Parser ──► SSE Server │
 │            (132x43)              (Python)        (deltas)   │
 └─────────────────────────────────────────────────────────────┘
-                              │ host ports 3102/3103 or 4102/4103
+                              │ remaining legacy host port 3102
                               ▼
 ┌─────────────────────────────────────────────────────────────┐
 │ Express BFF                                                 │
@@ -401,63 +416,22 @@ The Python broadcaster parses ANSI into cells. The production
 character in a fixed-size grid cell, and scales the grid to fit its container.
 `viewer.html` is a standalone diagnostic client for the same protocol.
 
-## Ports
+## Legacy deployment and ports
 
-| Environment | luv | joi | Browser path |
-|-------------|-----|-----|--------------|
-| Development | 4102 | 4103 | `/api/btop-{luv,joi}` through Vite → Express |
-| Production | 3102 | 3103 | `/api/btop-{luv,joi}` through nginx → Express |
+The only remaining collector declaration here is `btop-luv` in
+[production Compose](../docker-compose.yml). It retains host PID/network
+access and privilege until public cutover. The native exporters do not need
+those broad privileges. Current bindings live in [the port register](./ports.md).
+The removed dev and SSH declarations remain in Git history, not runnable
+examples in this runbook.
 
-**Note**: btop uses `network_mode: host` to see real host network traffic, so it binds directly to host ports rather than using Docker port mapping.
-
-## Docker Compose
-
-### Per-node shape
-
-```yaml
-btop-luv:
-  container_name: vedanta-systems-dev-btop-luv
-  build:
-    context: ./btop
-    dockerfile: Dockerfile
-  network_mode: host      # See host network traffic
-  pid: host               # See host processes
-  privileged: true        # GPU access + full /proc visibility
-  volumes:
-    - /proc:/proc:ro
-    - /sys:/sys:ro
-    - /:/hostfs:ro        # Host root for disk stats
-    - /dev/dri:/dev/dri
-    - /dev/kfd:/dev/kfd
-  environment:
-    - WRAPPER_PORT=4102
-    - BTOP_HOST=local
-  group_add:
-    - "44"   # video
-    - "992"  # render
-
-btop-joi:
-  container_name: vedanta-systems-dev-btop-joi
-  network_mode: host
-  volumes:
-    - /run/user/1000/keyring/ssh:/ssh-agent:ro
-  environment:
-    - WRAPPER_PORT=4103
-    - BTOP_HOST=${BTOP_JOI_SSH_HOST}
-    - SSH_AUTH_SOCK=/ssh-agent
-```
-
-Production uses the same two services with ports `3102` and `3103`. The joi
-container runs locally but SSHes to joi for the btop process; its health check
-returns `503` when no fresh capture arrives for 30 seconds.
-
-The public request path is:
+The remaining public collector path is:
 
 ```text
-browser /api/btop-{luv,joi}/{health,stream}
+browser /api/btop-luv/{health,stream}
   → in-container nginx
   → vedanta-systems-prod-api:3001
-  → host-gateway:{3102,3103}
+  → host-gateway:3102
   → Python broadcaster
 ```
 
@@ -490,8 +464,8 @@ eventSource.onmessage = (event) => {
 ### Proxy Support
 
 `BtopMonitor` opens `${apiPrefix}/stream`. Current source selects
-`/api/btop/luv` for the NATS-backed luv tile and retains `/api/btop-joi` for
-joi. The deployed production bundle still selects `/api/btop-luv` for luv.
+`/api/btop/{luv,joi}` for both NATS-backed tiles.
+The deployed production bundle still selects `/api/btop-luv` for luv.
 Legacy Express routes proxy `health` and `stream` to the matching host port;
 the new route serves the BFF's reconstructed NATS frames.
 
@@ -502,21 +476,12 @@ patch history, theme colors, and the Strix Halo Vulkan-utilization limitation
 live in [btop source and public-display profile](./btop-source.md). Keep this
 document focused on deployment and transport.
 
-## Legacy remote-node support
+## Retired SSH capture
 
-The architecture supports monitoring multiple systems:
-
-```yaml
-environment:
-  - BTOP_HOST=local           # This system
-  # or
-  - BTOP_HOST=vedanta@<host>.<your-tailnet>.ts.net  # SSH to remote system
-```
-
-When `BTOP_HOST` is not `local`, the container SSHes to the remote host and
-runs btop there. The dead joi services still use this mode. This mechanism is
-being removed; every node will run its own native exporter and its control
-plane will consume that exporter over private HTTP/SSE.
+The embedded legacy image still contains its old `BTOP_HOST` SSH mode for
+historical rollback. No declared service uses it now. Both nodes have native
+exporters consumed by their owning Control relays; do not restore a
+login-session or SSH-agent dependency for monitoring.
 
 ## Relationship to Other Services
 
