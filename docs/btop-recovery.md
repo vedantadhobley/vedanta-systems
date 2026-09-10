@@ -12,7 +12,9 @@ While its source is unavailable, retain the last display as offline.
 
 This requires each deployed service to start after boot. NATS cannot start a
 stopped collector. Control's standing exporter/relay declaration uses
-unless-stopped and is now active on luv, with Docker enabled at boot. The
+unless-stopped and is now active for luv and joi, with Docker enabled at boot.
+Joi's NixOS service owns its separate exporter Compose project; its relay
+runs on luv. The
 temporary dev acceptance stack has been retired. A real node reboot remains
 a separate acceptance gate; container restart tests do not prove a host reboot.
 
@@ -31,7 +33,8 @@ not silently start on btop's automatic interface fallback.
 
 The image is shared; the profile, device visibility, addresses, and deployment
 remain node-specific. Joi must validate its own port name and counters rather
-than copying luv's. Btop source stays in its own pinned source repository.
+than copying luv's. Joi's enp191s0 and rendered counters passed native
+acceptance on 2026-09-10. Btop source stays in its own pinned source repository.
 
 ## Failure handling
 

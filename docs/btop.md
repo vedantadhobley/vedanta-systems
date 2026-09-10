@@ -12,10 +12,11 @@ Production still uses the legacy deployment described below:
   profile-gated after joi's NixOS and network migration;
 - Express proxies four host ports through `/api/btop-{luv,joi}`.
 
-The normal dev page at `/workspace/vedanta-systems` now points its luv tile
-at `/api/btop/luv`, backed by Control's permanent luv exporter/relay and the
-existing workspace NATS broker. Its layout/colors and offline legacy joi tile
-are unchanged. The public frontend has not switched. See
+The normal dev page at `/workspace/vedanta-systems` now points both tiles
+at `/api/btop/{luv,joi}`, backed by native exporters on each node and their
+Control-owned relays on luv through workspace NATS. Joi's separate Docker
+project is activated by NixOS; its private listener admits only luv. Layout
+and colors are unchanged. The public frontend has not switched. See
 [browser acceptance](./btop-browser-acceptance.md#private-phone-preview).
 
 The replacement keeps the existing browser frame format but changes the
@@ -42,7 +43,7 @@ workload readiness. Exporters never connect to NATS or the frontend.
 
 `src/server/routes/btop.ts` subscribes to the NATS subjects and exposes
 `/api/btop/{node}/{health,stream}` while the legacy HTTP proxies remain active.
-The dev luv tile uses this route; production still uses its older bundle.
+Both dev tiles use this route; production still uses its older bundle.
 `BTOP_NODES` is the complete allowed inventory, including powered-off nodes.
 Neither NATS publications nor SSE subscriptions can create an unconfigured
 node. This bounds inventory; it does not authenticate a publisher on the
@@ -95,6 +96,15 @@ immutable registry digests. It serves dev through the workspace broker;
 production tiles remain legacy. Candidate `.1` was superseded because its
 unregistered theme path silently selected btop's default colors; `.2` fixed
 the palette and `.3` added physical profiles and capture supervision.
+
+Joi accepted the same image on 2026-09-10. Native checks passed its 32 cores,
+125 GiB RAM, 1.78 TiB root display, 124 GiB GTT ceiling, physical enp191s0
+counters, and lavender palette. Exporter stop/start and luv-side relay restart
+recovered through the existing BFF. Inference IDs, start times, Compose hash,
+and health were unchanged. These checks do not establish Vulkan utilization
+accuracy under load or a tested physical reboot. The
+[multi-node plan](../../../vedanta-dhobley/docs/plans/btop-multinode.md) routes
+to Control's exact activation and rollback record.
 
 The luv probe uses read-only statistics without GPU devices or privileged
 mode. Two fresh packaged containers pass host-counter, lavender-palette, and

@@ -5,24 +5,24 @@ const { chromium, webkit } = createRequire('/opt/browser/package.json')('playwri
 const scenarios = [
   ['chromium-desktop', chromium, { viewport: { width: 1280, height: 960 } }],
   ['webkit-mobile', webkit, { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 }],
-]
+].flatMap(([name, engine, options]) => ['luv', 'joi'].map(node => [`${name}-${node}`, engine, options, node]))
 
-for (const [name, engine, options] of scenarios) {
+for (const [name, engine, options, node] of scenarios) {
   if (process.env.BTOP_BROWSER_ENGINE && !name.startsWith(process.env.BTOP_BROWSER_ENGINE)) continue
   const browser = await engine.launch({ headless: true })
   const context = await browser.newContext(options)
   const page = await context.newPage()
   const errors = []
   const failedRequests = []
-  let legacyLuvRequests = 0
+  let legacyRequests = 0
   page.on('pageerror', error => errors.push(error.message))
   page.on('request', request => {
-    if (new URL(request.url()).pathname.startsWith('/api/btop-luv/')) legacyLuvRequests++
+    if (/^\/api\/btop-(luv|joi)\//.test(new URL(request.url()).pathname)) legacyRequests++
   })
   page.on('requestfailed', request => {
     if (failedRequests.length < 10) failedRequests.push({ url: request.url(), error: request.failure()?.errorText })
   })
-  await page.addInitScript(() => {
+  await page.addInitScript(node => {
     // A reachable private BFF must work even when the OS says "offline".
     Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => false })
     window.__streams = []
@@ -31,9 +31,8 @@ for (const [name, engine, options] of scenarios) {
     window.EventSource = class extends Native {
       constructor(...args) {
         super(...args)
-        // The portal also has unrelated project streams and the legacy joi tile.
-        // Observe/suppress only luv's new stream; leave everything else intact.
-        if (new URL(this.url).pathname !== '/api/btop/luv/stream') return
+        // Suppress only the node under test; leave its peer and project streams intact.
+        if (new URL(this.url).pathname !== `/api/btop/${node}/stream`) return
         this.record = { closed: false, frames: 0, first: null }
         window.__streams.push(this.record)
         this.addEventListener('message', event => {
@@ -45,22 +44,22 @@ for (const [name, engine, options] of scenarios) {
       }
       close() { if (this.record) this.record.closed = true; super.close() }
     }
-  })
+  }, node)
   const live = async (expected, timeout = 12_000) => page.waitForFunction(
-    value => document.querySelector('[data-btop-node="luv"] [role="status"]')?.getAttribute('aria-label')
-      === `luv: ${value ? 'live' : 'offline'}`,
-    expected, { timeout },
+    ({ node, expected }) => document.querySelector(`[data-btop-node="${node}"] [role="status"]`)?.getAttribute('aria-label')
+      === `${node}: ${expected ? 'live' : 'offline'}`,
+    { node, expected }, { timeout },
   )
   const activeStreams = () => page.evaluate(() => window.__streams.filter(stream => !stream.closed).length)
   try {
     await page.goto(process.env.BTOP_BROWSER_URL, { waitUntil: 'domcontentloaded' })
-    await page.waitForFunction(() => document.querySelectorAll('[data-btop-node="luv"] .btop-cell').length === 132 * 43
-      && document.querySelector('[data-btop-node="luv"]')?.textContent.includes('CPU'), null, { timeout: 45_000 })
+    await page.waitForFunction(node => document.querySelectorAll(`[data-btop-node="${node}"] .btop-cell`).length === 132 * 43
+      && document.querySelector(`[data-btop-node="${node}"]`)?.textContent.includes('CPU'), node, { timeout: 45_000 })
     await live(true, 20_000)
     await page.evaluate(() => document.fonts.ready)
     assert.equal(await activeStreams(), 1)
-    const colors = await page.evaluate(() => [...new Set([...document.querySelectorAll('[data-btop-node="luv"] .btop-cell')]
-      .filter(cell => cell.textContent.trim()).map(cell => cell.style.color))])
+    const colors = await page.evaluate(node => [...new Set([...document.querySelectorAll(`[data-btop-node="${node}"] .btop-cell`)]
+      .filter(cell => cell.textContent.trim()).map(cell => cell.style.color))], node)
     assert.ok(colors.includes('rgb(201, 160, 240)') && colors.includes('rgb(90, 64, 128)'),
       'packaged title and border must use the lavender palette, not the btop default')
     const dimensions = await page.evaluate(() => ({ viewport: innerWidth, document: document.documentElement.scrollWidth }))
@@ -124,16 +123,16 @@ for (const [name, engine, options] of scenarios) {
     const firstFrames = await page.evaluate(() => window.__streams.filter(stream => stream.frames).map(stream => stream.first))
     assert.ok(firstFrames.length >= 4)
     assert.ok(firstFrames.every(type => type === 'f'), 'every connection must start from a full frame')
-    assert.equal(legacyLuvRequests, 0, 'luv must not use or fall back to the legacy HTTP collector')
+    assert.equal(legacyRequests, 0, 'neither node may use or fall back to a legacy HTTP collector')
     assert.deepEqual(errors, [])
-    console.log(`PASS ${name}: route navigation/back cleanup, full-frame-first, no legacy luv requests or page errors`)
+    console.log(`PASS ${name}: route navigation/back cleanup, full-frame-first, no legacy requests or page errors`)
   } catch (error) {
     await page.screenshot({ path: `/artifacts/${name}-failure.png`, fullPage: true }).catch(() => {})
-    const state = await page.evaluate(() => ({
+    const state = await page.evaluate(node => ({
       visibility: document.visibilityState, online: navigator.onLine, streams: window.__streams,
-      cells: document.querySelectorAll('[data-btop-node="luv"] .btop-cell').length,
-      status: document.querySelector('[data-btop-node="luv"] [role="status"]')?.getAttribute('aria-label'),
-    })).catch(() => null)
+      cells: document.querySelectorAll(`[data-btop-node="${node}"] .btop-cell`).length,
+      status: document.querySelector(`[data-btop-node="${node}"] [role="status"]`)?.getAttribute('aria-label'),
+    }), node).catch(() => null)
     console.error(`FAIL ${name}: ${error.message}; ${JSON.stringify({ errors, failedRequests, state })}`)
     process.exitCode = 1
     break

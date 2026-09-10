@@ -2,7 +2,7 @@
 
 The [btop migration](./btop.md) keeps the existing fixed-cell renderer and
 visual design. Automated browser checks run on the normal dev page with real
-luv frames from the permanent Control exporter and relay.
+luv and joi frames from the permanent Control exporters and relays.
 
 ## Browser freshness contract
 
@@ -30,11 +30,11 @@ remain available for operations; the browser no longer polls them.
 Use the normal page on the existing dev frontend:
 `http://vedanta-systems-dev.<base-domain>/workspace/vedanta-systems`.
 
-The luv tile uses /api/btop/luv and Control release 2026-09-10.3 on the
+The tiles use /api/btop/luv and /api/btop/joi with Control release 2026-09-10.3 on the
 existing workspace NATS broker. Found Footy uses the same broker with its
 own environment-scoped subscription. The base dev Compose uses the explicit
 nats.luv-dev address; no btop broker override or test network is required.
-The layout, colors, and offline legacy joi tile are unchanged.
+Layout and colors are unchanged; Joi now uses its healthy native exporter.
 
 The separate showcase HTML, React entrypoint, test UI server, and preview
 Compose overlays were removed on 2026-09-10. The earlier extra hostname and
@@ -59,7 +59,7 @@ installed standalone app. Report these physical-device results separately
 from synthetic browser lifecycle tests.
 
 Production cutover remains separate. The next frontend build selects the
-NATS luv route; verify the public ingress and physical-device checks before
+NATS routes for both nodes; verify the public ingress and physical-device checks before
 deploying. There is no automatic fallback to the legacy collector.
 
 ## Harness
@@ -91,8 +91,15 @@ match and live in the test image, not the portal dependency tree.
 Chromium desktop and mobile-sized WebKit cover real full-frame rendering,
 the 132-by-43 grid, lavender palette, viewport fit, offline heuristics, silent
 stalls, offline/online recovery, visibility/page-cache recovery, route/Back
-cleanup, one active luv stream, and no legacy luv requests or page errors.
-Both passed on the standing path after the 2026-09-10 cutover.
+cleanup, one active stream per tested node, and no legacy node requests or page
+errors. All four engine/node combinations passed on the standing paths after
+Joi's 2026-09-10 activation. The runner tests each node independently while
+both tiles remain on the real page.
+
+Type-checking and the focused BFF suite pass in the existing dev API container.
+The long-running Vite container still has a stale dependency volume missing
+NATS; its standalone type-check fails until that volume is refreshed. This
+activation did not reinstall dependencies or restart either dev service.
 
 The separate isolated NATS/BFF/SSE tests and
 [recovery harness](./btop-recovery.md) remain; they create no showcase page.

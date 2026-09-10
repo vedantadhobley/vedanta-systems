@@ -5,7 +5,7 @@ interface BtopMonitorProps {
   className?: string
   /** Display label for the node */
   label?: string
-  /** API path prefix (e.g., "/api/btop/luv"; legacy joi uses "/api/btop-joi"). */
+  /** API path prefix (e.g., "/api/btop/luv" or "/api/btop/joi"). */
   apiPrefix?: string
   /** Excite only terminal cells changed by a live delta frame. */
   phosphor?: boolean

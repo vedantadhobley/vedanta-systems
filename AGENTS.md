@@ -93,7 +93,7 @@ The proxy stack itself lives in `~/workspace/proxy/`; its
 | **found-footy** | **Pattern B.** Proxies the Go read API, resolves targeted `fixture.update`/`event.update` hints, forwards inline `fixture.status`, and re-proxies share-id media. FF-085/FF-086 is deployed in production and validating natural event delivery. | Done — no direct mongo/minio peers. |
 | **spin-cycle** | Reads `spin-cycle-{env}-postgres` directly (Pattern A) | `spin-cycle-{env}-api:3000` already exists — vs-api just needs to swap from pg pool to HTTP proxy. |
 | **long-exposure** | Reads `long-exposure-{env}-postgres` directly (Pattern A, by design until LE grows its own API) | Pattern B once LE has a separate api service. The `caddy.d/long-exposure.caddy` file documents the current design. |
-| **btop-luv / btop-joi** | Dev luv uses `/api/btop/luv` through NATS. Production and offline joi retain the legacy host-gateway routes. | One native exporter per node → Control relay → Core NATS → BFF/SSE. |
+| **btop-luv / btop-joi** | Both dev tiles use `/api/btop/{luv,joi}` through NATS. Production retains the legacy bundle. | One native exporter per node → Control relay → Core NATS → BFF/SSE. |
 | **legal-tender** | Not surfaced. | Pattern B from day one when it lands. |
 
 Pattern A vs B is the central architectural call here — see
@@ -188,7 +188,7 @@ Pattern A vs B is the central architectural call here — see
   handling, and quarterly-extensible primitives remain in @docs/todo.md.
 - **Spin-cycle**: route active. Project itself is scheduled for maintenance (out-of-band). vs-api spin-cycle route is gated on `SPIN_CYCLE_POSTGRES_URI` at startup but doesn't currently degrade gracefully if the upstream goes away mid-flight. Decide-during-maintenance is in @docs/todo.md.
 - **Legal Tender**: not surfaced. It must use Pattern B when it lands.
-- **btop**: production luv remains on the legacy path; dev luv now uses NATS
+- **btop**: production luv remains on the legacy path; both dev tiles use NATS
   on the normal `/workspace/vedanta-systems` page without visual changes. The
   old duplicate collectors remain running for rollback. joi's failed
   legacy collectors are stopped and disabled because that path SSHes from luv
@@ -202,9 +202,13 @@ Pattern A vs B is the central architectural call here — see
   physical-port profile, capture supervision, and five-second snapshots are
   documented in `docs/btop-recovery.md`. The private luv socket, bounded BFF
   streams, full-frame reconnect, and browser frame-based freshness are tested.
+  Joi's same-image native Docker exporter is now activated through NixOS with
+  a luv-only private firewall rule and a separate Control relay on luv.
+  Hardware checks and exporter/relay recovery pass without changing inference.
+  Both nodes pass Chromium/WebKit on the real dev page.
   Standing exporter/relay restart recovery passes; physical node reboot and actual
   iPhone/final-ingress acceptance and Vulkan utilization remain; no production
-  tile has switched. The next production build selects the new luv route, so
+  tile has switched. The next production build selects both new routes, so
   do not deploy this branch before final-ingress and phone acceptance.
   See `docs/btop.md`.
   Phone acceptance uses the existing dev frontend/API and workspace broker.

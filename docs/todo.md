@@ -157,7 +157,8 @@ are routed through the cross-project
 - [x] Integrate the NATS-backed luv tile into the normal dev
   `/workspace/vedanta-systems` page without layout or palette changes.
   Chromium/WebKit cover route navigation/Back, recovery, and no legacy luv
-  requests. joi remains on its offline legacy route; production is unchanged.
+  requests. The native joi follow-up below replaces its offline legacy route;
+  production is unchanged.
 - [x] Accept the [recovery hardening](./btop-recovery.md): explicit physical-port
   profiles, exporter supervision, independent restart recovery, callback-based
   NATS consumption, and five-second snapshots without whole-screen browser
@@ -176,16 +177,17 @@ are routed through the cross-project
   human-preview frontend or hostname; its old page and overlays are removed.
 - [ ] At joi's production transition, coordinate NATS credentials and
   worker/BFF mounts with all clients. This is deferred, not a tile-switch gate.
-- [ ] Deploy the integrated luv tile to production only after the standing
+- [ ] Deploy both integrated tiles to production only after the standing
   native exporter/relay and production NATS/ingress pass recovery acceptance.
   The next frontend build already selects the new route; do not deploy this
-  branch against a broker with no accepted luv producer.
-- [ ] Move joi only after its native NixOS exporter is healthy; do not revive
-  the SSH collector.
-  Read-only preflight passed on 2026-09-10: physical NIC, host generation,
-  registry trust, and unchanged inference baseline are recorded through the
-  [multi-node plan](../../../vedanta-dhobley/docs/plans/btop-multinode.md).
-  Telemetry-only host service/firewall activation still needs approval.
+  branch against a broker without both accepted node producers.
+- [x] Activate Joi's independent native Docker exporter through NixOS and its
+  luv-side Control relay after explicit approval. Accept physical hardware,
+  private reachability, offline detection, and exporter/relay restart recovery.
+  Switch only its existing dev tile to NATS. Chromium/WebKit pass for both
+  nodes; inference is unchanged. The
+  [multi-node plan](../../../vedanta-dhobley/docs/plans/btop-multinode.md)
+  routes to the owning deployment and rollback evidence.
 - [ ] Make the browser monitor list data-driven before adding Nexus nodes.
 - [ ] Remove `mountBtopProxy`, both legacy btop Compose pairs, their host-port
   exceptions, embedded source child, and obsolete broadcaster publisher after
