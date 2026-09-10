@@ -49,8 +49,6 @@ services:
       - SPIN_CYCLE_POSTGRES_URI=postgresql://${SPIN_CYCLE_POSTGRES_USER}:${SPIN_CYCLE_POSTGRES_PASS}@spin-cycle-dev-postgres:5432/spincycle
       # Long Exposure PostgreSQL (TimescaleDB; narratives table)
       - LONG_EXPOSURE_POSTGRES_URI=postgresql://${LONG_EXPOSURE_POSTGRES_USER:?set LONG_EXPOSURE_POSTGRES_USER in .env}:${LONG_EXPOSURE_POSTGRES_PASS:?set LONG_EXPOSURE_POSTGRES_PASS in .env}@long-exposure-dev-postgres:5432/longexposure
-      # btop proxy target (runs on host network)
-      - BTOP_HOST=host.docker.internal
       # Found Footy — Pattern B: proxy the Go read API (reshaped to the legacy
       # frontend shape in src/server/routes/found-footy.ts).
       - FOUND_FOOTY_API_URL=http://found-footy-dev-api:8081
@@ -64,8 +62,6 @@ services:
     mem_limit: 1g
     memswap_limit: 1g
     pids_limit: 256
-    extra_hosts:
-      - "host.docker.internal:host-gateway"  # For reaching btop on host network
     networks:
       - vedanta-systems-dev
       - luv-dev

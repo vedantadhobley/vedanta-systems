@@ -1,6 +1,5 @@
 import express from 'express'
 import cors from 'cors'
-import http from 'http'
 
 // Import project routes
 import { createFoundFootyRouter } from './routes/found-footy'
@@ -99,45 +98,10 @@ if (longExposureConfig.postgresUri) {
 // GitHub contribution calendar — fixed user, read-only, cached server-side.
 app.use('/api/github', createGitHubRouter(githubConfig))
 
-// Multi-node btop target path. Node-local exporters expose private HTTP/SSE;
+// Multi-node btop. Node-local exporters expose private HTTP/SSE;
 // owning control planes publish canonical full/delta frames to NATS. This
-// bridge reconstructs each allowlisted node and fans it to browser SSE. The
-// existing /api/btop-{luv,joi} HTTP proxies remain active until native
-// exporters replace both legacy container pairs.
+// bridge reconstructs each allowlisted node and fans it to browser SSE.
 app.use('/api/btop', createBtopRouter(btopConfig))
-
-// ============ BTOP PROXY ============
-// Proxy btop frame/health/stream requests to btop containers
-// Supports multiple nodes (luv, joi) via different ports
-
-const BTOP_HOST = process.env.BTOP_HOST || 'host.docker.internal'
-
-function mountBtopProxy(app: ReturnType<typeof express>, prefix: string, port: string, label: string) {
-  const portNum = parseInt(port)
-
-  app.get(`${prefix}/health`, (_req, res) => {
-    const proxyReq = http.request({ hostname: BTOP_HOST, port: portNum, path: '/health', method: 'GET', timeout: 2000 }, (proxyRes) => {
-      res.status(proxyRes.statusCode || 200)
-      res.set('Content-Type', 'text/plain')
-      proxyRes.pipe(res)
-    })
-    proxyReq.on('error', () => { res.status(503).json({ error: `btop ${label} unavailable` }) })
-    proxyReq.end()
-  })
-
-  app.get(`${prefix}/stream`, (req, res) => {
-    res.set({ 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', 'Connection': 'keep-alive', 'X-Accel-Buffering': 'no' })
-    const proxyReq = http.request({ hostname: BTOP_HOST, port: portNum, path: '/stream', method: 'GET' }, (proxyRes) => { proxyRes.pipe(res) })
-    proxyReq.on('error', (err) => { console.error(`btop ${label} stream proxy error:`, err.message); res.end() })
-    req.on('close', () => { proxyReq.destroy() })
-    proxyReq.end()
-  })
-}
-
-// luv (local node)
-mountBtopProxy(app, '/api/btop-luv', isDev ? '4102' : '3102', 'luv')
-// joi (remote node via SSH)
-mountBtopProxy(app, '/api/btop-joi', isDev ? '4103' : '3103', 'joi')
 
 // ============ GLOBAL ROUTES ============
 
@@ -151,8 +115,8 @@ app.get('/api/health', (_req, res) => {
       'found-footy': '/api/found-footy/health',
       'spin-cycle': '/api/spin-cycle/health',
       'github-contributions': '/api/github/contributions',
-      'btop-luv': '/api/btop-luv/health',
-      'btop-joi': '/api/btop-joi/health',
+      'btop-luv': '/api/btop/luv/health',
+      'btop-joi': '/api/btop/joi/health',
       'btop-nodes': '/api/btop/nodes',
     }
   })
@@ -168,7 +132,5 @@ app.listen(PORT, () => {
   console.log(`   /api/found-footy/* - Found Footy endpoints`)
   console.log(`   /api/spin-cycle/* - Spin Cycle endpoints`)
   console.log(`   /api/github/contributions - Cached GitHub contribution calendar`)
-  console.log(`   /api/btop-luv/* - System monitor (luv)`)
-  console.log(`   /api/btop-joi/* - System monitor (joi)`)
   console.log(`   /api/btop/:node/* - NATS-backed multi-node system monitors`)
 })

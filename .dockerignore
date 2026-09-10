@@ -13,3 +13,5 @@ README.md
 *.log
 coverage/
 .eslintcache
+# Retired collector checkout; not an input to frontend or BFF images.
+btop/

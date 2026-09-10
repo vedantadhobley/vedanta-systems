@@ -47,10 +47,6 @@ services:
       - SPIN_CYCLE_POSTGRES_URI=postgresql://${SPIN_CYCLE_POSTGRES_USER}:${SPIN_CYCLE_POSTGRES_PASS}@spin-cycle-prod-postgres:5432/spincycle
       # Long Exposure PostgreSQL (TimescaleDB; narratives) - long-exposure-prod-postgres on luv-prod
       - LONG_EXPOSURE_POSTGRES_URI=postgresql://${LONG_EXPOSURE_POSTGRES_USER:?set LONG_EXPOSURE_POSTGRES_USER in .env}:${LONG_EXPOSURE_POSTGRES_PASS:?set LONG_EXPOSURE_POSTGRES_PASS in .env}@long-exposure-prod-postgres:5432/longexposure
-      # btop runs with network_mode:host, so reach it via host gateway
-      - BTOP_HOST=host-gateway
-    extra_hosts:
-      - "host-gateway:host-gateway"
     restart: unless-stopped
     mem_limit: 512m
     memswap_limit: 512m
@@ -58,51 +54,6 @@ services:
     networks:
       - vedanta-systems-prod
       - luv-prod
-
-  # btop system monitor - luv node (local)
-  btop-luv:
-    container_name: vedanta-systems-prod-btop-luv
-    hostname: luv
-    build:
-      context: ./btop
-      dockerfile: Dockerfile
-    restart: unless-stopped
-    mem_limit: 512m
-    memswap_limit: 512m
-    pids_limit: 64
-    
-    # Required for FULL host system visibility
-    pid: host                    # See host processes
-    network_mode: host           # See host network traffic (required for accurate net stats)
-    privileged: true             # Required for GPU access and full /proc visibility
-    
-    volumes:
-      # Host system info - mounted at original paths so btop works unchanged
-      - /proc:/proc:ro
-      - /sys:/sys:ro
-      - /:/hostfs:ro                    # Host root filesystem for disk stats
-      - /run/media:/run/media:ro        # Mounted drives (if any)
-      
-      # GPU access for AMD ROCm
-      - /dev/dri:/dev/dri
-      - /dev/kfd:/dev/kfd
-    environment:
-      - WRAPPER_PORT=3102        # Prod: 3102, Dev: 4102 (binds to host with network_mode: host)
-      - BTOP_HOST=local          # "local" or "user@host" for SSH to remote
-      - TZ=UTC
-    
-    # No ports needed - network_mode: host means it binds directly to host ports
-    
-    # Ensure GPU is accessible
-    devices:
-      - /dev/dri:/dev/dri
-    
-    # AMD GPU specific - use GIDs since groups don't exist in container
-    group_add:
-      - "44"   # video
-      - "992"  # render
-    
-    # Note: No networks needed with network_mode: host
 
 networks:
   vedanta-systems-prod:
