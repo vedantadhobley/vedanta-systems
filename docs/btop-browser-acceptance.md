@@ -23,41 +23,49 @@ connect to workspace NATS, or change Found Footy.
   network reported false while HTTP/SSE remained reachable. This follows the
   [browser API's documented limitation](https://developer.mozilla.org/en-US/docs/Web/API/Navigator/onLine).
 
-These changes are active in the private preview, not the public frontend.
+These changes are active in the existing dev frontend, not the public frontend.
 The health endpoints remain available for operations; the component no longer
 polls them.
 
 ## Private phone preview
 
-The user-approved temporary preview is running at
-`http://vedanta-systems-dev-btop-preview.<base-domain>/`. Connect the phone to
-Tailscale and use the existing private DNS domain. The root redirects to the
-acceptance page. It shows real luv data from Control candidate `2026-09-10.2`,
-not fixture data or a mock screen.
+Use the existing dev frontend:
+`http://vedanta-systems-dev.<base-domain>/tests/btop-browser/index.html`.
+It shows real luv data from Control candidate `2026-09-10.2`. There is no
+separate human-preview frontend, BFF, hostname, or Caddy access rule.
 
-`docker-compose.btop-preview.yml` reuses the capped runtime in
-`docker-compose.btop-preview-base.yml`. Only this BFF/Vite service joins
-`proxy`; the relay and test broker remain on their isolated network. The
-exporter still exposes only its private Unix socket. No workspace NATS,
-production service, normal dev homepage, or authentication policy changes.
+The first attempt added an unnecessary container and hostname. Its immediate
+peer filter returned "Private preview" to the user's phone. That path was
+removed; a host-side HTTP check did not establish phone reachability.
+Human component previews belong on the existing dev frontend and API. The
+standalone test server below is only for disposable automated acceptance.
 
-Caddy owns the matching hostname in the proxy repo. It admits immediate
-tailnet/compute peers and loopback; Docker bridge peers are denied even with
-spoofed forwarding headers. The preview's Vite host allowlist is explicit.
-There is no Cloudflare route, host port, or automatic restart. The combined
-preview/exporter/relay/broker memory ceiling is 1472 MiB for manual acceptance.
+`docker-compose.btop-preview.yml` is now an overlay on the normal dev Compose.
+It joins the existing dev API to Control's isolated test network and points
+only `BTOP_NATS_URL` at that broker. Found Footy retains the workspace broker,
+qualified as `nats.luv-dev` to avoid the two networks' shared `nats` alias.
+Both connections were verified to have distinct broker identities.
+The existing frontend's same-origin `/api` proxy requires no route change.
+
+The exporter still exposes only its private Unix socket. The only additional
+temporary services are the exporter, relay, and broker (448 MiB total ceiling).
+The existing dev frontend/API keep their current caps. Production services,
+the main dev homepage, the live broker configuration, and auth are unchanged.
 
 After starting Control's digest-selected socket-test stack, from this repo:
 
 ```bash
-# BASE_DOMAIN is read from the existing gitignored Compose environment.
-docker compose -f docker-compose.btop-preview.yml up -d --wait
+docker compose -f docker-compose.dev.yml -f docker-compose.btop-preview.yml up -d --no-deps api
 ```
 
-Do not start the automated harness's separate `preview` service at the same
-time: both advertise `preview` on the test network. Its browser runner can
-reuse the manual preview with `run --rm --no-deps browsers` and the existing
-artifact-directory setting.
+To test the actual dev URL, set `BASE_DOMAIN` to the existing dev routing
+domain and `BTOP_BROWSER_ARTIFACTS` to a private directory, then run:
+
+```bash
+docker compose -f docker-compose.btop-browser-test.yml -f docker-compose.btop-browser-dev-test.yml run --rm --no-deps browsers
+```
+
+This starts only a disposable browser runner on `proxy`, not another frontend.
 
 On the phone, try Safari and Chrome: watch the clock/readings advance, lock
 and unlock, background and return, then switch Wi-Fi/cellular while keeping
@@ -69,18 +77,24 @@ this minimal preview is not a PWA.
 Stop after manual acceptance:
 
 ```bash
-docker compose -f docker-compose.btop-preview.yml down
+docker compose -f docker-compose.dev.yml up -d --no-deps api
 ```
 
+That removes the temporary broker override/network from the existing dev API.
 Then stop Control's socket-test stack and remove its disposable socket volume
-using its runbook. Remove the temporary Caddy block and reload through the
-proxy owner when retiring the preview. No persistent application data is held
-by this stack.
+using its runbook. Do not run `down` on the normal dev stack. No persistent
+application data is held by the test exporter/relay/broker.
 
-Verified 2026-09-10: private page HTTP 200; fresh full frame followed by live
-frames through Caddy; environment files blocked; bridge/forwarded-header and
-untrusted-host probes denied. Type-check, scoped lint, Chromium, and WebKit
-pass against the manual preview. Actual phone results remain user acceptance.
+Actual phone results remain user acceptance; local/browser automation must not
+be reported as confirmation that a physical phone can open the page.
+
+Verified after the correction: Chromium and mobile-sized WebKit pass against
+the existing dev URL through Caddy, including fresh frames, palette, stale
+indication, reconnect, and repeated mounts. The dev homepage remains HTTP 200.
+Type-check and scoped lint pass; rendered Compose comparison proves the
+overlay changes only the dev API's broker settings and network membership.
+The extra UI container and hostname are removed; production containers were
+not restarted.
 
 ## Harness
 

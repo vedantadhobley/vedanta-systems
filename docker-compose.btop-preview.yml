@@ -1,19 +1,14 @@
-# Manual phone acceptance only. Start Control's isolated socket-test stack first.
-# No production broker, host port, automatic restart, or persistent data.
-name: vedanta-systems-btop-preview
+# Overlay on docker-compose.dev.yml for native-btop acceptance.
+# Reuse the existing dev frontend and BFF; only btop uses the isolated broker.
+# Found Footy keeps its workspace broker; all production services are unchanged.
 services:
-  preview:
-    extends:
-      file: docker-compose.btop-preview-base.yml
-      service: preview
-    container_name: vedanta-systems-dev-btop-preview
-    restart: "no"
+  api:
     environment:
-      BTOP_PREVIEW_HOST: vedanta-systems-dev-btop-preview.${BASE_DOMAIN:?set the existing private routing domain}
-    networks: [broker, proxy]
+      # Qualify the network because both brokers advertise the alias "nats".
+      NATS_URL: nats://nats.luv-dev:4222
+      BTOP_NATS_URL: nats://control-telemetry-socket-test-nats-1:4222
+    networks: [btop-acceptance]
 networks:
-  broker:
+  btop-acceptance:
     name: control-telemetry-socket-test_broker
-    external: true
-  proxy:
     external: true

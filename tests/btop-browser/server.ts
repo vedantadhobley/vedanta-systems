@@ -6,7 +6,6 @@ import react from '@vitejs/plugin-react'
 import { createBtopRouter } from '../../src/server/routes/btop'
 
 const app = express()
-app.get('/', (_req, res) => res.redirect('/tests/btop-browser/index.html'))
 app.get('/__acceptance/ready', (_req, res) => res.json({ ready: true }))
 app.use('/api/btop', createBtopRouter({ natsUrl: process.env.NATS_URL, nodes: ['luv'] }))
 const vite = await createServer({
@@ -17,11 +16,7 @@ const vite = await createServer({
   cacheDir: '/tmp/vite-cache',
   plugins: [react()],
   resolve: { alias: { '@': resolve('src') } },
-  server: {
-    middlewareMode: true,
-    allowedHosts: ['preview', ...(process.env.BTOP_PREVIEW_HOST ? [process.env.BTOP_PREVIEW_HOST] : [])],
-    hmr: false,
-  },
+  server: { middlewareMode: true, allowedHosts: ['preview'], hmr: false },
   appType: 'mpa',
 })
 app.use(vite.middlewares)

@@ -158,8 +158,9 @@ are routed through the cross-project
   path before switching a public tile. Synthetic lifecycle dispatch is not
   physical-device acceptance. Never deploy test keys or source overlays.
   The [private phone preview](./btop-browser-acceptance.md#private-phone-preview)
-  is running for user acceptance; retire its temporary route and stack after
-  testing. Caddy page/full-frame delivery and access-boundary checks pass.
+  uses the existing dev frontend/API; remove the API's temporary broker
+  override and stop the test exporter/relay/broker after acceptance. Do not
+  create another human-preview frontend or hostname.
 - [ ] At joi's production transition, coordinate NATS credentials and
   worker/BFF mounts with all clients. This is deferred, not a tile-switch gate.
 - [ ] Point the luv tile at the new route after the native exporter and relay

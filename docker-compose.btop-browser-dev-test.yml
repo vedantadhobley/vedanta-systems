@@ -1,0 +1,11 @@
+# One-shot browser checks against the existing dev frontend. Start no preview UI.
+# Layer on docker-compose.btop-browser-test.yml and run only "browsers".
+services:
+  browsers:
+    environment:
+      BTOP_PREVIEW_URL: http://vedanta-systems-dev.${BASE_DOMAIN:?set the existing dev domain}/tests/btop-browser/index.html
+    depends_on: !reset {}
+    networks: !override [proxy]
+networks:
+  proxy:
+    external: true

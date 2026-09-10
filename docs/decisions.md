@@ -911,3 +911,16 @@ not replace physical iPhone or final-ingress acceptance. Production tiles,
 the live broker, and Found Footy remain unchanged.
 
 ---
+
+## 2026-09-10 — Use the existing dev frontend for human previews
+
+**Decision.** Serve component previews through the existing dev frontend and
+API. Keep standalone UI/BFF harnesses disposable and automation-only. A new
+preview hostname/container is not needed for a page in this frontend.
+
+**Consequence.** Removed the separate btop preview UI and its Caddy peer filter,
+which denied the user's phone. The dev BFF selects the isolated candidate
+broker through a scoped Compose overlay; Found Footy retains its original
+workspace broker. Local checks do not prove physical-phone reachability.
+
+---

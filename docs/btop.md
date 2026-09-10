@@ -107,9 +107,10 @@ The monitor now proves freshness from frames and requires a full frame after
 resume. Physical iPhone and final-ingress interruption checks remain before
 cutover. No collector or public route has switched.
 
-A [private phone preview](./btop-browser-acceptance.md#private-phone-preview)
-now runs separately for manual acceptance. It uses the isolated broker and
-does not replace the normal dev or production tile.
+A [phone preview](./btop-browser-acceptance.md#private-phone-preview) is served
+by the existing dev frontend and API. It uses the isolated broker and does not
+replace the homepage or production tile. The separate preview UI and hostname
+were removed after the user's access failure and correction.
 
 ## Legacy and target capabilities
 
