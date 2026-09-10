@@ -22,7 +22,7 @@ luv and joi frames from the permanent Control exporters and relays.
   while the BFF remains reachable, as noted in the
   [browser API documentation](https://developer.mozilla.org/en-US/docs/Web/API/Navigator/onLine).
 
-These changes are active in dev, not the public frontend. Health endpoints
+These changes are active in dev and production. Health endpoints
 remain available for operations; the browser no longer polls them.
 
 ## Private phone preview
@@ -58,9 +58,9 @@ not retain a live indicator. Navigate up to workspace and back, and test the
 installed standalone app. Report these physical-device results separately
 from synthetic browser lifecycle tests.
 
-Production cutover remains separate. The next frontend build selects the
-NATS routes for both nodes; verify the public ingress and physical-device checks before
-deploying. There is no automatic fallback to the legacy collector.
+Production cutover is recorded in the [release runbook](./btop-production.md).
+The user accepted incomplete physical-phone testing as a follow-up and allowed
+legacy interruption. There is no automatic fallback to the legacy collector.
 
 ## Harness
 
@@ -95,6 +95,11 @@ cleanup, one active stream per tested node, and no legacy node requests or page
 errors. All four engine/node combinations passed on the standing paths after
 Joi's 2026-09-10 activation. The runner tests each node independently while
 both tiles remain on the real page.
+
+The same four combinations also passed through public HTTPS after deploying
+`2dcb75a`. To repeat the public run, use the same Compose command with
+`-e BTOP_BROWSER_URL=https://vedanta.systems/workspace/vedanta-systems`
+before `browsers`. Do not replace the normal dev default with a new preview.
 
 Type-checking and the focused BFF suite pass in the existing dev API container.
 The long-running Vite container still has a stale dependency volume missing

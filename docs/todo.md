@@ -169,18 +169,18 @@ are routed through the cross-project
   Remove the standalone showcase page and run browser tests on the real page.
 - [ ] Verify physical node reboot recovery; enabled Docker and container
   restart policies plus process tests do not prove a whole-host reboot.
-- [ ] Verify actual iPhone sleep/resume and the final ingress/interruption
-  path before switching a public tile. Synthetic lifecycle dispatch is not
-  physical-device acceptance. Never deploy test keys or source overlays.
+- [ ] Complete actual iPhone sleep/resume and network-change acceptance.
+  The user accepted this as a follow-up, not a cutover blocker. Public ingress
+  and simulated browser interruption pass; neither proves physical-device
+  acceptance. Never deploy test keys or source overlays.
   The [private phone preview](./btop-browser-acceptance.md#private-phone-preview)
   uses the normal dev page and standing broker path. Do not create another
   human-preview frontend or hostname; its old page and overlays are removed.
 - [ ] At joi's production transition, coordinate NATS credentials and
   worker/BFF mounts with all clients. This is deferred, not a tile-switch gate.
-- [ ] Deploy both integrated tiles to production only after the standing
-  native exporter/relay and production NATS/ingress pass recovery acceptance.
-  The next frontend build already selects the new route; do not deploy this
-  branch against a broker without both accepted node producers.
+- [x] Deploy both integrated tiles to production as `2dcb75a`. Public health,
+  full/delta SSE, reconnect, and both Chromium/mobile-WebKit node checks pass.
+  The [release record](./btop-production.md) owns exact images and limitations.
 - [x] Activate Joi's independent native Docker exporter through NixOS and its
   luv-side Control relay after explicit approval. Accept physical hardware,
   private reachability, offline detection, and exporter/relay restart recovery.
@@ -191,10 +191,12 @@ are routed through the cross-project
 - [ ] Make the browser monitor list data-driven before adding Nexus nodes.
 - [x] Remove the unused dev luv collector and both obsolete SSH joi collectors,
   their Compose declarations, and host-port exceptions. Preserve images and
-  historical source for recovery; keep the public prod luv collector live.
-- [ ] Remove `mountBtopProxy`, the remaining prod luv collector/declaration and
-  port 3102, embedded source child, and obsolete broadcaster publisher after
-  public cutover.
+  historical source for recovery. The later public cutover retires prod luv too.
+- [x] Remove `mountBtopProxy`, the remaining prod luv collector/declaration,
+  host-gateway wiring, old nginx locations, and port 3102 after public cutover.
+- [ ] Archive the retired embedded collector/broadcaster and its nested Git
+  history plus four modified C++ files before removing that source tree.
+  It is excluded from current image builds and has no running consumer.
 
 The two-plane visual system is not part of this migration.
 

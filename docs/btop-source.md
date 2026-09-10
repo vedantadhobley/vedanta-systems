@@ -19,13 +19,13 @@ under `shared/telemetry/`, with an exact btop source lock. Node declarations,
 profiles, and hardware acceptance remain under `luv/` and `joi/`.
 The working checkout is `~/workspace/control/.worktrees/btop`.
 The initial transport commit is `6d6543f`; `e671cd3` adds actual-output
-freshness and the read-only luv hardware probe. Both native nodes now feed dev;
-the public bundle still uses the legacy path. Moving source did not replace
+freshness and the read-only luv hardware probe. Both native nodes now feed dev
+and production. Moving source did not replace
 the accepted `.3` image digests.
 
-This repository's `btop/src` directory is the older child used by the live
-legacy image. Do not add new source patches there. Remove it after exporter
-cutover; Control's published candidate already packages the durable checkout.
+This repository's `btop/src` directory is a retired child, excluded from image
+builds. It has nested Git metadata and four modified C++ files; archive both
+before removal. Do not add new patches there. Control packages the durable checkout.
 Candidate `2026-09-10.2` also installs the lavender theme in btop's system
 theme directory and selects it by name. Both the hardware probe and browser
 test check the visible palette; an unregistered absolute theme path silently

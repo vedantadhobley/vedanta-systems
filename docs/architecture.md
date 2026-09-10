@@ -109,26 +109,10 @@ publicized private contribution counts but grants no repository-content or
 write access. Never pass this credential through a `VITE_*` variable:
 Vite substitutes those values into the public browser bundle.
 
-### btop — the host-network exception
+### btop — native collection through Control and NATS
 
-The legacy prod luv collector uses host process and network visibility,
-so it runs with `network_mode: host` and binds directly to a host port —
-they're invisible to docker DNS and can't be Caddy-fronted.
-
-```
-browser
-  → vedanta.systems/api/btop-luv/{health,stream}  (in-container nginx, prod)
-  → vedanta-systems-prod-api  (Express; mountBtopProxy in src/server/index.ts)
-  → http://host-gateway:3102  (remaining legacy luv collector)
-  → Python SSE broadcaster inside the btop container, capturing tmux running btop
-```
-
-Ports listed in `docs/ports.md`. The standalone viewer URL
-(`/btop-luv/`) is 404'd by nginx in prod — only `/stream` and
-`/health` are reachable from the browser.
-
-This is the legacy path. Both dev tiles now use the native multi-node
-consumer at `src/server/routes/btop.ts`:
+Both production and dev use `src/server/routes/btop.ts`. This repo has no
+collector service, host-port binding, or host-gateway proxy.
 
 ```text
 node-local exporter -> private HTTP/SSE on the compute network
@@ -138,12 +122,10 @@ node-local exporter -> private HTTP/SSE on the compute network
   -> browser
 ```
 
-The prod luv collector and legacy proxies stay until public cutover passes.
-The duplicate dev luv collector and both obsolete SSH joi collectors are
-removed from Docker and Compose. The target has one native exporter per physical node, no
+All legacy collectors and proxies are removed. There is one native exporter per physical node, no
 development/production duplication, and no browser-to-node or node-to-NATS
-connection. joi-control-plane relays joi; nexus-control-plane relays its
-workers. The luv path uses the same relay boundary locally. See the
+connection. Each node's owning Control relay handles publication; the luv
+path uses a private Unix socket rather than TCP. See the
 [btop integration contract](./btop.md).
 
 The target BFF inventory is the explicit `BTOP_NODES` allowlist. This preserves
@@ -177,7 +159,6 @@ is useful for poking endpoints with curl during development.
 ```
 vedanta-systems-{prod,dev}            frontend — nginx (prod only) + Vite-built SPA
 vedanta-systems-{prod,dev}-api        Express BFF
-vedanta-systems-prod-btop-luv        remaining legacy collector until public cutover
 ```
 
 Per `~/workspace/proxy/CONVENTIONS.md`, the bare `vedanta-systems-{env}`
@@ -191,8 +172,8 @@ only frontend in the workspace.
 | Cloudflare tunnel ingress | `~/.cloudflared/config.yml` (host-side) | `vedanta.systems` → `http://proxy-caddy:80` |
 | Caddy public host | `~/workspace/proxy/caddy/caddy.d/public.caddy` | Edge-scheme redirect, baseline response headers, then the `vedanta.systems` frontend |
 | Caddy dev tailnet hosts | `~/workspace/proxy/caddy/caddy.d/vedanta-systems.caddy` | `vedanta-systems-dev.<base-domain>` + `vedanta-systems-dev-api.<base-domain>` |
-| In-container nginx | `nginx.conf` | Crawler routing, internal webhook 404s, SSE/range quirks, btop legacy block (see todo) |
-| Express + project routers | `src/server/index.ts`, `src/server/routes/<project>.ts` | Per-project routers (found-footy Pattern B; spin-cycle/long-exposure Pattern A), legacy inline btop proxy, and the dev-active NATS-backed btop router |
+| In-container nginx | `nginx.conf` | Crawler routing, internal webhook 404s, SSE/range handling |
+| Express + project routers | `src/server/index.ts`, `src/server/routes/<project>.ts` | Per-project routers (found-footy Pattern B; spin-cycle/long-exposure Pattern A) and the NATS-backed btop router in both environments |
 | GitHub contribution BFF | `src/server/routes/github.ts` | Fixed-user GraphQL projection; server-only token; 15-minute cache |
 | Vite dev proxy | `vite.config.ts` | `/api/*` → `vedanta-systems-dev-api:3001` |
 | OG meta server | `og-server.js` + `start.sh` | Runs in vs-prod alongside nginx; resolves retained Found Footy targets and includes video metadata only for available media |

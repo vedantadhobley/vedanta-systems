@@ -3,21 +3,15 @@
 Real-time system monitor displayed on vedanta.systems using a public-display
 btop build, a terminal-frame encoder, the Express BFF, and CSS Grid rendering.
 
-## Current and target state
+## Current deployment
 
-Production still uses the legacy deployment described below:
-
-- only the legacy production luv collector remains, on host port 3102;
-- the duplicate dev luv collector and both obsolete SSH joi collectors were
-  removed from Docker and Compose on 2026-09-10;
-- legacy Express proxies remain for the old public bundle until cutover.
-
-The normal dev page at `/workspace/vedanta-systems` now points both tiles
+Production and dev at `/workspace/vedanta-systems` now point both tiles
 at `/api/btop/{luv,joi}`, backed by native exporters on each node and their
 Control-owned relays on luv through workspace NATS. Joi's separate Docker
 project is activated by NixOS; its private listener admits only luv. Layout
-and colors are unchanged. The public frontend has not switched. See
-[browser acceptance](./btop-browser-acceptance.md#private-phone-preview).
+and colors are unchanged. All legacy collectors, their Compose declarations,
+host-port proxies, and ports 3102/3103/4102/4103 are retired. See the
+[production cutover record](./btop-production.md).
 
 The replacement keeps the existing browser frame format but changes the
 collection topology:
@@ -42,8 +36,8 @@ NATS frames. Control planes own node lifecycle, but do not use btop health as
 workload readiness. Exporters never connect to NATS or the frontend.
 
 `src/server/routes/btop.ts` subscribes to the NATS subjects and exposes
-`/api/btop/{node}/{health,stream}` while the legacy HTTP proxies remain active.
-Both dev tiles use this route; production still uses its older bundle.
+`/api/btop/{node}/{health,stream}` in both environments. Old host-port routes
+return 404; there is no compatibility proxy or automatic legacy fallback.
 `BTOP_NODES` is the complete allowed inventory, including powered-off nodes.
 Neither NATS publications nor SSE subscriptions can create an unconfigured
 node. This bounds inventory; it does not authenticate a publisher on the
@@ -66,8 +60,9 @@ After both native dev feeds passed, remove only
 historical declarations, host bind contents, and SSH sockets are preserved.
 Ports 4102, 4103, and 3103 are retired. No broad image or volume prune ran.
 
-The live public luv collector, its port 3102, embedded source, and proxy routes
-remain until public ingress and phone acceptance allow cutover. Control's
+The later approved production cutover removed the final luv collector,
+port 3102, and proxy routes. Only the dirty nested source remains for archive.
+Control's
 common exporter/relay source now lives in `shared/telemetry/`; node deployment
 and hardware profiles stay node-owned. The cross-project plan links its
 guarded `bin/telemetry` commands and deployment evidence.
@@ -104,11 +99,12 @@ relay declaration. It is now a live bind-mount dependency; preserve that
 worktree until a separate deployment-path migration. Source
 state, profile options, legacy patch history, and the packaging gate live in
 [btop source and public-display profile](./btop-source.md). This repo's
-embedded `btop/src` remains only for the live legacy image.
+embedded `btop/src` is retired and excluded from current image builds. Its
+nested Git history and modified C++ files must be archived before removal.
 
 Control release `2026-09-10.3` uses source `4cf9509` and btop `4aca040` with
-immutable registry digests. It serves dev through the workspace broker;
-production tiles remain legacy. Candidate `.1` was superseded because its
+immutable registry digests. It serves dev and production through the workspace
+broker. Candidate `.1` was superseded because its
 unregistered theme path silently selected btop's default colors; `.2` fixed
 the palette and `.3` added physical profiles and capture supervision.
 
@@ -136,19 +132,20 @@ The [browser acceptance harness](./btop-browser-acceptance.md) passes in
 Chromium and mobile-sized WebKit against the pulled artifacts. It also found
 and fixed stale live indicators and unreliable offline-heuristic gating.
 The monitor now proves freshness from frames and requires a full frame after
-resume. Physical iPhone and final-ingress interruption checks remain before
-production cutover. No production collector or public route has switched.
+resume. Public HTTPS full/delta and reconnection checks pass. The complete
+physical-iPhone matrix remains a follow-up accepted by the user, not a reason
+to retain unused production collectors.
 
 The [phone preview](./btop-browser-acceptance.md#private-phone-preview) now uses
 the normal dev page and API with the permanent broker path. The separate UI,
 hostname, showcase page, and preview-only Compose overlays are removed.
 
-## Legacy and target capabilities
+## Capabilities and legacy implementation reference
 
-The live legacy image provides the AMD APU, theme, SSE broadcast, CSS Grid,
-read-only, and host-visibility items below. Private exporter transport,
-control-plane relay, and canonical cross-node delta sequencing are target-path
-capabilities, not features of the deployed legacy image.
+The native implementation provides private exporter transport, Control relay,
+and canonical cross-node sequencing. The legacy architecture, file layout,
+and configuration examples below are historical references only. No legacy
+image, host-port route, or SSH capture remains deployed.
 
 - **AMD APU Support**: GTT memory reporting for Ryzen AI MAX+ 395 (Strix Halo)
 - **Custom Theme**: Lavender theme matching site aesthetics
@@ -160,7 +157,7 @@ capabilities, not features of the deployed legacy image.
 - **Read-only**: No keyboard input, display only
 - **Host Networking**: Sees real host network traffic
 
-## Architecture
+## Legacy architecture (retired)
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -169,7 +166,7 @@ capabilities, not features of the deployed legacy image.
 │   btop ──► tmux ──► capture ──► ANSI Parser ──► SSE Server │
 │            (132x43)              (Python)        (deltas)   │
 └─────────────────────────────────────────────────────────────┘
-                              │ remaining legacy host port 3102
+                              │ historical host port 3102 (retired)
                               ▼
 ┌─────────────────────────────────────────────────────────────┐
 │ Express BFF                                                 │
@@ -418,14 +415,12 @@ character in a fixed-size grid cell, and scales the grid to fit its container.
 
 ## Legacy deployment and ports
 
-The only remaining collector declaration here is `btop-luv` in
-[production Compose](../docker-compose.yml). It retains host PID/network
-access and privilege until public cutover. The native exporters do not need
-those broad privileges. Current bindings live in [the port register](./ports.md).
-The removed dev and SSH declarations remain in Git history, not runnable
-examples in this runbook.
+No collector is declared in this repo's Compose files. The former production
+collector used host PID/network access and privilege; the native exporters do
+not need those broad privileges. All old bindings in [the port register](./ports.md)
+are retired. The removed declarations remain in Git history.
 
-The remaining public collector path is:
+The retired public collector path was:
 
 ```text
 browser /api/btop-luv/{health,stream}
@@ -435,8 +430,7 @@ browser /api/btop-luv/{health,stream}
   → Python broadcaster
 ```
 
-nginx returns `404` for the standalone `/api/btop-luv/` and
-`/api/btop-joi/` roots. Only health and stream paths are public.
+Every old `/api/btop-luv` and `/api/btop-joi` path now returns `404`.
 
 ## SSE Protocol
 
@@ -465,9 +459,7 @@ eventSource.onmessage = (event) => {
 
 `BtopMonitor` opens `${apiPrefix}/stream`. Current source selects
 `/api/btop/{luv,joi}` for both NATS-backed tiles.
-The deployed production bundle still selects `/api/btop-luv` for luv.
-Legacy Express routes proxy `health` and `stream` to the matching host port;
-the new route serves the BFF's reconstructed NATS frames.
+Both deployed bundles use these routes, which serve reconstructed NATS frames.
 
 ## Source, profile, and GPU limitation
 

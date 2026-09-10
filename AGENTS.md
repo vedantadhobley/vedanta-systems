@@ -52,9 +52,9 @@ The proxy stack itself lives in `~/workspace/proxy/`; its
   Per-project routers under `src/server/routes/{found-footy,spin-cycle,long-exposure}.ts`,
   plus a fixed-user GitHub contribution router (`src/server/routes/github.ts`;
   server-only `GITHUB_TOKEN`, 15-minute cache),
-  plus the NATS-backed btop router (`src/server/routes/btop.ts`) and legacy
-  host-gateway proxies. Both dev tiles use NATS; production still uses
-  the legacy image and routes.
+  plus the NATS-backed btop router (`src/server/routes/btop.ts`). Both dev
+  and production tiles consume the same native node feeds. No host-port
+  collector proxy remains.
 - **In-container nginx** (`nginx.conf`, prod only): the *internal*
   reverse proxy inside `vedanta-systems-prod`. Caddy fronts the outside
   of this container on `:3000`; nginx routes inside it between static
@@ -73,18 +73,16 @@ The proxy stack itself lives in `~/workspace/proxy/`; its
 - **Cloudflared**: extracted to `~/workspace/proxy/` as a sibling of
   caddy in commit `6c8c480`. Tunnel name `vedanta-systems-prod`;
   credentials at `~/.cloudflared/`.
-- **btop monitor**: only the legacy production luv collector remains. The
-  duplicate dev luv collector and both obsolete SSH joi collectors have been
-  removed from Docker and Compose. The
-  replacement is one native exporter per physical node;
+- **btop monitor**: all legacy collectors and their Compose declarations are
+  removed. There is one native exporter per physical node;
   its owning control plane consumes a private HTTP/SSE stream and publishes
   ordered frames through Core NATS to the BFF. The durable reconciled source
   is now `~/workspace/btop/vedanta-profiles` at `4aca040`; the old dirty
   `~/workspace/btop/src` remains preserved. Control's `feat/btop-telemetry`
-  branch owns the standing luv exporter/relay used by the existing dev page
-  through workspace NATS; the public frontend remains on the legacy path.
-  This repo's `btop/src` is the stale public-display child
-  used by the legacy image. See `docs/btop.md`.
+  branch owns the standing native exporters/relays used by dev and production
+  through workspace NATS. This repo's retired `btop/src` has nested Git
+  metadata and modified files; preserve it for a separate archive, not builds.
+  See `docs/btop.md` and `docs/btop-production.md`.
 
 ## Surfaced projects (vs-api integration status)
 
@@ -93,7 +91,7 @@ The proxy stack itself lives in `~/workspace/proxy/`; its
 | **found-footy** | **Pattern B.** Proxies the Go read API, resolves targeted `fixture.update`/`event.update` hints, forwards inline `fixture.status`, and re-proxies share-id media. FF-085/FF-086 is deployed in production and validating natural event delivery. | Done — no direct mongo/minio peers. |
 | **spin-cycle** | Reads `spin-cycle-{env}-postgres` directly (Pattern A) | `spin-cycle-{env}-api:3000` already exists — vs-api just needs to swap from pg pool to HTTP proxy. |
 | **long-exposure** | Reads `long-exposure-{env}-postgres` directly (Pattern A, by design until LE grows its own API) | Pattern B once LE has a separate api service. The `caddy.d/long-exposure.caddy` file documents the current design. |
-| **btop-luv / btop-joi** | Both dev tiles use `/api/btop/{luv,joi}` through NATS. Production retains the legacy bundle. | One native exporter per node → Control relay → Core NATS → BFF/SSE. |
+| **btop-luv / btop-joi** | Both dev and production tiles use `/api/btop/{luv,joi}` through NATS. | One native exporter per node → Control relay → Core NATS → BFF/SSE. |
 | **legal-tender** | Not surfaced. | Pattern B from day one when it lands. |
 
 Pattern A vs B is the central architectural call here — see
@@ -188,16 +186,16 @@ Pattern A vs B is the central architectural call here — see
   handling, and quarterly-extensible primitives remain in @docs/todo.md.
 - **Spin-cycle**: route active. Project itself is scheduled for maintenance (out-of-band). vs-api spin-cycle route is gated on `SPIN_CYCLE_POSTGRES_URI` at startup but doesn't currently degrade gracefully if the upstream goes away mid-flight. Decide-during-maintenance is in @docs/todo.md.
 - **Legal Tender**: not surfaced. It must use Pattern B when it lands.
-- **btop**: production luv remains on the legacy path; both dev tiles use NATS
-  on the normal `/workspace/vedanta-systems` page without visual changes. The
-  duplicate dev luv collector and both failed SSH joi collectors are removed;
-  their images and historical declarations remain recovery inputs. Keep the
-  prod luv collector and legacy source until public cutover passes.
+- **btop live in both environments (2026-09-10)**: production runs `2dcb75a`;
+  both tiles use NATS on `/workspace/vedanta-systems` without visual changes.
+  All legacy collectors, host-port proxies, and Compose services are removed;
+  images remain recovery inputs. Preserve the nested legacy source until its
+  separate archive. Exact release and verification live in `docs/btop-production.md`.
   The NATS consumer, shared frame schema, and current-upstream source
   profile have landed. The un-deployed direct agent publisher was a boundary
   mistake and is superseded. Control's permanent luv exporter/relay uses
   workspace NATS with automatic startup; the temporary test stack is removed.
-  Release `2026-09-10.3` serves dev and passes packaged hardware,
+  Release `2026-09-10.3` serves both environments and passes packaged hardware,
   crash/freeze/broker/BFF recovery, and Chromium/WebKit acceptance. Its explicit
   physical-port profile, capture supervision, and five-second snapshots are
   documented in `docs/btop-recovery.md`. The private luv socket, bounded BFF
@@ -206,10 +204,10 @@ Pattern A vs B is the central architectural call here — see
   a luv-only private firewall rule and a separate Control relay on luv.
   Hardware checks and exporter/relay recovery pass without changing inference.
   Both nodes pass Chromium/WebKit on the real dev page.
-  Standing exporter/relay restart recovery passes; physical node reboot and actual
-  iPhone/final-ingress acceptance and Vulkan utilization remain; no production
-  tile has switched. The next production build selects both new routes, so
-  do not deploy this branch before final-ingress and phone acceptance.
+  Standing exporter/relay restart recovery passes. Public HTTPS/SSE and browser
+  checks pass; physical node reboot, the complete iPhone matrix, and Vulkan
+  utilization remain follow-ups. The user explicitly accepted legacy
+  interruption and removed the physical-phone prerequisite for this cutover.
   See `docs/btop.md`.
   Phone acceptance uses the existing dev frontend/API and workspace broker.
   The showcase HTML, test UI server, and preview-only overlays are removed.
@@ -223,8 +221,8 @@ Pattern A vs B is the central architectural call here — see
   NATS owns the isolated JWT/account candidate; Control owns luv's private
   Unix-socket exporter/relay. Authenticated terminal/SSE and Found Footy
   event/REST reconnect tests pass. Keep credential support and tests staged;
-  leave live credential settings unset. Physical-device and final-ingress
-  acceptance remain btop gates; credential provisioning and coordinated
+  leave live credential settings unset. Physical-device acceptance remains a
+  follow-up; credential provisioning and coordinated
   broker/client activation belong to the later authentication rollout.
   The live broker configuration is unchanged; the standing luv relay now uses it.
 

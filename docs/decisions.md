@@ -998,3 +998,18 @@ Type-check, btop regressions, Compose validation, and Chromium/mobile-WebKit
 checks pass for both dev tiles after cleanup. Control's guarded deployment
 commands and shared source are recorded through the
 [multi-node plan](../../../vedanta-dhobley/docs/plans/btop-multinode.md).
+
+## 2026-09-10 — cut over public btop without a legacy fallback
+
+The user explicitly accepts interruption of the old production collectors;
+the already-broken public joi display does not justify preserving that path.
+Deploy the tested native consumer and remove all legacy collectors and routes.
+The full physical-phone matrix becomes a follow-up, not a release blocker.
+This supersedes the preceding decision's phone prerequisite for public cutover.
+
+Public health, frame sequencing/reconnect, and Chromium/mobile-WebKit checks
+pass for both nodes on release `2dcb75a`. Only the frontend and BFF were
+recreated. Found Footy, NATS, and native telemetry services are unchanged.
+No host reboot, auth activation, migration, or broad prune occurred. Retain
+rollback images and preserve the dirty nested source separately from runtime.
+See [the exact release record](./btop-production.md).

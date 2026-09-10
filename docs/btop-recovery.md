@@ -49,8 +49,7 @@ acceptance on 2026-09-10. Btop source stays in its own pinned source repository.
   session ID and full frame. It keeps no durable replay buffer.
 - The hardened relay publishes a full snapshot every five seconds rather
   than thirty. This increases private broker traffic to reduce recovery
-  delay. The existing dev page uses standing release 2026-09-10.3;
-  production remains unchanged.
+  delay. Both environments use standing release 2026-09-10.3.
 - The BFF consumes through synchronous NATS callbacks, not the client's
   unbounded async-iterator queue. Frame size, inventory, sequence, and SSE
   backpressure checks remain. Network/socket buffers are not a durable queue.
@@ -126,10 +125,11 @@ The permanent Control exporter/relay now feeds the existing workspace broker.
 The dev BFF no longer joins an acceptance network or selects a test broker.
 Browser checks pass on that path; the isolated fault harness remains separate.
 
-Verify native joi capture, its private listener/firewall, boot activation,
-and independent restart recovery before moving its tile. Do not revive the
-old luv-hosted SSH collector. Keep telemetry independent of inference health
-and restart policies.
+Native joi capture, private listener/firewall, boot declarations, and
+exporter/relay restart recovery passed. Both public tiles now use NATS; all
+legacy collectors are removed. Physical reboot and complete phone lifecycle
+tests remain follow-ups. Keep telemetry independent of inference health and
+restart policies.
 
 Vulkan utilization remains an unresolved counter-quality issue. An exposed
 zero is not proof that a GPU is idle. Fleet-scale mobile rendering and

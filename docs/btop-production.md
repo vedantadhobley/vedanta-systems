@@ -1,5 +1,37 @@
 # btop production cutover
 
+## Deployed release
+
+Live on 2026-09-10 at 23:09 UTC from
+`2dcb75ab06185a8d46c67b2e2196d183676f30d8`:
+
+- Frontend image: `sha256:125226df9a0f2ea7006b79cc606b649db90a3c3d18108a32805004b12574fa70`.
+- API image: `sha256:179fca1acada014c7db0b1390c8e40f98c72881d28b8465a4db52c0667721b3a`.
+- Public bundle: `index-C4ANtf6Q.js`.
+- Both image revision labels identify the complete source commit.
+
+Type-check, Found Footy, btop, optional-auth regressions, production image
+builds, and nginx configuration checks passed. Public HTTPS health and both
+node streams passed full-frame-first, subsequent deltas, and a full frame
+after reopening. Old route roots, health, and stream paths return 404.
+Chromium desktop and mobile-sized WebKit pass for both nodes through the
+actual public URL, including stale data, offline/online, page lifecycle,
+route/Back cleanup, and no legacy requests or page errors.
+
+The final legacy luv collector was removed after the switch. No listener
+remains on 3102, 3103, 4102, or 4103. All four old collector images remain
+available; no host bind contents, SSH sockets, or persistent data were deleted.
+Found Footy production service IDs/start times, workspace NATS, and native
+Control telemetry service IDs/start times matched the pre-deployment baseline.
+Those services were not redeployed. The frontend/API have zero restarts and
+no OOM flags at verification. No new Control image or remote host action ran.
+
+The previous portal images remain tagged `vedanta-systems-frontend:pre-btop-cutover`
+and `vedanta-systems-api:pre-btop-cutover`. A rollback to their old browser would
+also need a restored legacy collector; this is not an automatic fallback.
+Nothing was pushed upstream. Complete physical-phone and host-reboot tests
+remain open, and repository-wide lint retains its pre-existing baseline.
+
 ## 2026-09-10 authorization and scope
 
 The user accepts interruption of the legacy production collectors and does
