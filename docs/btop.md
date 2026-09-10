@@ -13,9 +13,9 @@ Production still uses the legacy deployment described below:
 - Express proxies four host ports through `/api/btop-{luv,joi}`.
 
 The normal dev page at `/workspace/vedanta-systems` now points its luv tile
-at `/api/btop/luv`, backed by Control's candidate and isolated NATS broker.
-Its layout/colors and offline legacy joi tile are unchanged. This is dev
-integration, not a standing deployment or production cutover. See
+at `/api/btop/luv`, backed by Control's permanent luv exporter/relay and the
+existing workspace NATS broker. Its layout/colors and offline legacy joi tile
+are unchanged. The public frontend has not switched. See
 [browser acceptance](./btop-browser-acceptance.md#private-phone-preview).
 
 The replacement keeps the existing browser frame format but changes the
@@ -83,17 +83,18 @@ dated inventory, not authorization to prune resources or deploy telemetry.
 ## Source ownership
 
 `~/workspace/btop/vedanta-profiles` is the durable reconciled source checkout.
-Control's `feat/btop-telemetry` branch contains the undeployed luv exporter
-and relay candidate; neither replaces a live collector yet. Source
+Control's `feat/btop-telemetry` worktree owns the standing luv exporter and
+relay declaration. It is now a live bind-mount dependency; preserve that
+worktree until a separate deployment-path migration. Source
 state, profile options, legacy patch history, and the packaging gate live in
 [btop source and public-display profile](./btop-source.md). This repo's
 embedded `btop/src` remains only for the live legacy image.
 
-Control published candidate `2026-09-10.2` from clean source `18e523e` and
-btop `4aca040` to its private registry. Both images were pulled and tested by
-immutable digest. Candidate `.1` is superseded: its unregistered theme path
-silently selected btop's default colors. Nothing from either candidate was
-deployed to the workspace broker or production tiles.
+Control release `2026-09-10.3` uses source `4cf9509` and btop `4aca040` with
+immutable registry digests. It serves dev through the workspace broker;
+production tiles remain legacy. Candidate `.1` was superseded because its
+unregistered theme path silently selected btop's default colors; `.2` fixed
+the palette and `.3` added physical profiles and capture supervision.
 
 The luv probe uses read-only statistics without GPU devices or privileged
 mode. Two fresh packaged containers pass host-counter, lavender-palette, and
@@ -102,8 +103,8 @@ repeatedly capturing a frozen screen cannot keep it healthy.
 
 The packaged exporter runs as UID 65534 and serves a mode-0600 Unix socket
 inside a mode-0700 runtime volume. The relay mounts that volume read-only and
-publishes to an isolated open-mode broker. The BFF/SSE suite passes all 22
-checks, including reconnect from a full frame. Earlier authenticated tests
+publishes to the existing open-mode broker. The focused BFF/SSE suite passes,
+including reconnect from a full frame. Earlier authenticated tests
 remain available for the deferred rollout; live credentials are not required.
 
 The [browser acceptance harness](./btop-browser-acceptance.md) passes in
@@ -114,8 +115,8 @@ resume. Physical iPhone and final-ingress interruption checks remain before
 production cutover. No production collector or public route has switched.
 
 The [phone preview](./btop-browser-acceptance.md#private-phone-preview) now uses
-the normal dev page and API with the isolated broker. The separate preview UI
-and hostname were removed after the user's access failure and correction.
+the normal dev page and API with the permanent broker path. The separate UI,
+hostname, showcase page, and preview-only Compose overlays are removed.
 
 ## Legacy and target capabilities
 

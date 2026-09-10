@@ -81,8 +81,8 @@ The proxy stack itself lives in `~/workspace/proxy/`; its
   ordered frames through Core NATS to the BFF. The durable reconciled source
   is now `~/workspace/btop/vedanta-profiles` at `4aca040`; the old dirty
   `~/workspace/btop/src` remains preserved. Control's `feat/btop-telemetry`
-  branch owns the luv exporter/relay candidate used by the existing dev page;
-  it is not a standing production deployment.
+  branch owns the standing luv exporter/relay used by the existing dev page
+  through workspace NATS; the public frontend remains on the legacy path.
   This repo's `btop/src` is the stale public-display child
   used by the legacy image. See `docs/btop.md`.
 
@@ -195,21 +195,23 @@ Pattern A vs B is the central architectural call here — see
   into the pre-migration host.
   The NATS consumer, shared frame schema, and current-upstream source
   profile have landed. The un-deployed direct agent publisher was a boundary
-  mistake and is superseded. Control's luv exporter/relay runs in the
-  isolated acceptance stack, not as a standing production deployment.
-  Published candidate `2026-09-10.3` runs in dev and passes packaged hardware,
+  mistake and is superseded. Control's permanent luv exporter/relay uses
+  workspace NATS with automatic startup; the temporary test stack is removed.
+  Release `2026-09-10.3` serves dev and passes packaged hardware,
   crash/freeze/broker/BFF recovery, and Chromium/WebKit acceptance. Its explicit
   physical-port profile, capture supervision, and five-second snapshots are
   documented in `docs/btop-recovery.md`. The private luv socket, bounded BFF
   streams, full-frame reconnect, and browser frame-based freshness are tested.
-  Physical node reboot and standing boot-start deployment remain open. Actual
+  Standing exporter/relay restart recovery passes; physical node reboot and actual
   iPhone/final-ingress acceptance and Vulkan utilization remain; no production
   tile has switched. The next production build selects the new luv route, so
-  do not deploy this branch until its standing producer/broker path is ready.
+  do not deploy this branch before final-ingress and phone acceptance.
   See `docs/btop.md`.
-  Phone acceptance uses the existing dev frontend and API, with a btop-only
-  isolated-broker override. Do not add another human-preview UI container or
-  hostname. Startup/retirement instructions are in `docs/btop-browser-acceptance.md`.
+  Phone acceptance uses the existing dev frontend/API and workspace broker.
+  The showcase HTML, test UI server, and preview-only overlays are removed.
+  Do not add another human-preview UI container or hostname. Control's btop
+  worktree is a live bind-mount dependency; preserve it until a separate path
+  migration. See `docs/btop-browser-acceptance.md` for the owning runbook.
 - **NATS authentication deferred to joi's production transition (2026-09-10)**:
   follow the [cross-project decision](../../vedanta-dhobley/docs/decisions/2026-09-10-defer-nats-authentication.md).
   Authentication is not a btop migration gate. Both BFF bridges
@@ -220,7 +222,7 @@ Pattern A vs B is the central architectural call here — see
   leave live credential settings unset. Physical-device and final-ingress
   acceptance remain btop gates; credential provisioning and coordinated
   broker/client activation belong to the later authentication rollout.
-  Neither base Compose deployment nor the live open-mode broker was changed.
+  The live broker configuration is unchanged; the standing luv relay now uses it.
 
 ## Memory model (for me, the agent)
 

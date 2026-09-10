@@ -10,7 +10,7 @@ Use this index to route project work before searching the full docs tree.
   public-display configuration, legacy patch history, and the Strix Halo
   utilization gap.
 - [btop browser acceptance](./btop-browser-acceptance.md) — frame-based
-  freshness, isolated packaged-stream browser tests, and physical-device gates.
+  freshness, browser tests on the real dev page, and physical-device gates.
 - [btop recovery](./btop-recovery.md) — physical-port profiles, restart
   supervision, queue-free consumption, and bounded fault acceptance.
 - [Decisions](./decisions.md) — append-only record of choices that have

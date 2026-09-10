@@ -163,16 +163,17 @@ are routed through the cross-project
   NATS consumption, and five-second snapshots without whole-screen browser
   repainting. Packaged crash/freeze/broker/BFF tests pass; candidate `.3`
   replaces `.2` in the existing dev preview, not production.
-- [ ] Activate a standing boot-start deployment and verify physical node
-  reboot recovery. Temporary acceptance containers do not provide this.
+- [x] Activate the standing Control luv deployment with automatic startup,
+  connect dev to workspace NATS, and retire the temporary socket-test stack.
+  Remove the standalone showcase page and run browser tests on the real page.
+- [ ] Verify physical node reboot recovery; enabled Docker and container
+  restart policies plus process tests do not prove a whole-host reboot.
 - [ ] Verify actual iPhone sleep/resume and the final ingress/interruption
   path before switching a public tile. Synthetic lifecycle dispatch is not
   physical-device acceptance. Never deploy test keys or source overlays.
   The [private phone preview](./btop-browser-acceptance.md#private-phone-preview)
-  uses the normal dev page. Replace the temporary broker with the accepted
-  standing path (or restore the old tile route) before removing its override
-  and retiring the test stack. Do not create another human-preview frontend
-  or hostname.
+  uses the normal dev page and standing broker path. Do not create another
+  human-preview frontend or hostname; its old page and overlays are removed.
 - [ ] At joi's production transition, coordinate NATS credentials and
   worker/BFF mounts with all clients. This is deferred, not a tile-switch gate.
 - [ ] Deploy the integrated luv tile to production only after the standing

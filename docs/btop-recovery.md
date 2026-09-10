@@ -12,8 +12,9 @@ While its source is unavailable, retain the last display as offline.
 
 This requires each deployed service to start after boot. NATS cannot start a
 stopped collector. Control's standing exporter/relay declaration uses
-unless-stopped; temporary acceptance services deliberately do not constitute
-that boot deployment. A real node reboot remains a separate acceptance gate.
+unless-stopped and is now active on luv, with Docker enabled at boot. The
+temporary dev acceptance stack has been retired. A real node reboot remains
+a separate acceptance gate; container restart tests do not prove a host reboot.
 
 ## Physical-port profile
 
@@ -45,7 +46,7 @@ than copying luv's. Btop source stays in its own pinned source repository.
   session ID and full frame. It keeps no durable replay buffer.
 - The hardened relay publishes a full snapshot every five seconds rather
   than thirty. This increases private broker traffic to reduce recovery
-  delay. The existing dev preview uses hardened candidate 2026-09-10.3;
+  delay. The existing dev page uses standing release 2026-09-10.3;
   production remains unchanged.
 - The BFF consumes through synchronous NATS callbacks, not the client's
   unbounded async-iterator queue. Frame size, inventory, sequence, and SSE
@@ -117,6 +118,10 @@ passed real frames, stale/offline recovery, visibility/page-cache recovery,
 and route/Back cleanup through the existing Caddy/dev route.
 
 ## Remaining gates
+
+The permanent Control exporter/relay now feeds the existing workspace broker.
+The dev BFF no longer joins an acceptance network or selects a test broker.
+Browser checks pass on that path; the isolated fault harness remains separate.
 
 Verify native joi capture, its private listener/firewall, boot activation,
 and independent restart recovery before moving its tile. Do not revive the

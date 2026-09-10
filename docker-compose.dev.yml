@@ -55,7 +55,7 @@ services:
       # frontend shape in src/server/routes/found-footy.ts).
       - FOUND_FOOTY_API_URL=http://found-footy-dev-api:8081
       # Live-feed bridge: subscribe found-footy.> on the workspace NATS, fan to SSE.
-      - NATS_URL=nats://nats:4222
+      - NATS_URL=nats://nats.luv-dev:4222
       - BTOP_NODES=luv,joi
     volumes:
       - .:/app

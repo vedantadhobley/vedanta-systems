@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict'
 import { createRequire } from 'node:module'
 const { chromium, webkit } = createRequire('/opt/browser/package.json')('playwright')
-const portal = process.env.BTOP_BROWSER_SURFACE === 'portal'
 
 const scenarios = [
   ['chromium-desktop', chromium, { viewport: { width: 1280, height: 960 } }],
@@ -54,7 +53,7 @@ for (const [name, engine, options] of scenarios) {
   )
   const activeStreams = () => page.evaluate(() => window.__streams.filter(stream => !stream.closed).length)
   try {
-    await page.goto(process.env.BTOP_PREVIEW_URL, { waitUntil: 'domcontentloaded' })
+    await page.goto(process.env.BTOP_BROWSER_URL, { waitUntil: 'domcontentloaded' })
     await page.waitForFunction(() => document.querySelectorAll('[data-btop-node="luv"] .btop-cell').length === 132 * 43
       && document.querySelector('[data-btop-node="luv"]')?.textContent.includes('CPU'), null, { timeout: 45_000 })
     await live(true, 20_000)
@@ -66,11 +65,9 @@ for (const [name, engine, options] of scenarios) {
       'packaged title and border must use the lavender palette, not the btop default')
     const dimensions = await page.evaluate(() => ({ viewport: innerWidth, document: document.documentElement.scrollWidth }))
     assert.ok(dimensions.document <= dimensions.viewport + 1, 'monitor must not overflow the viewport')
-    if (portal) {
-      assert.equal(await page.locator('[data-btop-node="joi"]').count(), 1, 'keep the existing joi tile')
-      assert.equal(await page.locator('.site-header').count(), 1)
-      assert.equal(await page.locator('.site-bottom-nav').count(), 1)
-    }
+    assert.equal(await page.locator('[data-btop-node="joi"]').count(), 1, 'keep the existing joi tile')
+    assert.equal(await page.locator('.site-header').count(), 1)
+    assert.equal(await page.locator('.site-bottom-nav').count(), 1)
     await page.screenshot({ path: `/artifacts/${name}.png`, fullPage: true })
     console.log(`PASS ${name}: real packaged frame despite offline heuristic, fixed grid, responsive layout`)
 
@@ -111,24 +108,16 @@ for (const [name, engine, options] of scenarios) {
     console.log(`PASS ${name}: page-cache suspension closes and restores the stream`)
 
     for (let i = 0; i < 3; i++) {
-      if (portal) {
-        await page.getByRole('navigation', { name: 'breadcrumb' }).getByText('workspace', { exact: true }).click()
-        await page.waitForURL('**/workspace')
-      } else {
-        await page.getByRole('button', { name: 'Hide monitor' }).click()
-      }
+      await page.getByRole('navigation', { name: 'breadcrumb' }).getByText('workspace', { exact: true }).click()
+      await page.waitForURL('**/workspace')
       await page.waitForFunction(() => window.__streams.every(stream => stream.closed))
       assert.equal(await activeStreams(), 0)
-      if (portal) {
-        if (i === 1) {
-          await page.goBack()
-        } else {
-          await page.getByRole('button', { name: /^vedanta-systems\// }).click()
-        }
-        await page.waitForURL('**/workspace/vedanta-systems')
+      if (i === 1) {
+        await page.goBack()
       } else {
-        await page.getByRole('button', { name: 'Show monitor' }).click()
+        await page.getByRole('button', { name: /^vedanta-systems\// }).click()
       }
+      await page.waitForURL('**/workspace/vedanta-systems')
       await live(true)
       assert.equal(await activeStreams(), 1)
     }
@@ -137,7 +126,7 @@ for (const [name, engine, options] of scenarios) {
     assert.ok(firstFrames.every(type => type === 'f'), 'every connection must start from a full frame')
     assert.equal(legacyLuvRequests, 0, 'luv must not use or fall back to the legacy HTTP collector')
     assert.deepEqual(errors, [])
-    console.log(`PASS ${name}: ${portal ? 'route navigation/back' : 'repeated mount'} cleanup, full-frame-first, no legacy luv requests or page errors`)
+    console.log(`PASS ${name}: route navigation/back cleanup, full-frame-first, no legacy luv requests or page errors`)
   } catch (error) {
     await page.screenshot({ path: `/artifacts/${name}-failure.png`, fullPage: true }).catch(() => {})
     const state = await page.evaluate(() => ({

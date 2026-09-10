@@ -960,4 +960,24 @@ node reboot and native joi acceptance remain separate from these tests.
 See [recovery and profiles](./btop-recovery.md). No production service or
 future production-role topology changed.
 
+## 2026-09-10 — Retire the btop showcase and temporary dev broker
+
+**Decision.** The real dev page is the browser test surface. Remove the
+standalone showcase HTML/React entry, its UI/BFF server, and preview-only
+Compose overlays. Keep the disposable browser runner and headless protocol
+and fault tests; they do not need another frontend.
+
+Control owns the permanent luv exporter/relay, with digest-selected images
+and automatic startup. Both dev live-data bridges use the existing workspace
+broker through nats.luv-dev; their subscriptions remain separate. Remove the
+temporary exporter/relay/broker and disposable socket volume only after the
+real dev page passes on the permanent path. Do not change broker auth or
+restart it for this migration.
+
+**Evidence.** Chromium/WebKit checks pass on the normal dev page. Restarting
+the standing exporter and relay independently recovered fresh sessions in
+3171 ms and 404 ms respectively. The workspace broker and production
+containers retained their identities. Actual phone and host reboot checks
+remain open; production and joi tiles have not switched.
+
 ---
