@@ -1,0 +1,24 @@
+# Automation-only BFF for Control's disposable recovery stack; no frontend.
+name: vedanta-systems-btop-recovery
+services:
+  bff:
+    image: node:18-alpine@sha256:8d6421d663b4c28fd3ebc498332f249011d118945588d0a35cb9bc4b8ca09d9e
+    user: "1000:1000"
+    working_dir: /app
+    command: [node, --import, tsx, tests/btop-recovery/server.ts]
+    mem_limit: 512m
+    memswap_limit: 512m
+    pids_limit: 128
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    tmpfs: ["/tmp:size=32m,mode=1777"]
+    environment:
+      NODE_OPTIONS: --max-old-space-size=384
+    volumes:
+      - .:/app:ro
+    networks: [broker]
+networks:
+  broker:
+    name: control-telemetry-recovery-test_broker
+    external: true

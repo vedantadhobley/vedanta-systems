@@ -32,7 +32,7 @@ polls them.
 Use the normal page on the existing dev frontend:
 `http://vedanta-systems-dev.<base-domain>/workspace/vedanta-systems`.
 Its luv tile now uses `/api/btop/luv` and shows real data from Control
-candidate `2026-09-10.2`. The layout, colors, and legacy offline joi tile are
+candidate `2026-09-10.3`. The layout, colors, and legacy offline joi tile are
 unchanged. There is no separate human-preview frontend, BFF, hostname, or
 Caddy access rule. The `/tests/btop-browser/index.html` entry remains a
 component test fixture, not the primary place to view the integration.
@@ -112,6 +112,9 @@ fresh lavender frames, stale/offline recovery, visibility/page-cache recovery,
 route navigation and browser Back, one active luv stream, and no legacy luv
 requests or page exceptions. The header, footer, and joi tile remain present.
 Physical-phone interruption acceptance and production cutover remain open.
+
+The [recovery hardening](./btop-recovery.md) records the later `.3` candidate,
+physical-port profile, collector supervision, and isolated restart tests.
 
 ## Harness
 

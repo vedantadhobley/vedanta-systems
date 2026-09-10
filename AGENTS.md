@@ -81,7 +81,8 @@ The proxy stack itself lives in `~/workspace/proxy/`; its
   ordered frames through Core NATS to the BFF. The durable reconciled source
   is now `~/workspace/btop/vedanta-profiles` at `4aca040`; the old dirty
   `~/workspace/btop/src` remains preserved. Control's `feat/btop-telemetry`
-  branch owns the undeployed luv exporter/relay candidate.
+  branch owns the luv exporter/relay candidate used by the existing dev page;
+  it is not a standing production deployment.
   This repo's `btop/src` is the stale public-display child
   used by the legacy image. See `docs/btop.md`.
 
@@ -142,9 +143,10 @@ Pattern A vs B is the central architectural call here — see
   public path family in nginx. An exact nginx location alone is insufficient
   because Express accepts trailing slashes. Internal callers (other containers
   on `luv-prod`) hit `vedanta-systems-prod-api:3001` directly, bypassing nginx.
-- **btop changes.** Hardware and profile source changes belong in the
-  durable `~/workspace/btop/vedanta-profiles` checkout. Transport and browser
-  integration belong here. Do not add new patches to the stale embedded
+- **btop changes.** Btop C++ hardware/public-display changes belong in the
+  durable `~/workspace/btop/vedanta-profiles` checkout. Control owns packaging,
+  exporter/relay behavior, and explicit per-node configuration profiles.
+  BFF transport and browser integration belong here. Do not patch the stale embedded
   `btop/src` child; migrate packaging to the authoritative source instead.
 - **Anything social-link related** (OG cards, Twitter cards, embed unfurls). Served by `og-server.js` via nginx's crawler routing (`error_page 418`). Production-only (dev doesn't run nginx).
 
@@ -195,9 +197,12 @@ Pattern A vs B is the central architectural call here — see
   profile have landed. The un-deployed direct agent publisher was a boundary
   mistake and is superseded. Control's luv exporter/relay runs in the
   isolated acceptance stack, not as a standing production deployment.
-  Published candidate `2026-09-10.2` passes packaged hardware and isolated
-  Chromium/WebKit acceptance. The private luv socket, bounded BFF streams,
-  full-frame reconnect, and browser frame-based freshness are tested. Actual
+  Published candidate `2026-09-10.3` runs in dev and passes packaged hardware,
+  crash/freeze/broker/BFF recovery, and Chromium/WebKit acceptance. Its explicit
+  physical-port profile, capture supervision, and five-second snapshots are
+  documented in `docs/btop-recovery.md`. The private luv socket, bounded BFF
+  streams, full-frame reconnect, and browser frame-based freshness are tested.
+  Physical node reboot and standing boot-start deployment remain open. Actual
   iPhone/final-ingress acceptance and Vulkan utilization remain; no production
   tile has switched. The next production build selects the new luv route, so
   do not deploy this branch until its standing producer/broker path is ready.

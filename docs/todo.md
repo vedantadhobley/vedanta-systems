@@ -158,9 +158,13 @@ are routed through the cross-project
   `/workspace/vedanta-systems` page without layout or palette changes.
   Chromium/WebKit cover route navigation/Back, recovery, and no legacy luv
   requests. joi remains on its offline legacy route; production is unchanged.
-- [ ] Tighten BFF resynchronization latency with the Control owner. A BFF-only
-  reconnect can currently wait up to 30 seconds for the next full frame.
-  Measure bandwidth/recovery tradeoffs; keep Core NATS, not durable replay.
+- [x] Accept the [recovery hardening](./btop-recovery.md): explicit physical-port
+  profiles, exporter supervision, independent restart recovery, callback-based
+  NATS consumption, and five-second snapshots without whole-screen browser
+  repainting. Packaged crash/freeze/broker/BFF tests pass; candidate `.3`
+  replaces `.2` in the existing dev preview, not production.
+- [ ] Activate a standing boot-start deployment and verify physical node
+  reboot recovery. Temporary acceptance containers do not provide this.
 - [ ] Verify actual iPhone sleep/resume and the final ingress/interruption
   path before switching a public tile. Synthetic lifecycle dispatch is not
   physical-device acceptance. Never deploy test keys or source overlays.

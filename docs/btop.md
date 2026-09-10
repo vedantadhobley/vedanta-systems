@@ -243,10 +243,12 @@ sequence is the next value. A gap marks that node unsynchronized until a later
 full frame restores it.
 
 The BFF ends its NATS session on disconnect and invalidates every cached node.
-It reconnects through its outer five-second retry loop, not a second automatic
-reconnect loop. Recovery requires a new full frame; a locally contiguous delta
-cannot bypass invalidation. If only the BFF disconnects, it may wait for the
-relay's next periodic full frame (currently every 30 seconds).
+Its outer retry loop runs every second; connection-error logs remain bounded.
+Recovery requires a new full frame; a locally contiguous delta cannot bypass
+invalidation. The hardened relay uses five-second snapshots, with unchanged
+periodic snapshots reduced to deltas for already-synchronized browser streams.
+See [recovery and node profiles](./btop-recovery.md) for candidate versus
+deployed behavior, resource tradeoffs, and fault acceptance.
 
 While the private exporter stream and health endpoint remain fresh, the relay
 publishes an empty delta for an unchanged capture. It advances sequence and

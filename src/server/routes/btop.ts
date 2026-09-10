@@ -1,5 +1,5 @@
 import { Router, type Request, type Response } from 'express'
-import { connect, JSONCodec, type Msg, type NatsConnection } from 'nats'
+import { connect, JSONCodec, type NatsConnection } from 'nats'
 import { loadNatsAuthenticator } from '../nats-auth'
 
 const COLS = 132
@@ -8,6 +8,7 @@ const TOTAL_CELLS = COLS * ROWS
 const SUBJECT_PATTERN = 'btop.*.frame'
 const DEFAULT_STALE_AFTER_MS = 5_000
 const RETRY_DELAY_MS = 5_000
+const CONNECT_RETRY_MS = 1_000
 const SSE_HEARTBEAT_MS = 15_000
 const MAX_SSE_CLIENTS = 64
 const SSE_DRAIN_TIMEOUT_MS = 5_000
@@ -156,6 +157,19 @@ function cloneCells(cells: BtopCell[]): BtopCell[] {
   return cells.map((cell) => [...cell] as BtopCell)
 }
 
+function changedCells(previous: BtopCell[], current: BtopCell[]): BtopStreamFrame {
+  const changes: BtopDeltaFrame['d'] = []
+  for (let index = 0; index < current.length; index++) {
+    const cell = current[index]
+    if (cell.some((value, field) => value !== previous[index][field])) {
+      changes.push([index, ...cell])
+    }
+  }
+  return changes.length > TOTAL_CELLS / 2
+    ? { t: 'f', c: cloneCells(current) }
+    : { t: 'd', d: changes }
+}
+
 export class BtopFrameStore {
   private readonly nodes = new Map<string, NodeState>()
 
@@ -200,12 +214,19 @@ export class BtopFrameStore {
     }
 
     if (frame.t === 'f') {
+      // Frequent broker snapshots speed recovery. A synchronized browser only
+      // needs their changed cells, not another whole-screen repaint.
+      const update = state.synchronized && state.cells !== null
+        && state.session === session && state.sequence !== null
+        && sequence === state.sequence + 1
+        ? changedCells(state.cells, frame.c)
+        : { t: 'f' as const, c: cloneCells(frame.c) }
       state.cells = cloneCells(frame.c)
       state.session = session
       state.sequence = sequence
       state.synchronized = true
       state.lastFrameAt = receivedAt
-      this.emit(state, { t: 'f', c: cloneCells(state.cells) })
+      this.emit(state, update)
       return true
     }
 
@@ -400,31 +421,46 @@ export function createBtopStreamHandler(store: BtopFrameStore, limits: BtopStrea
   }
 }
 
-export async function consumeBtopFrames(
-  messages: AsyncIterable<Pick<Msg, 'data' | 'subject'>>,
+export async function consumeBtopConnection(
+  connection: Pick<NatsConnection, 'subscribe' | 'close'>,
   store: BtopFrameStore,
   reportIgnored: () => void = () => {},
 ) {
   const codec = JSONCodec<unknown>()
-  try {
-    for await (const message of messages) {
+  let accepting = true
+  // nats.js async subscriptions have no application-level queue bound. Handle
+  // small synchronous updates directly, without accumulating an old-frame queue.
+  const subscription = connection.subscribe(SUBJECT_PATTERN, {
+    callback: (error, message) => {
+      if (!accepting) return
+      if (error) {
+        accepting = false
+        store.invalidateAll()
+        void connection.close().catch(() => {})
+        return
+      }
       try {
         if (message.data.length > MAX_MESSAGE_BYTES) {
           reportIgnored()
-          continue
+          return
         }
         if (!store.ingest(codec.decode(message.data), message.subject)) reportIgnored()
       } catch {
         reportIgnored()
       }
-    }
+    },
+  })
+  try {
+    await subscription.closed
   } finally {
+    accepting = false
     store.invalidateAll()
   }
 }
 
 async function runNatsBridge(natsUrl: string, natsCredsPath: string | undefined, store: BtopFrameStore) {
   let lastIgnoredLogAt = 0
+  let lastConnectionErrorAt = 0
   const reportIgnored = () => {
     const now = Date.now()
     if (now - lastIgnoredLogAt < RETRY_DELAY_MS) return
@@ -439,22 +475,29 @@ async function runNatsBridge(natsUrl: string, natsCredsPath: string | undefined,
       connection = await connect({
         servers: natsUrl,
         name: 'vedanta-systems-btop-bridge',
+        timeout: 3_000,
+        // Detect a half-open network path independently of node frame activity.
+        pingInterval: 5_000,
+        maxPingOut: 2,
         // A broken connection ends this session. The outer loop reconnects;
         // subscription termination invalidates every cached node immediately.
         reconnect: false,
         authenticator,
       })
       console.log(`[btop] NATS bridge connected; subscribed to ${SUBJECT_PATTERN}`)
-      const subscription = connection.subscribe(SUBJECT_PATTERN)
-      await consumeBtopFrames(subscription, store, reportIgnored)
+      await consumeBtopConnection(connection, store, reportIgnored)
     } catch (error) {
-      console.error(`[btop] NATS bridge unavailable; retrying in ${RETRY_DELAY_MS / 1_000}s:`, (error as Error).message)
+      const now = Date.now()
+      if (now - lastConnectionErrorAt >= RETRY_DELAY_MS) {
+        lastConnectionErrorAt = now
+        console.error(`[btop] NATS bridge unavailable; retrying in ${CONNECT_RETRY_MS / 1_000}s:`, (error as Error).message)
+      }
     } finally {
       store.invalidateAll()
       if (connection) await connection.close().catch(() => undefined)
     }
 
-    await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS))
+    await new Promise((resolve) => setTimeout(resolve, CONNECT_RETRY_MS))
   }
 }
 

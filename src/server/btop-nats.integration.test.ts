@@ -6,7 +6,7 @@ import test from 'node:test'
 import express from 'express'
 import { connect } from 'nats'
 import { loadNatsAuthenticator } from './nats-auth'
-import { BtopFrameStore, consumeBtopFrames, createBtopStreamHandler } from './routes/btop'
+import { BtopFrameStore, consumeBtopConnection, createBtopStreamHandler } from './routes/btop'
 
 test('real private exporter through NATS and BFF SSE recovers full frames', {
   skip: !process.env.BTOP_TEST_URL,
@@ -16,8 +16,7 @@ test('real private exporter through NATS and BFF SSE recovers full frames', {
   const attach = async () => {
     const nc = await connect({ servers: process.env.BTOP_TEST_URL!, reconnect: false,
       authenticator: await loadNatsAuthenticator(process.env.NATS_TEST_CONSUMER_CREDS) })
-    const sub = nc.subscribe('btop.*.frame')
-    const consuming = consumeBtopFrames(sub, store)
+    const consuming = consumeBtopConnection(nc, store)
     t.after(async () => { await nc.close(); await consuming })
     assert.equal(Boolean(nc.info?.auth_required), Boolean(process.env.NATS_TEST_CONSUMER_CREDS),
       'isolated broker auth mode must match the selected test configuration')

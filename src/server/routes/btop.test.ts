@@ -3,11 +3,11 @@ import test from 'node:test'
 import { EventEmitter, once } from 'node:events'
 import { get as httpGet, type IncomingMessage } from 'node:http'
 import express, { type Request, type Response } from 'express'
-import { JSONCodec, type Msg } from 'nats'
+import { JSONCodec, type Msg, type NatsConnection, type SubscriptionOptions } from 'nats'
 import {
   BtopFrameStore,
   createBtopStreamHandler,
-  consumeBtopFrames,
+  consumeBtopConnection,
   type BtopCell,
   type BtopFullFrame,
   type BtopStreamFrame,
@@ -75,6 +75,42 @@ test('rejects a sequence gap until a full frame resynchronizes the node', () => 
   const recovery = envelope('joi', 'session-a', 7, fullFrame('R'))
   assert.equal(store.ingest(recovery.message, recovery.subject, 3_000), true)
   assert.equal(store.getStatus('joi', 3_000).online, true)
+})
+
+test('periodic full frames become browser deltas without changing reconnect snapshots', () => {
+  const store = new BtopFrameStore(5_000, ['luv'])
+  const received: BtopStreamFrame[] = []
+  store.subscribe('luv', frame => received.push(frame), 1_000)
+  const first = envelope('luv', 'a', 0, fullFrame())
+  store.ingest(first.message, first.subject, 1_000)
+  const changed = fullFrame()
+  changed.c[12] = ['X', 'a57fd8', null, 1]
+  const next = envelope('luv', 'a', 1, changed)
+  store.ingest(next.message, next.subject, 2_000)
+  assert.deepEqual(received[1], { t: 'd', d: [[12, 'X', 'a57fd8', null, 1]] })
+  const same = envelope('luv', 'a', 2, changed)
+  store.ingest(same.message, same.subject, 3_000)
+  assert.deepEqual(received[2], { t: 'd', d: [] })
+  const reconnect: BtopStreamFrame[] = []
+  store.subscribe('luv', frame => reconnect.push(frame), 3_001)
+  assert.deepEqual(reconnect, [changed])
+  const gap = envelope('luv', 'a', 4, changed)
+  store.ingest(gap.message, gap.subject, 4_000)
+  assert.equal(received[3].t, 'f', 'sequence gaps require a full browser refresh')
+  const replacement = envelope('luv', 'b', 0, changed)
+  store.ingest(replacement.message, replacement.subject, 4_001)
+  assert.equal(received[4].t, 'f', 'new publisher sessions require a full refresh')
+})
+
+test('large snapshot changes retain full-frame fallback', () => {
+  const store = new BtopFrameStore(5_000, ['luv'])
+  const received: BtopStreamFrame[] = []
+  store.subscribe('luv', frame => received.push(frame))
+  for (let sequence = 0; sequence < 2; sequence++) {
+    const input = envelope('luv', 'a', sequence, fullFrame(sequence ? 'X' : ' '))
+    store.ingest(input.message, input.subject)
+  }
+  assert.equal(received[1].t, 'f')
 })
 
 test('requires a full frame when the publisher session changes', () => {
@@ -159,15 +195,39 @@ test('a stale subscriber waits, then gets a reconstructed full frame before delt
   if (received[0].t === 'f') assert.equal(received[0].c[0][0], 'X')
 })
 
-test('NATS subscription termination invalidates snapshots until a new full frame arrives', async () => {
+function callbackConnection() {
+  let callback: SubscriptionOptions['callback']
+  let end!: () => void
+  const closed = new Promise<void>(resolve => { end = resolve })
+  const connection = {
+    subscribe: (subject: string, options: SubscriptionOptions) => {
+      assert.equal(subject, 'btop.*.frame')
+      assert.equal(typeof options.callback, 'function', 'must not use the unbounded async iterator')
+      callback = options.callback
+      return { closed }
+    },
+    close: async () => { end() },
+  } as unknown as Pick<NatsConnection, 'subscribe' | 'close'>
+  return {
+    connection,
+    end,
+    deliver: (message: Pick<Msg, 'subject' | 'data'>) => callback!(null, message as Msg),
+    fail: () => callback!(new Error('subscription failed') as Parameters<NonNullable<typeof callback>>[0], undefined as unknown as Msg),
+  }
+}
+
+test('NATS callbacks apply synchronously and termination invalidates snapshots', async () => {
   const store = new BtopFrameStore(5_000, ['luv'])
   const initial = envelope('luv', 'session-a', 0, fullFrame())
-  async function* messages(): AsyncIterable<Pick<Msg, 'data' | 'subject'>> {
-    yield { subject: initial.subject, data: JSONCodec().encode(initial.message) }
-    assert.equal(store.getStatus('luv').online, true)
-  }
-  await consumeBtopFrames(messages(), store)
+  const input = callbackConnection()
+  const consuming = consumeBtopConnection(input.connection, store)
+  input.deliver({ subject: initial.subject, data: JSONCodec().encode(initial.message) })
+  assert.equal(store.getStatus('luv').online, true, 'applied before the callback returns')
+  input.end()
+  await consuming
   assert.equal(store.getStatus('luv', 1_001).online, false)
+  input.deliver({ subject: initial.subject, data: JSONCodec().encode(envelope('luv', 'stale-callback', 0, fullFrame()).message) })
+  assert.equal(store.getStatus('luv').online, false, 'closed callbacks cannot revive old sessions')
   const received: BtopStreamFrame[] = []
   store.subscribe('luv', (frame) => received.push(frame), 1_001)
   assert.equal(received.length, 0)
@@ -179,25 +239,35 @@ test('NATS subscription termination invalidates snapshots until a new full frame
   assert.equal(received[0].t, 'f')
 })
 
-test('NATS subscription failure invalidates cached nodes', async () => {
+test('NATS subscription errors invalidate synchronously and close the connection', async () => {
   const store = liveStore()
-  async function* messages(): AsyncIterable<Pick<Msg, 'data' | 'subject'>> {
-    yield { subject: 'btop.luv.frame', data: new TextEncoder().encode('not json') }
-    throw new Error('connection lost')
-  }
+  const input = callbackConnection()
+  const consuming = consumeBtopConnection(input.connection, store)
+  input.fail()
+  assert.equal(store.getStatus('luv').online, false)
+  await consuming
+})
+
+test('NATS malformed frames are ignored without accumulating a pending queue', async () => {
+  const store = liveStore()
+  const input = callbackConnection()
   let ignored = 0
-  await assert.rejects(consumeBtopFrames(messages(), store, () => { ignored += 1 }), /connection lost/)
+  const consuming = consumeBtopConnection(input.connection, store, () => { ignored += 1 })
+  input.deliver({ subject: 'btop.luv.frame', data: new TextEncoder().encode('not json') })
   assert.equal(ignored, 1)
+  await input.connection.close()
+  await consuming
   assert.equal(store.getStatus('luv').online, false)
 })
 
 test('NATS rejects oversized frames before decoding or creating node state', async () => {
   const store = new BtopFrameStore(5_000, ['luv'])
-  async function* messages(): AsyncIterable<Pick<Msg, 'data' | 'subject'>> {
-    yield { subject: 'btop.luv.frame', data: new Uint8Array(1024 * 1024 + 1) }
-  }
+  const input = callbackConnection()
   let ignored = 0
-  await consumeBtopFrames(messages(), store, () => { ignored += 1 })
+  const consuming = consumeBtopConnection(input.connection, store, () => { ignored += 1 })
+  input.deliver({ subject: 'btop.luv.frame', data: new Uint8Array(1024 * 1024 + 1) })
+  input.end()
+  await consuming
   assert.equal(ignored, 1)
   assert.equal(store.getStatus('luv').lastFrameAt, null)
 })

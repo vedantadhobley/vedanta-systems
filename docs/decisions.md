@@ -942,4 +942,22 @@ exporter/relay and production broker/ingress before releasing this source.
 Do not retire the temporary dev broker until a replacement path is active
 or the tile route is restored. See [acceptance and rollback](./btop-browser-acceptance.md#private-phone-preview).
 
+## 2026-09-10 — Keep recovery snapshots cheap for connected browsers
+
+**Decision.** Consume btop NATS messages through synchronous callbacks rather
+than an unbounded async-iterator queue. Retry disconnected BFF connections
+independently and detect a half-open broker path with explicit short pings.
+Keep session/sequence validation and bounded SSE backpressure.
+
+Control now sends full snapshots every five seconds. For an already
+synchronized session, forward only changed cells from a periodic snapshot;
+new browser connections, replacement sessions, and sequence gaps still
+require a full frame. Do not add replay storage for transient displays.
+
+**Evidence.** Packaged failure tests cover startup order, exporter recreation,
+dead/frozen collection, broker silence/recreation, and BFF restart. Physical
+node reboot and native joi acceptance remain separate from these tests.
+See [recovery and profiles](./btop-recovery.md). No production service or
+future production-role topology changed.
+
 ---
