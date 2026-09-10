@@ -128,10 +128,13 @@ are routed through the cross-project
 - [x] Exercise luv's exposed counters and freeze/resume/exit handling in
   Control's read-only hardware probe. Vulkan utilization is still unproven;
   this is not a portal cutover or a standing host deployment.
-- [ ] Enforce `BTOP_NODES` as an allowlist before deploying the dormant route;
+- [x] Enforce `BTOP_NODES` as an allowlist before deploying the dormant route;
   a valid frame must not allocate an arbitrary node.
-- [ ] Register SSE cleanup before awaited work, honor write backpressure, and
-  bound connection/memory use.
+- [x] Register SSE cleanup before initial writes, honor write backpressure, and
+  bound connection/memory use. This does not replace ingress rate limiting.
+- [x] Invalidate cached synchronization when the NATS session ends, and send
+  only fresh full snapshots to new streams. BFF unit and real HTTP tests pass;
+  coordinated broker interruption and physical-browser wake tests remain.
 - [ ] Point the luv tile at the new route after the native exporter and relay
   prove startup, reconnect, sequence-gap, and periodic-full recovery.
 - [ ] Move joi only after its native NixOS exporter is healthy; do not revive

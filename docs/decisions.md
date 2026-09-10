@@ -841,3 +841,24 @@ resume the paused visual redesign, implement components, establish a global
 cross-project convention, or certify the current site's accessibility.
 
 ---
+
+## 2026-09-10 — Bound the btop consumer and recover from full frames
+
+**Decision.** Treat `BTOP_NODES` as an allowlist rather than a seed for dynamic
+discovery. End the BFF's NATS session on disconnect and invalidate cached
+synchronization. Retry explicitly and wait for a full frame before accepting
+deltas again. New SSE clients never receive a stale snapshot or an initial
+delta without its base.
+
+Cap the target route at 64 streams per process. Permit one backpressured write
+for up to five seconds, then close. Close sooner if another frame arrives
+while blocked. Do not queue unlimited frames or silently discard deltas.
+Register cleanup before the initial snapshot; reconnect sends current state
+as a complete frame. Limit input size and ignored-frame logging.
+
+**Consequences.** Consumer and real HTTP tests cover these guarantees. This is
+not publisher authentication, a complete browser recovery test, or a production
+cutover. Node ownership and role changes remain in the cross-project plan;
+the portal does not own capture, control-plane relay placement, or broker policy.
+
+---

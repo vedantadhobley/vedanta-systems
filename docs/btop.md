@@ -27,7 +27,8 @@ one native btop exporter on each node
 
 There is one exporter per physical node, with no development/production
 duplication. Each node's declared Compose or NixOS configuration owns exporter
-deployment: luv uses Compose, joi uses its NixOS-hosted Compose stack, and
+deployment: luv uses Compose, joi uses a separate telemetry Compose stack
+activated through NixOS, and
 Nexus uses its shared `virtualisation.oci-containers` module. The owning
 control plane consumes the private exporter stream and publishes canonical
 NATS frames. Control planes own node lifecycle, but do not use btop health as
@@ -36,11 +37,10 @@ workload readiness. Exporters never connect to NATS or the frontend.
 `src/server/routes/btop.ts` is the first migration slice. It subscribes to the
 future NATS subjects and exposes `/api/btop/{node}/{health,stream}` while the
 legacy HTTP proxies remain active. No current tile uses the new route yet.
-`BTOP_NODES` seeds the desired inventory so a powered-off node remains visible.
-The current store also allocates any syntactically valid node received through
-NATS. That contradicts the target allowlist and must be fixed before this route
-is deployed. Public stream requests for unknown nodes are rejected, but NATS
-ingest is not yet constrained.
+`BTOP_NODES` is the complete allowed inventory, including powered-off nodes.
+Neither NATS publications nor SSE subscriptions can create an unconfigured
+node. This bounds inventory; it does not authenticate a publisher on the
+currently open broker.
 The cross-project ownership and rollout live in the
 [multi-node btop plan](../../../vedanta-dhobley/docs/plans/btop-multinode.md).
 
@@ -184,6 +184,12 @@ durable replay. The BFF accepts a delta only when its session matches and its
 sequence is the next value. A gap marks that node unsynchronized until a later
 full frame restores it.
 
+The BFF ends its NATS session on disconnect and invalidates every cached node.
+It reconnects through its outer five-second retry loop, not a second automatic
+reconnect loop. Recovery requires a new full frame; a locally contiguous delta
+cannot bypass invalidation. If only the BFF disconnects, it may wait for the
+relay's next periodic full frame (currently every 30 seconds).
+
 While the private exporter stream and health endpoint remain fresh, the relay
 publishes an empty delta for an unchanged capture. It advances sequence and
 acts as a small liveness event, so a quiet terminal is not mistaken for an
@@ -192,8 +198,23 @@ luv pilot.
 
 Frames use Core NATS because they are transient live state. Replaying old
 terminal motion after a node powers off would be incorrect. The BFF keeps the
-current reconstructed frame in memory and sends it as a full frame to each new
-browser SSE connection.
+current reconstructed frame in memory. A new browser gets a full frame only
+when that state is fresh and synchronized. Otherwise it waits for fresh data;
+its first delivery is always a reconstructed full frame, even if the next
+accepted upstream message is a delta.
+
+The target route admits at most 64 SSE clients per BFF process. It permits one
+write to wait for drain for up to five seconds, without queueing further
+frames. If another frame arrives while blocked, the connection closes; it must
+reconnect for a complete snapshot. Never skip an intermediate delta and keep
+the connection open. Cleanup is registered before headers or synchronous
+snapshot delivery. Heartbeat comments do not renew node health.
+
+Messages above 1 MiB and deltas with duplicate indices are rejected before
+state mutation. Ignored-frame diagnostics are rate-limited to one log entry
+per five seconds and omit payloads. Store, connection teardown, backpressure,
+and real HTTP full/delta/reconnect tests cover this source-only consumer gate;
+the complete Control/NATS/browser acceptance remains outstanding.
 
 ## Files
 
@@ -252,8 +273,9 @@ internal Docker network. No compute-network NATS listener is required.
 | `BTOP_NATS_CREDS` | Optional subscriber credentials file inside the API container | unset during the local open-mode pilot only |
 | `BTOP_NODES` | Comma-separated desired node inventory, including nodes that may be powered off | set to `luv,joi` in current Compose files |
 
-Control-plane credentials may publish only their owned subjects: joi gets
-`btop.joi.frame`, while Nexus gets the approved `btop.nexus*.frame` set. The
+Control-plane credentials may publish only their owned subjects: luv gets
+`btop.luv.frame`, joi gets `btop.joi.frame`, and Nexus gets an explicit list of
+accepted node subjects such as `btop.nexus0.frame`. The
 BFF may subscribe only to `btop.*.frame`. Do not expose NATS to the compute
 network or public internet, and do not put credentials in exporters or browsers.
 

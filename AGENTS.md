@@ -194,7 +194,8 @@ Pattern A vs B is the central architectural call here — see
   candidate with isolated transport and read-only luv hardware acceptance.
   Frozen frames no longer renew freshness. Vulkan utilization, private access,
   broker authorization, and end-to-end acceptance remain before any tile
-  switch; see `docs/btop.md`.
+  switch. The target BFF now enforces configured inventory, bounded streams,
+  and full-frame recovery after disconnect; see `docs/btop.md`.
 
 ## Memory model (for me, the agent)
 

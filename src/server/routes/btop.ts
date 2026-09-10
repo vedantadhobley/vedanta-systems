@@ -1,6 +1,6 @@
 import { Router, type Request, type Response } from 'express'
 import { readFile } from 'node:fs/promises'
-import { connect, credsAuthenticator, JSONCodec, type NatsConnection } from 'nats'
+import { connect, credsAuthenticator, JSONCodec, type Msg, type NatsConnection } from 'nats'
 
 const COLS = 132
 const ROWS = 43
@@ -9,6 +9,9 @@ const SUBJECT_PATTERN = 'btop.*.frame'
 const DEFAULT_STALE_AFTER_MS = 5_000
 const RETRY_DELAY_MS = 5_000
 const SSE_HEARTBEAT_MS = 15_000
+const MAX_SSE_CLIENTS = 64
+const SSE_DRAIN_TIMEOUT_MS = 5_000
+const MAX_MESSAGE_BYTES = 1024 * 1024
 
 export type BtopCell = [string, string | null, string | null, 0 | 1]
 export type BtopFullFrame = { t: 'f'; c: BtopCell[] }
@@ -99,10 +102,13 @@ function parseFrame(value: unknown): BtopStreamFrame | null {
     if (!Array.isArray(value.d) || value.d.length > TOTAL_CELLS) return null
 
     const deltas: BtopDeltaFrame['d'] = []
+    const indices = new Set<number>()
     for (const entry of value.d) {
       if (!Array.isArray(entry) || entry.length !== 5) return null
       const [index, char, foreground, background, bold] = entry
       if (!Number.isInteger(index) || index < 0 || index >= TOTAL_CELLS) return null
+      if (indices.has(index)) return null
+      indices.add(index)
       if (!isCharacter(char) || !isColor(foreground) || !isColor(background)) return null
       if (bold !== 0 && bold !== 1) return null
       deltas.push([index, char, foreground, background, bold])
@@ -179,11 +185,15 @@ export class BtopFrameStore {
   }
 
   ingest(rawEnvelope: unknown, messageSubject: string, receivedAt = Date.now()): boolean {
+    // Inventory is configuration, never something a publisher can create.
+    const subjectNode = messageSubject.split('.')[1]
+    if (!this.nodes.has(subjectNode)) return false
     const envelope = parseEnvelope(rawEnvelope, messageSubject)
     if (!envelope) return false
 
     const { node, session, sequence, frame } = envelope.payload
-    const state = this.getOrCreateNode(node)
+    const state = this.nodes.get(node)
+    if (!state) return false
 
     if (state.session === session && state.sequence !== null && sequence <= state.sequence) {
       return false
@@ -223,17 +233,37 @@ export class BtopFrameStore {
     return true
   }
 
-  subscribe(node: string, listener: (frame: BtopStreamFrame) => void): () => void {
-    const state = this.getOrCreateNode(node)
-    state.listeners.add(listener)
-    if (state.synchronized && state.cells) {
-      listener({ t: 'f', c: cloneCells(state.cells) })
+  subscribe(node: string, listener: (frame: BtopStreamFrame) => void, now = Date.now()): () => void {
+    const state = this.nodes.get(node)
+    if (!state) throw new Error('unknown btop node')
+    let initialized = false
+    const forward = (frame: BtopStreamFrame) => {
+      if (!initialized) {
+        if (!state.cells) return
+        initialized = true
+        listener({ t: 'f', c: cloneCells(state.cells) })
+      } else {
+        listener(frame)
+      }
     }
-    return () => state.listeners.delete(listener)
+    state.listeners.add(forward)
+    try {
+      if (this.getStatus(node, now).online && state.cells) {
+        forward({ t: 'f', c: state.cells })
+      }
+    } catch (error) {
+      state.listeners.delete(forward)
+      throw error
+    }
+    return () => state.listeners.delete(forward)
   }
 
   hasNode(node: string): boolean {
     return this.nodes.has(node)
+  }
+
+  invalidateAll(): void {
+    for (const state of this.nodes.values()) state.synchronized = false
   }
 
   getStatus(node: string, now = Date.now()): BtopNodeStatus {
@@ -265,12 +295,142 @@ export class BtopFrameStore {
   }
 }
 
-function writeSseFrame(res: Response, frame: BtopStreamFrame) {
-  res.write(`data: ${JSON.stringify(frame)}\n\n`)
+interface BtopStreamLimits {
+  maxClients?: number
+  heartbeatMs?: number
+  drainTimeoutMs?: number
+}
+
+export function createBtopStreamHandler(store: BtopFrameStore, limits: BtopStreamLimits = {}) {
+  const maxClients = limits.maxClients ?? MAX_SSE_CLIENTS
+  const heartbeatMs = limits.heartbeatMs ?? SSE_HEARTBEAT_MS
+  const drainTimeoutMs = limits.drainTimeoutMs ?? SSE_DRAIN_TIMEOUT_MS
+  let clients = 0
+
+  return (req: Request, res: Response): void => {
+    const node = req.params.node
+    if (!isNodeName(node)) {
+      res.status(400).json({ error: 'invalid btop node' })
+      return
+    }
+    if (!store.hasNode(node)) {
+      res.status(404).json({ error: 'unknown btop node' })
+      return
+    }
+    if (clients >= maxClients) {
+      res.set('Retry-After', '5').status(503).json({ error: 'btop stream capacity reached' })
+      return
+    }
+
+    clients += 1
+    let closed = false
+    let blocked = false
+    let unsubscribe = () => {}
+    let heartbeat: ReturnType<typeof setInterval> | undefined
+    let drainTimeout: ReturnType<typeof setTimeout> | undefined
+    const drained = () => {
+      blocked = false
+      clearTimeout(drainTimeout)
+      drainTimeout = undefined
+    }
+    const cleanup = () => {
+      if (closed) return
+      closed = true
+      clients -= 1
+      clearInterval(heartbeat)
+      clearTimeout(drainTimeout)
+      unsubscribe()
+      res.off('drain', drained)
+      res.off('close', cleanup)
+      res.off('error', terminate)
+    }
+    const terminate = () => {
+      cleanup()
+      res.destroy()
+    }
+    const write = (message: string) => {
+      if (closed) return
+      // Never drop an intermediate delta and continue the same stream. Close
+      // a lagging client so reconnect starts from a complete current snapshot.
+      if (blocked || res.destroyed || res.writableEnded) {
+        terminate()
+        return
+      }
+      try {
+        if (!res.write(message) && !closed) {
+          blocked = true
+          res.once('drain', drained)
+          drainTimeout = setTimeout(terminate, drainTimeoutMs)
+          drainTimeout.unref()
+        }
+      } catch {
+        terminate()
+      }
+    }
+
+    // Install cleanup before headers or the synchronous first-frame callback.
+    res.once('close', cleanup)
+    res.once('error', terminate)
+    try {
+      req.socket.setTimeout(0)
+      req.socket.setNoDelay(true)
+      req.socket.setKeepAlive(true)
+      res.set({
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache, no-transform',
+        Connection: 'keep-alive',
+        'X-Accel-Buffering': 'no',
+      })
+      res.flushHeaders()
+      write(': connected\n\n')
+      if (closed) return
+      unsubscribe = store.subscribe(node, (frame) => write(`data: ${JSON.stringify(frame)}\n\n`))
+      // The first write may have closed before subscribe returned its cleanup.
+      if (closed) {
+        unsubscribe()
+        return
+      }
+      heartbeat = setInterval(() => {
+        if (!blocked) write(': heartbeat\n\n')
+      }, heartbeatMs)
+      heartbeat.unref()
+    } catch {
+      terminate()
+    }
+  }
+}
+
+export async function consumeBtopFrames(
+  messages: AsyncIterable<Pick<Msg, 'data' | 'subject'>>,
+  store: BtopFrameStore,
+  reportIgnored: () => void = () => {},
+) {
+  const codec = JSONCodec<unknown>()
+  try {
+    for await (const message of messages) {
+      try {
+        if (message.data.length > MAX_MESSAGE_BYTES) {
+          reportIgnored()
+          continue
+        }
+        if (!store.ingest(codec.decode(message.data), message.subject)) reportIgnored()
+      } catch {
+        reportIgnored()
+      }
+    }
+  } finally {
+    store.invalidateAll()
+  }
 }
 
 async function runNatsBridge(natsUrl: string, natsCredsPath: string | undefined, store: BtopFrameStore) {
-  const codec = JSONCodec<unknown>()
+  let lastIgnoredLogAt = 0
+  const reportIgnored = () => {
+    const now = Date.now()
+    if (now - lastIgnoredLogAt < RETRY_DELAY_MS) return
+    lastIgnoredLogAt = now
+    console.warn('[btop] ignored oversized, invalid, unconfigured, duplicate, or unsynchronized frame')
+  }
 
   while (process.exitCode === undefined) {
     let connection: NatsConnection | null = null
@@ -281,26 +441,18 @@ async function runNatsBridge(natsUrl: string, natsCredsPath: string | undefined,
       connection = await connect({
         servers: natsUrl,
         name: 'vedanta-systems-btop-bridge',
-        maxReconnectAttempts: -1,
-        reconnectTimeWait: 2_000,
+        // A broken connection ends this session. The outer loop reconnects;
+        // subscription termination invalidates every cached node immediately.
+        reconnect: false,
         authenticator,
       })
       console.log(`[btop] NATS bridge connected; subscribed to ${SUBJECT_PATTERN}`)
-
       const subscription = connection.subscribe(SUBJECT_PATTERN)
-      for await (const message of subscription) {
-        try {
-          const accepted = store.ingest(codec.decode(message.data), message.subject)
-          if (!accepted) {
-            console.warn(`[btop] ignored invalid, duplicate, or unsynchronized frame on ${message.subject}`)
-          }
-        } catch (error) {
-          console.error('[btop] NATS frame decode failed:', (error as Error).message)
-        }
-      }
+      await consumeBtopFrames(subscription, store, reportIgnored)
     } catch (error) {
       console.error(`[btop] NATS bridge unavailable; retrying in ${RETRY_DELAY_MS / 1_000}s:`, (error as Error).message)
     } finally {
+      store.invalidateAll()
       if (connection) await connection.close().catch(() => undefined)
     }
 
@@ -336,37 +488,7 @@ export function createBtopRouter(config: BtopRouterConfig): Router {
     res.status(status.online ? 200 : 503).json(status)
   })
 
-  router.get('/:node/stream', (req: Request, res: Response) => {
-    const node = req.params.node
-    if (!isNodeName(node)) {
-      res.status(400).json({ error: 'invalid btop node' })
-      return
-    }
-    if (!store.hasNode(node)) {
-      res.status(404).json({ error: 'unknown btop node' })
-      return
-    }
-
-    req.socket.setTimeout(0)
-    req.socket.setNoDelay(true)
-    req.socket.setKeepAlive(true)
-    res.set({
-      'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache, no-transform',
-      Connection: 'keep-alive',
-      'X-Accel-Buffering': 'no',
-    })
-    res.flushHeaders()
-    res.write(': connected\n\n')
-
-    const unsubscribe = store.subscribe(node, (frame) => writeSseFrame(res, frame))
-    const heartbeat = setInterval(() => res.write(': heartbeat\n\n'), SSE_HEARTBEAT_MS)
-
-    req.on('close', () => {
-      clearInterval(heartbeat)
-      unsubscribe()
-    })
-  })
+  router.get('/:node/stream', createBtopStreamHandler(store))
 
   return router
 }
