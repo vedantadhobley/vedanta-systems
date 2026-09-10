@@ -1,9 +1,9 @@
 # btop browser acceptance
 
 The [btop migration](./btop.md) keeps the existing fixed-cell renderer and
-visual design. This isolated harness tests that component with real luv
-frames from Control's packaged exporter and relay. It does not deploy a tile,
-connect to workspace NATS, or change Found Footy.
+visual design. Tests cover both the isolated component and the normal dev
+page with real luv frames from Control's packaged exporter and relay.
+They do not deploy production or change Found Footy's broker.
 
 ## Browser freshness contract
 
@@ -29,10 +29,17 @@ polls them.
 
 ## Private phone preview
 
-Use the existing dev frontend:
-`http://vedanta-systems-dev.<base-domain>/tests/btop-browser/index.html`.
-It shows real luv data from Control candidate `2026-09-10.2`. There is no
-separate human-preview frontend, BFF, hostname, or Caddy access rule.
+Use the normal page on the existing dev frontend:
+`http://vedanta-systems-dev.<base-domain>/workspace/vedanta-systems`.
+Its luv tile now uses `/api/btop/luv` and shows real data from Control
+candidate `2026-09-10.2`. The layout, colors, and legacy offline joi tile are
+unchanged. There is no separate human-preview frontend, BFF, hostname, or
+Caddy access rule. The `/tests/btop-browser/index.html` entry remains a
+component test fixture, not the primary place to view the integration.
+
+This source change also affects the next production build. Do not deploy it
+until the standing exporter/relay and production NATS/ingress path are ready.
+There is no automatic fallback to the old luv collector.
 
 The first attempt added an unnecessary container and hostname. Its immediate
 peer filter returned "Private preview" to the user's phone. That path was
@@ -50,7 +57,7 @@ The existing frontend's same-origin `/api` proxy requires no route change.
 The exporter still exposes only its private Unix socket. The only additional
 temporary services are the exporter, relay, and broker (448 MiB total ceiling).
 The existing dev frontend/API keep their current caps. Production services,
-the main dev homepage, the live broker configuration, and auth are unchanged.
+the live broker configuration, and auth are unchanged.
 
 After starting Control's digest-selected socket-test stack, from this repo:
 
@@ -66,15 +73,19 @@ docker compose -f docker-compose.btop-browser-test.yml -f docker-compose.btop-br
 ```
 
 This starts only a disposable browser runner on `proxy`, not another frontend.
+It exercises the normal page, including route navigation and browser Back.
 
 On the phone, try Safari and Chrome: watch the clock/readings advance, lock
 and unlock, background and return, then switch Wi-Fi/cellular while keeping
 Tailscale connected. Frames should resume without reloading; a stalled stream
-must not keep the live indicator lit. The hide/show button also tests a fresh
-component mount. A standalone-app test belongs to the final app-shell path;
-this minimal preview is not a PWA.
+must not keep the live indicator lit. Navigate up to workspace and return to
+test a fresh component mount. Test standalone-app behavior on this normal
+app-shell path too; the isolated component page is not a PWA.
 
-Stop after manual acceptance:
+To retire the temporary broker, first move the dev BFF to an accepted
+standing relay/broker or restore the luv tile's old `/api/btop-luv` prefix.
+Removing the override alone would leave the new tile without a producer.
+Then restore the base dev API declaration:
 
 ```bash
 docker compose -f docker-compose.dev.yml up -d --no-deps api
@@ -95,6 +106,12 @@ Type-check and scoped lint pass; rendered Compose comparison proves the
 overlay changes only the dev API's broker settings and network membership.
 The extra UI container and hostname are removed; production containers were
 not restarted.
+
+The normal dev page now also passes Chromium and mobile-sized WebKit checks:
+fresh lavender frames, stale/offline recovery, visibility/page-cache recovery,
+route navigation and browser Back, one active luv stream, and no legacy luv
+requests or page exceptions. The header, footer, and joi tile remain present.
+Physical-phone interruption acceptance and production cutover remain open.
 
 ## Harness
 

@@ -154,17 +154,27 @@ are routed through the cross-project
   test real packaged frames in Chromium and mobile-sized WebKit. Fix theme
   discovery and frame-based stale indication; verify reconnect and repeated
   mount cleanup in the [browser harness](./btop-browser-acceptance.md).
+- [x] Integrate the NATS-backed luv tile into the normal dev
+  `/workspace/vedanta-systems` page without layout or palette changes.
+  Chromium/WebKit cover route navigation/Back, recovery, and no legacy luv
+  requests. joi remains on its offline legacy route; production is unchanged.
+- [ ] Tighten BFF resynchronization latency with the Control owner. A BFF-only
+  reconnect can currently wait up to 30 seconds for the next full frame.
+  Measure bandwidth/recovery tradeoffs; keep Core NATS, not durable replay.
 - [ ] Verify actual iPhone sleep/resume and the final ingress/interruption
   path before switching a public tile. Synthetic lifecycle dispatch is not
   physical-device acceptance. Never deploy test keys or source overlays.
   The [private phone preview](./btop-browser-acceptance.md#private-phone-preview)
-  uses the existing dev frontend/API; remove the API's temporary broker
-  override and stop the test exporter/relay/broker after acceptance. Do not
-  create another human-preview frontend or hostname.
+  uses the normal dev page. Replace the temporary broker with the accepted
+  standing path (or restore the old tile route) before removing its override
+  and retiring the test stack. Do not create another human-preview frontend
+  or hostname.
 - [ ] At joi's production transition, coordinate NATS credentials and
   worker/BFF mounts with all clients. This is deferred, not a tile-switch gate.
-- [ ] Point the luv tile at the new route after the native exporter and relay
-  prove startup, reconnect, sequence-gap, and periodic-full recovery.
+- [ ] Deploy the integrated luv tile to production only after the standing
+  native exporter/relay and production NATS/ingress pass recovery acceptance.
+  The next frontend build already selects the new route; do not deploy this
+  branch against a broker with no accepted luv producer.
 - [ ] Move joi only after its native NixOS exporter is healthy; do not revive
   the SSH collector.
 - [ ] Make the browser monitor list data-driven before adding Nexus nodes.

@@ -5,7 +5,7 @@ interface BtopMonitorProps {
   className?: string
   /** Display label for the node */
   label?: string
-  /** API path prefix (e.g., "/api/btop-luv" or "/api/btop-joi") */
+  /** API path prefix (e.g., "/api/btop/luv"; legacy joi uses "/api/btop-joi"). */
   apiPrefix?: string
   /** Excite only terminal cells changed by a live delta frame. */
   phosphor?: boolean
@@ -225,7 +225,7 @@ export function BtopMonitor({
   }, [])
 
   return (
-    <div className={cn(className)}>
+    <div className={cn(className)} data-btop-node={label}>
       <div className="flex items-center justify-center gap-1.5 md:gap-2 py-1 md:py-1.5">
         <span className="relative flex h-1.5 w-1.5 md:h-2 md:w-2"
           role="status" aria-label={`${label}: ${isOnline ? 'live' : 'offline'}`}

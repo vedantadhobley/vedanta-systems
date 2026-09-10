@@ -5,12 +5,18 @@ btop build, a terminal-frame encoder, the Express BFF, and CSS Grid rendering.
 
 ## Current and target state
 
-The live path is still the legacy deployment described below:
+Production still uses the legacy deployment described below:
 
 - luv runs separate development and production btop containers;
 - both legacy joi containers are luv-hosted SSH collectors, now stopped and
   profile-gated after joi's NixOS and network migration;
 - Express proxies four host ports through `/api/btop-{luv,joi}`.
+
+The normal dev page at `/workspace/vedanta-systems` now points its luv tile
+at `/api/btop/luv`, backed by Control's candidate and isolated NATS broker.
+Its layout/colors and offline legacy joi tile are unchanged. This is dev
+integration, not a standing deployment or production cutover. See
+[browser acceptance](./btop-browser-acceptance.md#private-phone-preview).
 
 The replacement keeps the existing browser frame format but changes the
 collection topology:
@@ -34,9 +40,9 @@ control plane consumes the private exporter stream and publishes canonical
 NATS frames. Control planes own node lifecycle, but do not use btop health as
 workload readiness. Exporters never connect to NATS or the frontend.
 
-`src/server/routes/btop.ts` is the first migration slice. It subscribes to the
-future NATS subjects and exposes `/api/btop/{node}/{health,stream}` while the
-legacy HTTP proxies remain active. No current tile uses the new route yet.
+`src/server/routes/btop.ts` subscribes to the NATS subjects and exposes
+`/api/btop/{node}/{health,stream}` while the legacy HTTP proxies remain active.
+The dev luv tile uses this route; production still uses its older bundle.
 `BTOP_NODES` is the complete allowed inventory, including powered-off nodes.
 Neither NATS publications nor SSE subscriptions can create an unconfigured
 node. This bounds inventory; it does not authenticate a publisher on the
@@ -87,7 +93,7 @@ Control published candidate `2026-09-10.2` from clean source `18e523e` and
 btop `4aca040` to its private registry. Both images were pulled and tested by
 immutable digest. Candidate `.1` is superseded: its unregistered theme path
 silently selected btop's default colors. Nothing from either candidate was
-deployed to the live broker or tiles.
+deployed to the workspace broker or production tiles.
 
 The luv probe uses read-only statistics without GPU devices or privileged
 mode. Two fresh packaged containers pass host-counter, lavender-palette, and
@@ -105,12 +111,11 @@ Chromium and mobile-sized WebKit against the pulled artifacts. It also found
 and fixed stale live indicators and unreliable offline-heuristic gating.
 The monitor now proves freshness from frames and requires a full frame after
 resume. Physical iPhone and final-ingress interruption checks remain before
-cutover. No collector or public route has switched.
+production cutover. No production collector or public route has switched.
 
-A [phone preview](./btop-browser-acceptance.md#private-phone-preview) is served
-by the existing dev frontend and API. It uses the isolated broker and does not
-replace the homepage or production tile. The separate preview UI and hostname
-were removed after the user's access failure and correction.
+The [phone preview](./btop-browser-acceptance.md#private-phone-preview) now uses
+the normal dev page and API with the isolated broker. The separate preview UI
+and hostname were removed after the user's access failure and correction.
 
 ## Legacy and target capabilities
 
@@ -266,8 +271,8 @@ snapshot delivery. Heartbeat comments do not renew node health.
 Messages above 1 MiB and deltas with duplicate indices are rejected before
 state mutation. Ignored-frame diagnostics are rate-limited to one log entry
 per five seconds and omit payloads. Store, connection teardown, backpressure,
-and real HTTP full/delta/reconnect tests cover this source-only consumer gate;
-the complete Control/NATS/browser acceptance remains outstanding.
+real HTTP full/delta/reconnect, and dev-page browser checks pass. Physical
+device and production-ingress acceptance remain outstanding.
 
 ## Files
 
@@ -471,9 +476,11 @@ eventSource.onmessage = (event) => {
 
 ### Proxy Support
 
-`BtopMonitor` receives `/api/btop-luv` or `/api/btop-joi` as `apiPrefix`
-and opens `${apiPrefix}/stream`. Express proxies only `health` and `stream` to
-the matching host port with SSE buffering disabled along the request path.
+`BtopMonitor` opens `${apiPrefix}/stream`. Current source selects
+`/api/btop/luv` for the NATS-backed luv tile and retains `/api/btop-joi` for
+joi. The deployed production bundle still selects `/api/btop-luv` for luv.
+Legacy Express routes proxy `health` and `stream` to the matching host port;
+the new route serves the BFF's reconstructed NATS frames.
 
 ## Source, profile, and GPU limitation
 

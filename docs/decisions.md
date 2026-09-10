@@ -924,3 +924,22 @@ broker through a scoped Compose overlay; Found Footy retains its original
 workspace broker. Local checks do not prove physical-phone reachability.
 
 ---
+
+## 2026-09-10 — Integrate btop transport in the existing dev layout
+
+**Decision.** Point the normal `/workspace/vedanta-systems` page's luv tile
+at `/api/btop/luv`. Keep its layout, palette, and renderer unchanged; visual
+changes belong to the frontend redesign. Leave joi on its offline legacy
+route until its native exporter is accepted. Do not silently fall back to
+the old luv transport.
+
+**Consequences.** The existing dev frontend/API use the candidate through
+the isolated broker. Chromium/WebKit tests now exercise the normal page,
+route navigation/Back, cleanup, freshness, and full-frame recovery. The
+separate component page remains for isolated automation. Production is not
+deployed, but the next build selects this route: accept its standing
+exporter/relay and production broker/ingress before releasing this source.
+Do not retire the temporary dev broker until a replacement path is active
+or the tile route is restored. See [acceptance and rollback](./btop-browser-acceptance.md#private-phone-preview).
+
+---

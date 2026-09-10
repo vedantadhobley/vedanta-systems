@@ -52,8 +52,9 @@ The proxy stack itself lives in `~/workspace/proxy/`; its
   Per-project routers under `src/server/routes/{found-footy,spin-cycle,long-exposure}.ts`,
   plus a fixed-user GitHub contribution router (`src/server/routes/github.ts`;
   server-only `GITHUB_TOKEN`, 15-minute cache),
-  plus a btop reverse-proxy mounted inline that targets the per-node
-  btop containers via `host-gateway` (prod) / `host.docker.internal` (dev).
+  plus the NATS-backed btop router (`src/server/routes/btop.ts`) and legacy
+  host-gateway proxies. The dev luv tile uses NATS; production still uses
+  the legacy image and routes.
 - **In-container nginx** (`nginx.conf`, prod only): the *internal*
   reverse proxy inside `vedanta-systems-prod`. Caddy fronts the outside
   of this container on `:3000`; nginx routes inside it between static
@@ -91,7 +92,7 @@ The proxy stack itself lives in `~/workspace/proxy/`; its
 | **found-footy** | **Pattern B.** Proxies the Go read API, resolves targeted `fixture.update`/`event.update` hints, forwards inline `fixture.status`, and re-proxies share-id media. FF-085/FF-086 is deployed in production and validating natural event delivery. | Done — no direct mongo/minio peers. |
 | **spin-cycle** | Reads `spin-cycle-{env}-postgres` directly (Pattern A) | `spin-cycle-{env}-api:3000` already exists — vs-api just needs to swap from pg pool to HTTP proxy. |
 | **long-exposure** | Reads `long-exposure-{env}-postgres` directly (Pattern A, by design until LE grows its own API) | Pattern B once LE has a separate api service. The `caddy.d/long-exposure.caddy` file documents the current design. |
-| **btop-luv / btop-joi** | Express proxies `/api/btop-{luv,joi}/{health,stream}` to the per-node btop container via host gateway (4102/4103 dev, 3102/3103 prod). | n/a — `network_mode: host` is incompatible with Caddy fronting. |
+| **btop-luv / btop-joi** | Dev luv uses `/api/btop/luv` through NATS. Production and offline joi retain the legacy host-gateway routes. | One native exporter per node → Control relay → Core NATS → BFF/SSE. |
 | **legal-tender** | Not surfaced. | Pattern B from day one when it lands. |
 
 Pattern A vs B is the central architectural call here — see
@@ -185,18 +186,22 @@ Pattern A vs B is the central architectural call here — see
   handling, and quarterly-extensible primitives remain in @docs/todo.md.
 - **Spin-cycle**: route active. Project itself is scheduled for maintenance (out-of-band). vs-api spin-cycle route is gated on `SPIN_CYCLE_POSTGRES_URI` at startup but doesn't currently degrade gracefully if the upstream goes away mid-flight. Decide-during-maintenance is in @docs/todo.md.
 - **Legal Tender**: not surfaced. It must use Pattern B when it lands.
-- **btop**: luv remains on the legacy duplicate-container path; joi's failed
+- **btop**: production luv remains on the legacy path; dev luv now uses NATS
+  on the normal `/workspace/vedanta-systems` page without visual changes. The
+  old duplicate collectors remain running for rollback. joi's failed
   legacy collectors are stopped and disabled because that path SSHes from luv
   into the pre-migration host.
-  The dormant NATS consumer, shared frame schema, and current-upstream source
+  The NATS consumer, shared frame schema, and current-upstream source
   profile have landed. The un-deployed direct agent publisher was a boundary
-  mistake and is superseded. Control has an undeployed luv exporter/relay
-  candidate with isolated transport and read-only luv hardware acceptance.
+  mistake and is superseded. Control's luv exporter/relay runs in the
+  isolated acceptance stack, not as a standing production deployment.
   Published candidate `2026-09-10.2` passes packaged hardware and isolated
   Chromium/WebKit acceptance. The private luv socket, bounded BFF streams,
   full-frame reconnect, and browser frame-based freshness are tested. Actual
-  iPhone/final-ingress acceptance and Vulkan utilization remain; no tile has
-  switched. See `docs/btop.md`.
+  iPhone/final-ingress acceptance and Vulkan utilization remain; no production
+  tile has switched. The next production build selects the new luv route, so
+  do not deploy this branch until its standing producer/broker path is ready.
+  See `docs/btop.md`.
   Phone acceptance uses the existing dev frontend and API, with a btop-only
   isolated-broker override. Do not add another human-preview UI container or
   hostname. Startup/retirement instructions are in `docs/btop-browser-acceptance.md`.

@@ -3,7 +3,8 @@
 services:
   browsers:
     environment:
-      BTOP_PREVIEW_URL: http://vedanta-systems-dev.${BASE_DOMAIN:?set the existing dev domain}/tests/btop-browser/index.html
+      BTOP_PREVIEW_URL: http://vedanta-systems-dev.${BASE_DOMAIN:?set the existing dev domain}/workspace/vedanta-systems
+      BTOP_BROWSER_SURFACE: portal
     depends_on: !reset {}
     networks: !override [proxy]
 networks:
