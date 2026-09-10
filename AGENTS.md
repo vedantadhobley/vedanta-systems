@@ -191,8 +191,10 @@ Pattern A vs B is the central architectural call here — see
   The dormant NATS consumer, shared frame schema, and current-upstream source
   profile have landed. The un-deployed direct agent publisher was a boundary
   mistake and is superseded. Control has an undeployed luv exporter/relay
-  candidate with isolated transport acceptance. Host/device and private-access
-  acceptance precede any tile switch; see `docs/btop.md`.
+  candidate with isolated transport and read-only luv hardware acceptance.
+  Frozen frames no longer renew freshness. Vulkan utilization, private access,
+  broker authorization, and end-to-end acceptance remain before any tile
+  switch; see `docs/btop.md`.
 
 ## Memory model (for me, the agent)
 

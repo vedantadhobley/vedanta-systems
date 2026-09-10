@@ -125,6 +125,9 @@ are routed through the cross-project
   the undeployed `luv/telemetry/` candidate and isolated acceptance harness.
   See [source and packaging state](./btop-source.md). This does not close the
   host/device, private-access, or broker-authorization deployment gates.
+- [x] Exercise luv's exposed counters and freeze/resume/exit handling in
+  Control's read-only hardware probe. Vulkan utilization is still unproven;
+  this is not a portal cutover or a standing host deployment.
 - [ ] Enforce `BTOP_NODES` as an allowlist before deploying the dormant route;
   a valid frame must not allocate an arbitrary node.
 - [ ] Register SSE cleanup before awaited work, honor write backpressure, and

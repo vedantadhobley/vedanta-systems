@@ -14,10 +14,12 @@ The original dirty `~/workspace/btop/src` checkout and the prior
 `feature/vedanta-profiles` commit `6f76ec6` remain preserved. Do not overwrite
 them, reset them, or use that old dirty tree as the new image input.
 
-Control's `feat/btop-telemetry` branch at `6d6543f` owns the first exporter/relay candidate
+Control's `feat/btop-telemetry` branch owns the exporter/relay candidate
 under `luv/telemetry/`, with an exact btop source lock and isolated acceptance
 harness. The working checkout is `~/workspace/control/.worktrees/btop`.
-This is not a live host rollout; public tiles still use the legacy image.
+The initial transport commit is `6d6543f`; `e671cd3` adds actual-output
+freshness and the read-only luv hardware probe. This is not a live host rollout;
+public tiles still use the legacy image.
 
 This repository's `btop/src` directory is the older child used by the live
 legacy image. Do not add new source patches there. Remove it after exporter
@@ -45,8 +47,13 @@ show_cpu_watts = false
 
 `show_cpu_watts = false` avoids labeling whole-package APU power as CPU-only
 power. Both GPU and non-GPU builds of `4aca040` passed with GCC 14 in the pinned
-Ubuntu candidate image. Physical GPU/GTT accuracy and display parity remain
-host-pilot gates; compilation is not hardware acceptance.
+Ubuntu candidate image. The luv probe now compares the displayed host cores,
+RAM, GTT, root capacity, network totals, and exposed sensors without privileged
+mode, host PID access, full host-root access, or GPU devices. It also verifies
+freeze, resume, exit, and replacement-process behavior. This is acceptance of
+exposed counters, not proof of Vulkan utilization or a production deployment.
+Deployment evidence and remaining gates belong in the
+[multi-node plan](../../../vedanta-dhobley/docs/plans/btop-multinode.md).
 
 ## Legacy embedded differences
 

@@ -53,6 +53,12 @@ state, profile options, legacy patch history, and the packaging gate live in
 [btop source and public-display profile](./btop-source.md). This repo's
 embedded `btop/src` remains only for the live legacy image.
 
+The luv hardware pilot uses read-only statistics with no GPU device grants or
+privileged mode. Freshness now requires new terminal output; repeatedly reading
+a frozen screen cannot keep it healthy. The capture-only hardware check starts
+no listener and never contacts production NATS. Private access, broker
+authorization, end-to-end recovery, and image publication remain cutover gates.
+
 ## Legacy and target capabilities
 
 The live legacy image provides the AMD APU, theme, SSE broadcast, CSS Grid,
