@@ -77,10 +77,11 @@ The proxy stack itself lives in `~/workspace/proxy/`; its
   behind the `legacy-joi` profile after joi's NixOS and network migration. The
   replacement is one native exporter per physical node;
   its owning control plane consumes a private HTTP/SSE stream and publishes
-  ordered frames through Core NATS to the BFF. `~/workspace/btop/src` is the
-  intended modified-source authority, but its feature branch must be moved
-  from the temporary reconciliation checkout into a durable clean checkout
-  before packaging. This repo's `btop/src` is the stale public-display child
+  ordered frames through Core NATS to the BFF. The durable reconciled source
+  is now `~/workspace/btop/vedanta-profiles` at `4aca040`; the old dirty
+  `~/workspace/btop/src` remains preserved. Control's `feat/btop-telemetry`
+  branch owns the undeployed luv exporter/relay candidate.
+  This repo's `btop/src` is the stale public-display child
   used by the legacy image. See `docs/btop.md`.
 
 ## Surfaced projects (vs-api integration status)
@@ -141,7 +142,7 @@ Pattern A vs B is the central architectural call here — see
   because Express accepts trailing slashes. Internal callers (other containers
   on `luv-prod`) hit `vedanta-systems-prod-api:3001` directly, bypassing nginx.
 - **btop changes.** Hardware and profile source changes belong in the
-  authoritative `~/workspace/btop/src` checkout. Transport and browser
+  durable `~/workspace/btop/vedanta-profiles` checkout. Transport and browser
   integration belong here. Do not add new patches to the stale embedded
   `btop/src` child; migrate packaging to the authoritative source instead.
 - **Anything social-link related** (OG cards, Twitter cards, embed unfurls). Served by `og-server.js` via nginx's crawler routing (`error_page 418`). Production-only (dev doesn't run nginx).
@@ -189,8 +190,9 @@ Pattern A vs B is the central architectural call here — see
   into the pre-migration host.
   The dormant NATS consumer, shared frame schema, and current-upstream source
   profile have landed. The un-deployed direct agent publisher was a boundary
-  mistake and is superseded. Private exporter endpoints and control-plane relay
-  implementations are the next gate; see `docs/btop.md`.
+  mistake and is superseded. Control has an undeployed luv exporter/relay
+  candidate with isolated transport acceptance. Host/device and private-access
+  acceptance precede any tile switch; see `docs/btop.md`.
 
 ## Memory model (for me, the agent)
 

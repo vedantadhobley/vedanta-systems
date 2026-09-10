@@ -6,11 +6,18 @@ known AMD APU limitation. Runtime transport and deployment live in
 
 ## Source authority
 
-`~/workspace/btop/src` is the intended authoritative modified btop checkout.
-At the 2026-08-20 audit, its `main` worktree was dirty and behind upstream.
-The reconciled `feature/vedanta-profiles` branch existed only in a temporary
-checkout. Move that branch into a durable clean checkout before building the
-new exporter image or documenting the path as a recoverable source of truth.
+The reconciled modified source now has a durable clean checkout at
+`~/workspace/btop/vedanta-profiles`, on `feature/vedanta-profiles-september`.
+On 2026-09-09, the temporary worktree moved there and the existing profile
+patch was reapplied to upstream `3996a22`, producing `4aca040`.
+The original dirty `~/workspace/btop/src` checkout and the prior
+`feature/vedanta-profiles` commit `6f76ec6` remain preserved. Do not overwrite
+them, reset them, or use that old dirty tree as the new image input.
+
+Control's `feat/btop-telemetry` branch at `6d6543f` owns the first exporter/relay candidate
+under `luv/telemetry/`, with an exact btop source lock and isolated acceptance
+harness. The working checkout is `~/workspace/control/.worktrees/btop`.
+This is not a live host rollout; public tiles still use the legacy image.
 
 This repository's `btop/src` directory is the older child used by the live
 legacy image. Do not add new source patches there. Remove it after exporter
@@ -37,8 +44,9 @@ show_cpu_watts = false
 ```
 
 `show_cpu_watts = false` avoids labeling whole-package APU power as CPU-only
-power. Both GPU and non-GPU builds of reconciled commit `6f76ec6` passed with
-GCC 14. Reverify from the durable checkout before packaging.
+power. Both GPU and non-GPU builds of `4aca040` passed with GCC 14 in the pinned
+Ubuntu candidate image. Physical GPU/GTT accuracy and display parity remain
+host-pilot gates; compilation is not hardware acceptance.
 
 ## Legacy embedded differences
 
@@ -85,10 +93,10 @@ changes. Do not misrepresent a missing counter as a measured 0% load.
 
 Before the exporter image changes source:
 
-1. move `feature/vedanta-profiles` into the durable btop checkout;
-2. make the checkout clean and record its upstream/rebase state;
-3. rebuild both GPU and non-GPU variants;
+1. preserve the durable clean profile checkout and exact source lock (done);
+2. record its upstream and patch revisions (done);
+3. rebuild both GPU and non-GPU variants (done for `4aca040`);
 4. verify the operator default and public-display profile;
 5. update btop-owned recovery documentation;
-6. point exporter packaging at that checkout;
+6. accept Control's source-pinned exporter candidate after private host tests;
 7. remove the stale embedded child only after the legacy deployment is retired.

@@ -8,9 +8,8 @@ btop build, a terminal-frame encoder, the Express BFF, and CSS Grid rendering.
 The live path is still the legacy deployment described below:
 
 - luv runs separate development and production btop containers;
-- both joi containers run on luv and SSH to joi to start the remote btop
-  process;
-- the joi path is unavailable after joi's NixOS and network migration;
+- both legacy joi containers are luv-hosted SSH collectors, now stopped and
+  profile-gated after joi's NixOS and network migration;
 - Express proxies four host ports through `/api/btop-{luv,joi}`.
 
 The replacement keeps the existing browser frame format but changes the
@@ -47,8 +46,9 @@ The cross-project ownership and rollout live in the
 
 ## Source ownership
 
-`~/workspace/btop/src` is the intended authority, but its reconciled feature
-branch was not in a durable clean checkout at the 2026-08-20 audit. Source
+`~/workspace/btop/vedanta-profiles` is the durable reconciled source checkout.
+Control's `feat/btop-telemetry` branch contains the undeployed luv exporter
+and relay candidate; neither replaces a live collector yet. Source
 state, profile options, legacy patch history, and the packaging gate live in
 [btop source and public-display profile](./btop-source.md). This repo's
 embedded `btop/src` remains only for the live legacy image.
@@ -224,7 +224,7 @@ remove it when the control-plane relays land.
 
 ### Control-plane relay
 
-`joi-control-plane` owns the joi relay. `nexus-control-plane` owns one relay per
+The `control-joi` domain owns the joi relay. `control-nexus` owns one relay per
 known Nexus worker and uses its lifecycle state to decide whether silence means
 expected power-off or a fault. The luv relay follows the same protocol locally.
 Each relay:

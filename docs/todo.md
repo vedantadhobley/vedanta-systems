@@ -120,6 +120,11 @@ are routed through the cross-project
 
 - [x] Add the sequence-aware NATS frame store and
   `/api/btop/<node>/{health,stream}` routes without replacing the live path.
+- [x] Resume source/transport work in the owning repos: durable btop profile
+  `4aca040` builds both variants; Control's `feat/btop-telemetry` branch owns
+  the undeployed `luv/telemetry/` candidate and isolated acceptance harness.
+  See [source and packaging state](./btop-source.md). This does not close the
+  host/device, private-access, or broker-authorization deployment gates.
 - [ ] Enforce `BTOP_NODES` as an allowlist before deploying the dormant route;
   a valid frame must not allocate an arbitrary node.
 - [ ] Register SSE cleanup before awaited work, honor write backpressure, and
