@@ -24,6 +24,7 @@ const isDev = process.env.NODE_ENV !== 'production'
 const foundFootyConfig = {
   apiUrl: process.env.FOUND_FOOTY_API_URL || '',
   natsUrl: process.env.NATS_URL || '',
+  natsCredsPath: process.env.NATS_CREDS_FILE || '',
   // Scopes the NATS subscription to found-footy.<env>.> — one broker serves both envs.
   env: (isDev ? 'dev' : 'prod') as 'dev' | 'prod',
 }
@@ -47,7 +48,7 @@ const githubConfig = {
 
 const btopConfig = {
   natsUrl: process.env.BTOP_NATS_URL || process.env.NATS_URL || '',
-  natsCredsPath: process.env.BTOP_NATS_CREDS || '',
+  natsCredsPath: process.env.BTOP_NATS_CREDS || process.env.NATS_CREDS_FILE || '',
   nodes: (process.env.BTOP_NODES || '')
     .split(',')
     .map((node) => node.trim())

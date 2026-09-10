@@ -1,5 +1,6 @@
 import { Router, Response, Request } from 'express'
 import { Readable } from 'node:stream'
+import { loadNatsAuthenticator } from '../nats-auth'
 import type {
   Fixture,
   GoalEvent,
@@ -43,6 +44,7 @@ import { createEventUpdateForwarder, createFixtureUpdateBatcher, foundFootyLiveT
 export interface FoundFootyConfig {
   apiUrl: string  // Go read API base, e.g. http://found-footy-dev-api:8081
   natsUrl?: string // workspace NATS for the live-feed bridge, e.g. nats://nats:4222
+  natsCredsPath?: string // server-only credential file, required at account cutover
   env?: 'dev' | 'prod' // our environment — scopes the NATS subscription to found-footy.<env>.>
   signal?: AbortSignal // shuts down this router's bridge with its owning server
 }
@@ -296,13 +298,14 @@ export function createFoundFootyRouter(config: FoundFootyConfig): Router {
         try {
           const nc = await nats.connect({
             servers: config.natsUrl,
+            authenticator: await loadNatsAuthenticator(config.natsCredsPath),
             name: 'vedanta-systems-bff',
             maxReconnectAttempts: -1,
             reconnectTimeWait: 2000,
           })
           if (config.signal?.aborted) { await nc.close(); return }
           config.signal?.addEventListener('abort', () => { fixtureUpdates.close(); void nc.close() }, { once: true })
-          console.log(`✅ [found-footy] NATS bridge connected (${config.natsUrl})`)
+          console.log('✅ [found-footy] NATS bridge connected')
           void (async () => {
             for await (const status of nc.status()) {
               if (status.type === 'disconnect') natsGeneration++

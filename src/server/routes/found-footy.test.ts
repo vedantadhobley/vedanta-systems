@@ -11,6 +11,7 @@ import { createFixtureUpdateBatcher, createFoundFootyRouter, foundFootyLiveTopic
 import { createEventUpdateForwarder, type BridgeMessage } from './found-footy-live-bridge'
 import { applyFootyLiveEvent, isFootyLiveEvent } from '../../lib/found-footy-live'
 import { createFootyDiagnostics, type FootyDiagnostic } from '../../lib/found-footy-diagnostics'
+import { loadNatsAuthenticator } from '../nats-auth'
 import type { EventProjection } from '../../lib/found-footy-event'
 
 function listen(server: Server): Promise<number> {
@@ -224,7 +225,9 @@ test('real NATS to REST to SSE to client: hard cutover, zero-clip completion, an
   timeout: 25_000,
 }, async t => {
   const { connect, JSONCodec } = await import('nats')
-  const nc = await connect({ servers: process.env.NATS_TEST_URL! })
+  const nc = await connect({ servers: process.env.NATS_TEST_URL!,
+    authenticator: await loadNatsAuthenticator(process.env.NATS_TEST_PUBLISHER_CREDS),
+  })
   t.after(() => nc.close())
   const codec = JSONCodec()
   const sockets = new Set<Socket>()
@@ -264,7 +267,8 @@ test('real NATS to REST to SSE to client: hard cutover, zero-clip completion, an
   t.after(() => bridge.abort())
   const app = express()
   app.use(createFoundFootyRouter({ apiUrl: `http://127.0.0.1:${upstreamPort}`,
-    natsUrl: `nats://127.0.0.1:${relayPort}`, env: 'dev', signal: bridge.signal }))
+    natsUrl: `nats://127.0.0.1:${relayPort}`, env: 'dev', signal: bridge.signal,
+    natsCredsPath: process.env.NATS_TEST_CONSUMER_CREDS }))
   const portal = createServer(app)
   const portalPort = await listen(portal)
   t.after(() => { portal.closeAllConnections(); return close(portal) })

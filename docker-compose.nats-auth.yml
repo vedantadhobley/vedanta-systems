@@ -1,0 +1,13 @@
+# Opt-in only during the coordinated broker/client account cutover.
+# Combine with exactly one environment's base Compose file.
+services:
+  api:
+    environment:
+      NATS_CREDS_FILE: /run/secrets/nats.creds
+    volumes:
+      - type: bind
+        source: ${NATS_CREDS_SOURCE:?select this environment's consumer credential file}
+        target: /run/secrets/nats.creds
+        read_only: true
+        bind:
+          create_host_path: false

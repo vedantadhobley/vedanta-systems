@@ -862,3 +862,20 @@ cutover. Node ownership and role changes remain in the cross-project plan;
 the portal does not own capture, control-plane relay placement, or broker policy.
 
 ---
+
+## 2026-09-10 — Prepare both BFF bridges for account authentication
+
+**Decision.** Use server-only NATS credential files for Found Footy and btop.
+Both bridges share `NATS_CREDS_FILE`; `BTOP_NATS_CREDS` can select a narrower
+telemetry identity. A configured file error must not downgrade to anonymous
+access. Keep account policy in NATS and expose an opt-in per-environment
+credential mount here instead of changing the live deployment implicitly.
+
+**Consequences.** Authenticated integration tests preserve targeted Found Footy
+updates, REST recovery, and btop full-frame SSE recovery. The tests use isolated
+accounts and disposable keys. Production authentication requires matched
+producer, broker, and consumer activation; no anonymous compatibility user or
+client-side credential is introduced. See the
+[cutover preparation](./found-footy-live-data.md#account-cutover-preparation-2026-09-10).
+
+---

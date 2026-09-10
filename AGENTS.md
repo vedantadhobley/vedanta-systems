@@ -196,6 +196,13 @@ Pattern A vs B is the central architectural call here — see
   broker authorization, and end-to-end acceptance remain before any tile
   switch. The target BFF now enforces configured inventory, bounded streams,
   and full-frame recovery after disconnect; see `docs/btop.md`.
+- **NATS authentication staged, not deployed (2026-09-10)**: both BFF bridges
+  now accept `NATS_CREDS_FILE`, with an optional `BTOP_NATS_CREDS` override.
+  NATS owns the isolated JWT/account candidate; Control owns luv's private
+  Unix-socket exporter/relay. Authenticated terminal/SSE and Found Footy
+  event/REST reconnect tests pass. Real credential mounts, immutable images,
+  coordinated broker/client activation, and physical-browser acceptance remain.
+  Neither base Compose deployment nor the live open-mode broker was changed.
 
 ## Memory model (for me, the agent)
 

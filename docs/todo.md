@@ -30,8 +30,8 @@ is the evidence record. Contain these risks before new public deployment:
   rewrite.
 
 Cross-project work belongs in dhobley's btop plan and the owning proxy, NATS,
-btop, joi, and Nexus repositories. In particular: scope NATS credentials,
-restrict exporter network access, and make the btop source branch durable.
+btop, and Control repositories. In particular: activate scoped NATS credentials
+with all existing clients and accept private exporter access before cutover.
 
 ---
 
@@ -135,6 +135,18 @@ are routed through the cross-project
 - [x] Invalidate cached synchronization when the NATS session ends, and send
   only fresh full snapshots to new streams. BFF unit and real HTTP tests pass;
   coordinated broker interruption and physical-browser wake tests remain.
+- [x] Inventory luv and joi before native deployment. The
+  [pre-deployment inventory](./btop.md#2026-09-10-pre-deployment-inventory)
+  found no joi btop remnants; both obsolete SSH collectors remain stopped on
+  luv. Their removal still requires approval. Other projects' test containers
+  and joi's retained images are not part of this cleanup.
+- [x] Add server-only credentials to both BFF bridges, an opt-in credential
+  mount, and authenticated integration acceptance with the NATS/Control
+  candidates. Real terminal/SSE/full-frame recovery and Found Footy targeted
+  event/REST recovery pass in isolation. The live broker is unchanged.
+- [ ] Coordinate real credentials and worker/BFF mounts with NATS and Found
+  Footy, publish immutable Control images, and verify physical-browser wake
+  and stale indication. Never deploy disposable test keys or source overlays.
 - [ ] Point the luv tile at the new route after the native exporter and relay
   prove startup, reconnect, sequence-gap, and periodic-full recovery.
 - [ ] Move joi only after its native NixOS exporter is healthy; do not revive

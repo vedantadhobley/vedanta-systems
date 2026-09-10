@@ -59,6 +59,28 @@ from the backend.
 
 ## NATS to SSE mapping
 
+### Account cutover preparation (2026-09-10)
+
+Both BFF bridges accept the server-only `NATS_CREDS_FILE`. A configured missing
+or malformed file fails closed; it never falls back to anonymous access.
+`BTOP_NATS_CREDS` can override only the btop bridge's identity. The opt-in
+`docker-compose.nats-auth.yml` mounts one environment's consumer credential
+read-only and refuses a missing source path. The base deployment is unchanged.
+
+Account policy and rollout are owned by NATS through the cross-project
+[btop plan](../../../vedanta-dhobley/docs/plans/btop-multinode.md). The live
+broker remains unauthenticated. Found Footy already supports
+`NATS_CREDS_FILE`, but its worker credential mounts require a coordinated
+producer deployment. Never enable broker authentication independently.
+
+The isolated `docker-compose.nats-test.yml` proves authenticated targeted
+event delivery, zero-clip completion, REST snapshot recovery after disconnect,
+and real btop full-frame recovery through SSE. It uses disposable credentials
+and only test networks, not the live producer, broker, or browser. Run it after
+the NATS auth and Control private-exporter harnesses, and remove it before them.
+
+### Message routing
+
 The BFF retains one environment-wide subscription:
 `found-footy.<env>.>`.
 

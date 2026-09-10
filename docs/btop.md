@@ -17,7 +17,7 @@ collection topology:
 
 ```text
 one native btop exporter on each node
-  -> private HTTP/SSE over the node's compute network
+  -> private HTTP/SSE (Unix socket on luv; compute network on remote nodes)
   -> owning control-plane relay
   -> Core NATS btop.<node>.frame events
   -> vedanta-systems BFF reconstructs current node frames
@@ -44,6 +44,29 @@ currently open broker.
 The cross-project ownership and rollout live in the
 [multi-node btop plan](../../../vedanta-dhobley/docs/plans/btop-multinode.md).
 
+### 2026-09-10 pre-deployment inventory
+
+Read-only Docker and service checks confirmed:
+
+- luv remains on Ubuntu. Its two legacy luv collectors still serve the live
+  displays. Keep them until the replacement passes acceptance and cutover.
+- `vedanta-systems-dev-btop-joi` and `vedanta-systems-prod-btop-joi` are stopped
+  on luv, not joi. Both remain declared under `legacy-joi`, with
+  `unless-stopped` restart policies and a read-only host SSH-agent socket
+  mount. They are known obsolete services, not unidentified orphans. Removing
+  either container requires explicit approval; never remove its host socket.
+- No btop pilot or temporary BuildKit container remained on luv.
+- joi has only its four declared, healthy inference containers, with zero
+  restarts and no OOM flags. No btop/tmux process, legacy btop listener, or
+  btop service appeared in the checked system and user inventories.
+- joi's live inference Compose hash matches the accepted immutable release,
+  not the working declaration with pending launch changes. Do not reconcile
+  inference as part of telemetry cleanup. Retained rollback and experiment
+  images are outside this migration's cleanup scope.
+
+No container, image, host service, firewall, or deployment changed. This is a
+dated inventory, not authorization to prune resources or deploy telemetry.
+
 ## Source ownership
 
 `~/workspace/btop/vedanta-profiles` is the durable reconciled source checkout.
@@ -58,6 +81,14 @@ privileged mode. Freshness now requires new terminal output; repeatedly reading
 a frozen screen cannot keep it healthy. The capture-only hardware check starts
 no listener and never contacts production NATS. Private access, broker
 authorization, end-to-end recovery, and image publication remain cutover gates.
+
+The 2026-09-10 source-overlay acceptance now connects real luv capture over
+its private socket through a credentialed Control relay, isolated authenticated
+NATS, and this BFF's SSE handler. Consumer reconnect invalidates its cached
+screen and recovers only from a full frame. All integrated portal tests pass,
+including authenticated Found Footy event delivery and REST recovery.
+This is not physical-browser wake/stale-indicator acceptance or a deployment.
+Production credentials and immutable images remain separate release gates.
 
 ## Legacy and target capabilities
 
@@ -241,9 +272,10 @@ The target node exporter exposes only private HTTP endpoints:
 - `/health`: capture freshness for relay admission;
 - `/frame`: optional full-frame diagnostics, private to operators.
 
-The service binds only on the node's compute interface. Host firewall rules
-admit its owning control plane and reject other callers. The exporter has no NATS
-URL or NATS credentials.
+On luv, these HTTP paths use a private Unix socket shared only with its local
+relay. There is no new TCP listener. Remote-node TCP listeners still require
+compute-interface binding and host firewall rules that admit only the owning
+control plane. The exporter has no NATS URL or NATS credentials.
 
 The current un-deployed prototype in `broadcast-server.py` still contains an
 optional direct NATS publisher. That was a boundary mistake. Do not enable it;
@@ -270,7 +302,8 @@ internal Docker network. No compute-network NATS listener is required.
 | Variable | Meaning | Default |
 |---|---|---|
 | `BTOP_NATS_URL` | Optional btop-specific broker URL; falls back to `NATS_URL` | shared workspace broker |
-| `BTOP_NATS_CREDS` | Optional subscriber credentials file inside the API container | unset during the local open-mode pilot only |
+| `NATS_CREDS_FILE` | Server-only credential file shared by both BFF bridges | unset until coordinated account cutover |
+| `BTOP_NATS_CREDS` | Optional btop-specific subscriber credential override | falls back to `NATS_CREDS_FILE` |
 | `BTOP_NODES` | Comma-separated desired node inventory, including nodes that may be powered off | set to `luv,joi` in current Compose files |
 
 Control-plane credentials may publish only their owned subjects: luv gets

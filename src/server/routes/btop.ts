@@ -1,6 +1,6 @@
 import { Router, type Request, type Response } from 'express'
-import { readFile } from 'node:fs/promises'
-import { connect, credsAuthenticator, JSONCodec, type Msg, type NatsConnection } from 'nats'
+import { connect, JSONCodec, type Msg, type NatsConnection } from 'nats'
+import { loadNatsAuthenticator } from '../nats-auth'
 
 const COLS = 132
 const ROWS = 43
@@ -435,9 +435,7 @@ async function runNatsBridge(natsUrl: string, natsCredsPath: string | undefined,
   while (process.exitCode === undefined) {
     let connection: NatsConnection | null = null
     try {
-      const authenticator = natsCredsPath
-        ? credsAuthenticator(await readFile(natsCredsPath))
-        : undefined
+      const authenticator = await loadNatsAuthenticator(natsCredsPath)
       connection = await connect({
         servers: natsUrl,
         name: 'vedanta-systems-btop-bridge',
