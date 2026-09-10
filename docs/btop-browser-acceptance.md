@@ -98,3 +98,7 @@ The separate isolated NATS/BFF/SSE tests and
 [recovery harness](./btop-recovery.md) remain; they create no showcase page.
 Run fault injection against disposable brokers, never the workspace broker.
 Physical iPhone sleep/resume and actual host reboot acceptance remain open.
+
+User feedback on 2026-09-10 confirms the normal dev page works well on their
+phone. This accepts the observed phone behavior; it does not establish the
+full browser/network-change matrix or a physical host reboot test.

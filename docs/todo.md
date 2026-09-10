@@ -182,6 +182,10 @@ are routed through the cross-project
   branch against a broker with no accepted luv producer.
 - [ ] Move joi only after its native NixOS exporter is healthy; do not revive
   the SSH collector.
+  Read-only preflight passed on 2026-09-10: physical NIC, host generation,
+  registry trust, and unchanged inference baseline are recorded through the
+  [multi-node plan](../../../vedanta-dhobley/docs/plans/btop-multinode.md).
+  Telemetry-only host service/firewall activation still needs approval.
 - [ ] Make the browser monitor list data-driven before adding Nexus nodes.
 - [ ] Remove `mountBtopProxy`, both legacy btop Compose pairs, their host-port
   exceptions, embedded source child, and obsolete broadcaster publisher after
