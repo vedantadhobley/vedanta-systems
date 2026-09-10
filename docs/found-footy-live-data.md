@@ -71,7 +71,10 @@ Account policy and rollout are owned by NATS through the cross-project
 [btop plan](../../../vedanta-dhobley/docs/plans/btop-multinode.md). The live
 broker remains unauthenticated. Found Footy already supports
 `NATS_CREDS_FILE`, but its worker credential mounts require a coordinated
-producer deployment. Never enable broker authentication independently.
+producer deployment. That rollout is deferred until joi becomes the production
+environment; see the [workspace decision](../../../vedanta-dhobley/docs/decisions/2026-09-10-defer-nats-authentication.md).
+Keep the existing live configuration unchanged. Never enable broker
+authentication independently or make it a prerequisite for btop.
 
 The isolated `docker-compose.nats-test.yml` proves authenticated targeted
 event delivery, zero-clip completion, REST snapshot recovery after disconnect,

@@ -879,3 +879,18 @@ client-side credential is introduced. See the
 [cutover preparation](./found-footy-live-data.md#account-cutover-preparation-2026-09-10).
 
 ---
+
+## 2026-09-10 — Keep btop acceptance independent of NATS authentication
+
+**Decision.** Follow the [workspace deferral](../../../vedanta-dhobley/docs/decisions/2026-09-10-defer-nats-authentication.md).
+Do not require credential provisioning or broker changes for the current btop
+migration. Keep optional BFF credential support and its fail-closed behavior.
+Use one real terminal/SSE/reconnect regression with separate open-mode and
+authenticated test harnesses; neither connects to the live broker.
+
+**Consequences.** Open-mode socket transport and full-frame recovery pass in
+isolation. No frontend runtime, Found Footy connection, broker configuration,
+or live tile changes are part of this correction. Immutable images and
+physical-browser acceptance remain before deployment.
+
+---

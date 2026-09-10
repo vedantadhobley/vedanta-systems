@@ -6,7 +6,7 @@ services:
     image: node:18-alpine
     user: "1000:1000"
     working_dir: /app
-    command: [node, --import, tsx, --test, src/server/nats-auth.test.ts, src/server/btop-auth.integration.test.ts, src/server/routes/found-footy.test.ts]
+    command: [node, --import, tsx, --test, src/server/nats-auth.test.ts, src/server/btop-nats.integration.test.ts, src/server/routes/found-footy.test.ts]
     mem_limit: 512m
     pids_limit: 128
     read_only: true
@@ -16,7 +16,7 @@ services:
     environment:
       NODE_OPTIONS: --max-old-space-size=384
       NATS_TEST_URL: nats://broker:4222
-      BTOP_AUTH_TEST_URL: nats://broker:4222
+      BTOP_TEST_URL: nats://broker:4222
       NATS_TEST_PUBLISHER_CREDS: /state/creds/found-footy-dev-worker.creds
       NATS_TEST_CONSUMER_CREDS: /state/creds/vedanta-systems-dev-consumer.creds
     volumes:

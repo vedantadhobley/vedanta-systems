@@ -44,6 +44,13 @@ currently open broker.
 The cross-project ownership and rollout live in the
 [multi-node btop plan](../../../vedanta-dhobley/docs/plans/btop-multinode.md).
 
+NATS authentication is deferred until joi becomes the production environment,
+per the [workspace decision](../../../vedanta-dhobley/docs/decisions/2026-09-10-defer-nats-authentication.md).
+Continue this migration against the existing private, open-mode broker. Keep
+optional credential support and isolated tests; do not activate auth overlays
+or provision live credentials now. Network reachability remains the broker's
+access boundary; node allowlisting does not authenticate publishers.
+
 ### 2026-09-10 pre-deployment inventory
 
 Read-only Docker and service checks confirmed:
@@ -79,8 +86,8 @@ embedded `btop/src` remains only for the live legacy image.
 The luv hardware pilot uses read-only statistics with no GPU device grants or
 privileged mode. Freshness now requires new terminal output; repeatedly reading
 a frozen screen cannot keep it healthy. The capture-only hardware check starts
-no listener and never contacts production NATS. Private access, broker
-authorization, end-to-end recovery, and image publication remain cutover gates.
+no listener and never contacts production NATS. Private access, end-to-end
+recovery, and image publication remain cutover gates.
 
 The 2026-09-10 source-overlay acceptance now connects real luv capture over
 its private socket through a credentialed Control relay, isolated authenticated
@@ -88,7 +95,27 @@ NATS, and this BFF's SSE handler. Consumer reconnect invalidates its cached
 screen and recovers only from a full frame. All integrated portal tests pass,
 including authenticated Found Footy event delivery and REST recovery.
 This is not physical-browser wake/stale-indicator acceptance or a deployment.
-Production credentials and immutable images remain separate release gates.
+Immutable images remain a release gate. Production credentials belong to the
+deferred authentication rollout, not the current btop release.
+
+The subsequent open-mode acceptance reuses Control's deployment declaration
+with an isolated broker/network and a source-overlay exporter. Both exporter
+and relay run as UID 65534. The relay mounts only the mode-0600 socket's
+private runtime volume, not credentials. This repo's
+[`docker-compose.btop-socket-test.yml`](../docker-compose.btop-socket-test.yml)
+runs the same full-frame/reconnect test without authentication plus the BFF
+state-machine and credential-option regressions. All 22 checks pass; this is
+still protocol acceptance, not a packaged release or browser deployment.
+
+After starting Control's socket-test overlay, run:
+
+```bash
+docker compose --env-file /dev/null -f docker-compose.btop-socket-test.yml run --rm --no-deps tests
+```
+
+It joins only `control-telemetry-socket-test_broker`. Stop test clients before
+removing Control's test stack and socket volume. The existing authenticated
+harness remains available separately for the deferred rollout.
 
 ## Legacy and target capabilities
 
@@ -208,7 +235,7 @@ no longer happens independently for every public browser connection.
 - `frame`: the existing compact `{t:"f",c:[...]}` or `{t:"d",d:[...]}`
   browser representation.
 
-The control-plane relay owns sequence numbers and NATS credentials. It emits a
+The control-plane relay owns sequence numbers and any future NATS credentials. It emits a
 full frame when it first synchronizes an exporter, after reconnecting to NATS, and
 periodically so a restarted BFF can recover without NATS request/reply or
 durable replay. The BFF accepts a delta only when its session matches and its
@@ -306,7 +333,8 @@ internal Docker network. No compute-network NATS listener is required.
 | `BTOP_NATS_CREDS` | Optional btop-specific subscriber credential override | falls back to `NATS_CREDS_FILE` |
 | `BTOP_NODES` | Comma-separated desired node inventory, including nodes that may be powered off | set to `luv,joi` in current Compose files |
 
-Control-plane credentials may publish only their owned subjects: luv gets
+When authentication is activated, control-plane credentials may publish only
+their owned subjects: luv gets
 `btop.luv.frame`, joi gets `btop.joi.frame`, and Nexus gets an explicit list of
 accepted node subjects such as `btop.nexus0.frame`. The
 BFF may subscribe only to `btop.*.frame`. Do not expose NATS to the compute

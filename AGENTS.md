@@ -193,15 +193,19 @@ Pattern A vs B is the central architectural call here — see
   mistake and is superseded. Control has an undeployed luv exporter/relay
   candidate with isolated transport and read-only luv hardware acceptance.
   Frozen frames no longer renew freshness. Vulkan utilization, private access,
-  broker authorization, and end-to-end acceptance remain before any tile
+  and end-to-end acceptance remain before any tile
   switch. The target BFF now enforces configured inventory, bounded streams,
   and full-frame recovery after disconnect; see `docs/btop.md`.
-- **NATS authentication staged, not deployed (2026-09-10)**: both BFF bridges
+- **NATS authentication deferred to joi's production transition (2026-09-10)**:
+  follow the [cross-project decision](../../vedanta-dhobley/docs/decisions/2026-09-10-defer-nats-authentication.md).
+  Authentication is not a btop migration gate. Both BFF bridges
   now accept `NATS_CREDS_FILE`, with an optional `BTOP_NATS_CREDS` override.
   NATS owns the isolated JWT/account candidate; Control owns luv's private
   Unix-socket exporter/relay. Authenticated terminal/SSE and Found Footy
-  event/REST reconnect tests pass. Real credential mounts, immutable images,
-  coordinated broker/client activation, and physical-browser acceptance remain.
+  event/REST reconnect tests pass. Keep credential support and tests staged;
+  leave live credential settings unset. Immutable images and physical-browser
+  acceptance remain btop gates; credential provisioning and coordinated
+  broker/client activation belong to the later authentication rollout.
   Neither base Compose deployment nor the live open-mode broker was changed.
 
 ## Memory model (for me, the agent)

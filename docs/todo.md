@@ -30,8 +30,10 @@ is the evidence record. Contain these risks before new public deployment:
   rewrite.
 
 Cross-project work belongs in dhobley's btop plan and the owning proxy, NATS,
-btop, and Control repositories. In particular: activate scoped NATS credentials
-with all existing clients and accept private exporter access before cutover.
+btop, and Control repositories. Accept private exporter access before cutover.
+NATS authentication is deferred to joi's production transition under the
+[workspace decision](../../../vedanta-dhobley/docs/decisions/2026-09-10-defer-nats-authentication.md);
+it is not a btop prerequisite.
 
 ---
 
@@ -124,7 +126,7 @@ are routed through the cross-project
   `4aca040` builds both variants; Control's `feat/btop-telemetry` branch owns
   the undeployed `luv/telemetry/` candidate and isolated acceptance harness.
   See [source and packaging state](./btop-source.md). This does not close the
-  host/device, private-access, or broker-authorization deployment gates.
+  host/device or private-access deployment gates.
 - [x] Exercise luv's exposed counters and freeze/resume/exit handling in
   Control's read-only hardware probe. Vulkan utilization is still unproven;
   this is not a portal cutover or a standing host deployment.
@@ -144,9 +146,14 @@ are routed through the cross-project
   mount, and authenticated integration acceptance with the NATS/Control
   candidates. Real terminal/SSE/full-frame recovery and Found Footy targeted
   event/REST recovery pass in isolation. The live broker is unchanged.
-- [ ] Coordinate real credentials and worker/BFF mounts with NATS and Found
-  Footy, publish immutable Control images, and verify physical-browser wake
-  and stale indication. Never deploy disposable test keys or source overlays.
+- [x] Remove mandatory credentials from Control's undeployed template/preflight.
+  Real luv capture through its private socket, isolated open-mode NATS, and
+  BFF/SSE full-frame reconnect passes without credentials. Optional auth stays
+  in a separate overlay. This does not deploy a tile or test physical browsers.
+- [ ] Publish immutable Control images and verify physical-browser wake and
+  stale indication. Never deploy disposable test keys or source overlays.
+- [ ] At joi's production transition, coordinate NATS credentials and
+  worker/BFF mounts with all clients. This is deferred, not a tile-switch gate.
 - [ ] Point the luv tile at the new route after the native exporter and relay
   prove startup, reconnect, sequence-gap, and periodic-full recovery.
 - [ ] Move joi only after its native NixOS exporter is healthy; do not revive

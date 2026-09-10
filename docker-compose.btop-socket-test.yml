@@ -1,0 +1,25 @@
+# Requires Control's isolated docker-compose.socket-test.yml overlay.
+# No credentials, live networks, browser deployment, or production broker.
+name: vedanta-systems-btop-socket-test
+services:
+  tests:
+    image: node:18-alpine
+    user: "1000:1000"
+    working_dir: /app
+    command: [node, --import, tsx, --test, src/server/btop-nats.integration.test.ts, src/server/routes/btop.test.ts, src/server/nats-auth.test.ts]
+    mem_limit: 512m
+    pids_limit: 128
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    tmpfs: ["/tmp:size=32m,mode=1777"]
+    environment:
+      NODE_OPTIONS: --max-old-space-size=384
+      BTOP_TEST_URL: nats://nats:4222
+    volumes:
+      - .:/app:ro
+    networks: [broker]
+networks:
+  broker:
+    name: control-telemetry-socket-test_broker
+    external: true
