@@ -197,6 +197,9 @@ Pattern A vs B is the central architectural call here — see
   full-frame reconnect, and browser frame-based freshness are tested. Actual
   iPhone/final-ingress acceptance and Vulkan utilization remain; no tile has
   switched. See `docs/btop.md`.
+  A separate `vedanta-systems-dev-btop-preview` is running for private phone
+  acceptance with an isolated broker; its startup/retirement instructions
+  are in `docs/btop-browser-acceptance.md`.
 - **NATS authentication deferred to joi's production transition (2026-09-10)**:
   follow the [cross-project decision](../../vedanta-dhobley/docs/decisions/2026-09-10-defer-nats-authentication.md).
   Authentication is not a btop migration gate. Both BFF bridges

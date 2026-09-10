@@ -107,6 +107,10 @@ The monitor now proves freshness from frames and requires a full frame after
 resume. Physical iPhone and final-ingress interruption checks remain before
 cutover. No collector or public route has switched.
 
+A [private phone preview](./btop-browser-acceptance.md#private-phone-preview)
+now runs separately for manual acceptance. It uses the isolated broker and
+does not replace the normal dev or production tile.
+
 ## Legacy and target capabilities
 
 The live legacy image provides the AMD APU, theme, SSE broadcast, CSS Grid,

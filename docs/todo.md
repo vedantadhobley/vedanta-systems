@@ -157,6 +157,9 @@ are routed through the cross-project
 - [ ] Verify actual iPhone sleep/resume and the final ingress/interruption
   path before switching a public tile. Synthetic lifecycle dispatch is not
   physical-device acceptance. Never deploy test keys or source overlays.
+  The [private phone preview](./btop-browser-acceptance.md#private-phone-preview)
+  is running for user acceptance; retire its temporary route and stack after
+  testing. Caddy page/full-frame delivery and access-boundary checks pass.
 - [ ] At joi's production transition, coordinate NATS credentials and
   worker/BFF mounts with all clients. This is deferred, not a tile-switch gate.
 - [ ] Point the luv tile at the new route after the native exporter and relay

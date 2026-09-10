@@ -1,0 +1,19 @@
+# Manual phone acceptance only. Start Control's isolated socket-test stack first.
+# No production broker, host port, automatic restart, or persistent data.
+name: vedanta-systems-btop-preview
+services:
+  preview:
+    extends:
+      file: docker-compose.btop-preview-base.yml
+      service: preview
+    container_name: vedanta-systems-dev-btop-preview
+    restart: "no"
+    environment:
+      BTOP_PREVIEW_HOST: vedanta-systems-dev-btop-preview.${BASE_DOMAIN:?set the existing private routing domain}
+    networks: [broker, proxy]
+networks:
+  broker:
+    name: control-telemetry-socket-test_broker
+    external: true
+  proxy:
+    external: true

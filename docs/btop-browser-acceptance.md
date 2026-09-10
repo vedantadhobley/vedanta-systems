@@ -23,8 +23,64 @@ connect to workspace NATS, or change Found Footy.
   network reported false while HTTP/SSE remained reachable. This follows the
   [browser API's documented limitation](https://developer.mozilla.org/en-US/docs/Web/API/Navigator/onLine).
 
-These changes are source-only until a frontend release. The health endpoints
-remain available for operations; the component no longer polls them.
+These changes are active in the private preview, not the public frontend.
+The health endpoints remain available for operations; the component no longer
+polls them.
+
+## Private phone preview
+
+The user-approved temporary preview is running at
+`http://vedanta-systems-dev-btop-preview.<base-domain>/`. Connect the phone to
+Tailscale and use the existing private DNS domain. The root redirects to the
+acceptance page. It shows real luv data from Control candidate `2026-09-10.2`,
+not fixture data or a mock screen.
+
+`docker-compose.btop-preview.yml` reuses the capped runtime in
+`docker-compose.btop-preview-base.yml`. Only this BFF/Vite service joins
+`proxy`; the relay and test broker remain on their isolated network. The
+exporter still exposes only its private Unix socket. No workspace NATS,
+production service, normal dev homepage, or authentication policy changes.
+
+Caddy owns the matching hostname in the proxy repo. It admits immediate
+tailnet/compute peers and loopback; Docker bridge peers are denied even with
+spoofed forwarding headers. The preview's Vite host allowlist is explicit.
+There is no Cloudflare route, host port, or automatic restart. The combined
+preview/exporter/relay/broker memory ceiling is 1472 MiB for manual acceptance.
+
+After starting Control's digest-selected socket-test stack, from this repo:
+
+```bash
+# BASE_DOMAIN is read from the existing gitignored Compose environment.
+docker compose -f docker-compose.btop-preview.yml up -d --wait
+```
+
+Do not start the automated harness's separate `preview` service at the same
+time: both advertise `preview` on the test network. Its browser runner can
+reuse the manual preview with `run --rm --no-deps browsers` and the existing
+artifact-directory setting.
+
+On the phone, try Safari and Chrome: watch the clock/readings advance, lock
+and unlock, background and return, then switch Wi-Fi/cellular while keeping
+Tailscale connected. Frames should resume without reloading; a stalled stream
+must not keep the live indicator lit. The hide/show button also tests a fresh
+component mount. A standalone-app test belongs to the final app-shell path;
+this minimal preview is not a PWA.
+
+Stop after manual acceptance:
+
+```bash
+docker compose -f docker-compose.btop-preview.yml down
+```
+
+Then stop Control's socket-test stack and remove its disposable socket volume
+using its runbook. Remove the temporary Caddy block and reload through the
+proxy owner when retiring the preview. No persistent application data is held
+by this stack.
+
+Verified 2026-09-10: private page HTTP 200; fresh full frame followed by live
+frames through Caddy; environment files blocked; bridge/forwarded-header and
+untrusted-host probes denied. Type-check, scoped lint, Chromium, and WebKit
+pass against the manual preview. Actual phone results remain user acceptance.
 
 ## Harness
 
