@@ -30,7 +30,7 @@ remain available for operations; the browser no longer polls them.
 Use the normal page on the existing dev frontend:
 `http://vedanta-systems-dev.<base-domain>/workspace/vedanta-systems`.
 
-The tiles use /api/btop/luv and /api/btop/joi with Control release 2026-09-10.3 on the
+The tiles use /api/btop/luv and /api/btop/joi with Control's `.4` exporter and unchanged `.3` relay on the
 existing workspace NATS broker. Found Footy uses the same broker with its
 own environment-scoped subscription. The base dev Compose uses the explicit
 nats.luv-dev address; no btop broker override or test network is required.
@@ -100,6 +100,10 @@ The same four combinations also passed through public HTTPS after deploying
 `2dcb75a`. To repeat the public run, use the same Compose command with
 `-e BTOP_BROWSER_URL=https://vedanta.systems/workspace/vedanta-systems`
 before `browsers`. Do not replace the normal dev default with a new preview.
+
+All four combinations passed again on both dev and public origins after the
+[exporter-only `.4` rollout](./btop-recovery.md#capture-delay-rollout--deployed-2026-09-10).
+No browser bundle, BFF, or relay was rebuilt for that change.
 
 Type-checking and the focused BFF suite pass in the existing dev API container.
 The long-running Vite container still has a stale dependency volume missing

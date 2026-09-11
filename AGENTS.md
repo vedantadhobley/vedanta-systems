@@ -195,7 +195,9 @@ Pattern A vs B is the central architectural call here — see
   profile have landed. The un-deployed direct agent publisher was a boundary
   mistake and is superseded. Control's permanent luv exporter/relay uses
   workspace NATS with automatic startup; the temporary test stack is removed.
-  Release `2026-09-10.3` serves both environments and passes packaged hardware,
+  Release `2026-09-10.4` replaces both exporters with completed-redraw capture
+  from Control `723d5ce` (declaration `c4c9c96`); the relay remains unchanged.
+  It serves both environments and passes packaged hardware,
   crash/freeze/broker/BFF recovery, and Chromium/WebKit acceptance. Its explicit
   physical-port profile, capture supervision, and five-second snapshots are
   documented in `docs/btop-recovery.md`. The private luv socket, bounded BFF

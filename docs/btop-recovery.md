@@ -49,7 +49,7 @@ acceptance on 2026-09-10. Btop source stays in its own pinned source repository.
   session ID and full frame. It keeps no durable replay buffer.
 - The hardened relay publishes a full snapshot every five seconds rather
   than thirty. This increases private broker traffic to reduce recovery
-  delay. Both environments use standing release 2026-09-10.3.
+  delay. Both environments use the `.4` exporter with the unchanged `.3` relay.
 - The BFF consumes through synchronous NATS callbacks, not the client's
   unbounded async-iterator queue. Frame size, inventory, sequence, and SSE
   backpressure checks remain. Network/socket buffers are not a durable queue.
@@ -119,7 +119,7 @@ After digest-selected dev promotion, Chromium and mobile-sized WebKit also
 passed real frames, stale/offline recovery, visibility/page-cache recovery,
 and route/Back cleanup through the existing Caddy/dev route.
 
-## Capture-delay follow-up — staged, not deployed
+## Capture-delay rollout — deployed 2026-09-10
 
 Control commit `723d5ce` replaces the exporter's independent one-second poll
 with capture triggered by btop's completed-redraw markers. Fragmented output,
@@ -128,10 +128,24 @@ real-container tests. Control's shared telemetry capture document owns the
 measurements and release contract; ownership is routed through the
 [multi-node plan](../../../vedanta-dhobley/docs/plans/btop-multinode.md).
 
-Both live exporters still use `.3`. A new exporter image must be published and
-accepted independently on luv and joi. No BFF, React, relay, NATS subject, or
-frontend deployment change is required. This removes capture delay; it does
-not synchronize node sampling or guarantee simultaneous tile updates.
+Both live exporters now use release `.4`, pinned by Control declaration
+`c4c9c96`. Its exporter digest is
+`82e13cbafa28db29e1a14870e1862695d8d3e5afb663c1d8c376cf78e187ab6a`;
+the relay remains on its `.3` digest. Luv was promoted first; Joi then accepted
+its separately reviewed telemetry-only NixOS closure. Both recovered new
+synchronized BFF sessions without a consumer restart.
+
+The published image passed all 28 exporter tests, two hardware probes, and
+the isolated automatic crash/freeze/broker/BFF recovery suite. Both host flake
+checks passed. After deployment, native Joi hardware checks and dev/public
+full/delta/reopened-stream checks passed. Chromium desktop and mobile-sized
+WebKit passed for both nodes through both actual portal origins.
+
+Portal dev/prod, both relays, NATS, Control gateways, Found Footy production,
+and Joi inference container identities/start times/restarts match the baseline.
+No BFF, React, relay, NATS subject, or frontend deployment changed. This removes
+capture polling delay; it does not synchronize sampling or guarantee simultaneous
+tile updates. Physical phone and host-reboot acceptance remain separate.
 
 ## Remaining gates
 

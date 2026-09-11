@@ -102,11 +102,14 @@ state, profile options, legacy patch history, and the packaging gate live in
 embedded `btop/src` is retired and excluded from current image builds. Its
 nested Git history and modified C++ files must be archived before removal.
 
-Control release `2026-09-10.3` uses source `4cf9509` and btop `4aca040` with
-immutable registry digests. It serves dev and production through the workspace
-broker. Candidate `.1` was superseded because its
+Control release `2026-09-10.4` uses exporter source `723d5ce`, the unchanged
+relay from `4cf9509`, and btop `4aca040` with immutable registry digests.
+It serves dev and production through the workspace broker. The
+[capture-delay rollout](./btop-recovery.md#capture-delay-rollout--deployed-2026-09-10)
+replaced only the exporters. Candidate `.1` was superseded because its
 unregistered theme path silently selected btop's default colors; `.2` fixed
-the palette and `.3` added physical profiles and capture supervision.
+the palette, `.3` added physical profiles and capture supervision, and `.4`
+replaced capture polling with completed-redraw notifications.
 
 Joi accepted the same image on 2026-09-10. Native checks passed its 32 cores,
 125 GiB RAM, 1.78 TiB root display, 124 GiB GTT ceiling, physical enp191s0

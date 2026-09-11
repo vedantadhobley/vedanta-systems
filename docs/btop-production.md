@@ -2,6 +2,10 @@
 
 ## Deployed release
 
+The exporter-only [`.4` rollout](./btop-recovery.md#capture-delay-rollout--deployed-2026-09-10)
+later updated both native producers. It did not change the frontend/API release
+recorded below, either relay, the broker, or any application service.
+
 Live on 2026-09-10 at 23:09 UTC from
 `2dcb75ab06185a8d46c67b2e2196d183676f30d8`:
 

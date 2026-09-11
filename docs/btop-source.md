@@ -20,8 +20,9 @@ profiles, and hardware acceptance remain under `luv/` and `joi/`.
 The working checkout is `~/workspace/control/.worktrees/btop`.
 The initial transport commit is `6d6543f`; `e671cd3` adds actual-output
 freshness and the read-only luv hardware probe. Both native nodes now feed dev
-and production. Moving source did not replace
-the accepted `.3` image digests.
+and production. Moving source did not replace the accepted `.3` image digests;
+the later [capture-delay rollout](./btop-recovery.md#capture-delay-rollout--deployed-2026-09-10)
+replaced only the exporter with `.4`, retaining the C++ source and relay.
 
 This repository's `btop/src` directory is a retired child, excluded from image
 builds. It has nested Git metadata and four modified C++ files; archive both

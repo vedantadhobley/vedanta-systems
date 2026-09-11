@@ -167,6 +167,9 @@ are routed through the cross-project
 - [x] Activate the standing Control luv deployment with automatic startup,
   connect dev to workspace NATS, and retire the temporary socket-test stack.
   Remove the standalone showcase page and run browser tests on the real page.
+- [x] Accept the [completed-redraw exporter rollout](./btop-recovery.md#capture-delay-rollout--deployed-2026-09-10)
+  on luv and joi. Release `.4` removes the second capture timer; the portal and
+  relays are unchanged. Packaged recovery and dev/public browser checks pass.
 - [ ] Verify physical node reboot recovery; enabled Docker and container
   restart policies plus process tests do not prove a whole-host reboot.
 - [ ] Complete actual iPhone sleep/resume and network-change acceptance.
