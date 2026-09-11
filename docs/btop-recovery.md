@@ -119,6 +119,20 @@ After digest-selected dev promotion, Chromium and mobile-sized WebKit also
 passed real frames, stale/offline recovery, visibility/page-cache recovery,
 and route/Back cleanup through the existing Caddy/dev route.
 
+## Capture-delay follow-up — staged, not deployed
+
+Control commit `723d5ce` replaces the exporter's independent one-second poll
+with capture triggered by btop's completed-redraw markers. Fragmented output,
+capture races, freshness, and freeze/replacement recovery passed unit and
+real-container tests. Control's shared telemetry capture document owns the
+measurements and release contract; ownership is routed through the
+[multi-node plan](../../../vedanta-dhobley/docs/plans/btop-multinode.md).
+
+Both live exporters still use `.3`. A new exporter image must be published and
+accepted independently on luv and joi. No BFF, React, relay, NATS subject, or
+frontend deployment change is required. This removes capture delay; it does
+not synchronize node sampling or guarantee simultaneous tile updates.
+
 ## Remaining gates
 
 The permanent Control exporter/relay now feeds the existing workspace broker.
