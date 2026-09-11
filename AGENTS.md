@@ -80,8 +80,8 @@ The proxy stack itself lives in `~/workspace/proxy/`; its
   is now `~/workspace/btop/vedanta-profiles` at `4aca040`; the old dirty
   `~/workspace/btop/src` remains preserved. Control's `feat/btop-telemetry`
   branch owns the standing native exporters/relays used by dev and production
-  through workspace NATS. This repo's retired `btop/src` has nested Git
-  metadata and modified files; preserve it for a separate archive, not builds.
+  through workspace NATS. This repo's retired `btop/` was removed after a
+  verified private archive preserved its nested Git metadata and modified files.
   See `docs/btop.md` and `docs/btop-production.md`.
 
 ## Surfaced projects (vs-api integration status)
@@ -144,8 +144,9 @@ Pattern A vs B is the central architectural call here — see
 - **btop changes.** Btop C++ hardware/public-display changes belong in the
   durable `~/workspace/btop/vedanta-profiles` checkout. Control owns packaging,
   exporter/relay behavior, and explicit per-node configuration profiles.
-  BFF transport and browser integration belong here. Do not patch the stale embedded
-  `btop/src` child; migrate packaging to the authoritative source instead.
+  BFF transport and browser integration belong here. The retired embedded
+  source is archived; do not restore it as a build input. Recovery is documented
+  in [the production record](./docs/btop-production.md#retired-source-archive--2026-09-11).
 - **Anything social-link related** (OG cards, Twitter cards, embed unfurls). Served by `og-server.js` via nginx's crawler routing (`error_page 418`). Production-only (dev doesn't run nginx).
 
 ## Active state
@@ -189,8 +190,9 @@ Pattern A vs B is the central architectural call here — see
 - **btop live in both environments (2026-09-10)**: production runs `2dcb75a`;
   both tiles use NATS on `/workspace/vedanta-systems` without visual changes.
   All legacy collectors, host-port proxies, and Compose services are removed;
-  images remain recovery inputs. Preserve the nested legacy source until its
-  separate archive. Exact release and verification live in `docs/btop-production.md`.
+  images remain recovery inputs. The nested legacy source is privately archived
+  and removed from this repo. Exact release, archive recovery, and verification
+  live in `docs/btop-production.md`.
   The NATS consumer, shared frame schema, and current-upstream source
   profile have landed. The un-deployed direct agent publisher was a boundary
   mistake and is superseded. Control's permanent luv exporter/relay uses

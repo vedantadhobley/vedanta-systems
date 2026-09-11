@@ -197,9 +197,10 @@ are routed through the cross-project
   historical source for recovery. The later public cutover retires prod luv too.
 - [x] Remove `mountBtopProxy`, the remaining prod luv collector/declaration,
   host-gateway wiring, old nginx locations, and port 3102 after public cutover.
-- [ ] Archive the retired embedded collector/broadcaster and its nested Git
-  history plus four modified C++ files before removing that source tree.
-  It is excluded from current image builds and has no running consumer.
+- [x] Archive the retired embedded collector/broadcaster, its nested Git
+  history, and four modified C++ files; verify restoration before removing the
+  source tree. The [archive record](./btop-production.md#retired-source-archive--2026-09-11)
+  retains recovery instructions. No runtime deployment is needed for this cleanup.
 
 The two-plane visual system is not part of this migration.
 

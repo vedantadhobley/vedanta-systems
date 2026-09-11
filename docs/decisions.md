@@ -1013,3 +1013,17 @@ recreated. Found Footy, NATS, and native telemetry services are unchanged.
 No host reboot, auth activation, migration, or broad prune occurred. Retain
 rollback images and preserve the dirty nested source separately from runtime.
 See [the exact release record](./btop-production.md).
+
+## 2026-09-11 — archive the retired embedded btop outside application source
+
+Remove the retired `btop/` tree only after restoring and verifying a private
+archive of its nested Git metadata and four local C++ modifications. Preserve
+the original directory beside the archive. Parent Git history alone does not
+preserve the nested repository's private refs, reflogs, and working state.
+
+The archive retains the locally available shallow history; it does not claim
+missing upstream ancestry. Keep recovery inputs under this project's data
+directory, outside dev source mounts and image contexts. Remove the obsolete
+collector test command, but retain the BFF/browser consumer tests. This is
+source cleanup, not another production deployment. See the
+[archive and recovery record](./btop-production.md#retired-source-archive--2026-09-11).

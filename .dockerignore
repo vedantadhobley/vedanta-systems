@@ -13,5 +13,5 @@ README.md
 *.log
 coverage/
 .eslintcache
-# Retired collector checkout; not an input to frontend or BFF images.
+# Keep any local recovery of the retired collector out of current images.
 btop/

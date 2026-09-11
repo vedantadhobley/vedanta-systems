@@ -70,11 +70,64 @@ Verify the old paths return 404, port 3102 has no listener, no legacy collector
 container remains, and the Found Footy service and broker identities are
 unchanged. Retain the public page's existing layout and palette.
 
-## Deferred source archive
+## Retired source archive — 2026-09-11
 
-The embedded `btop/src` has its own Git metadata and four modified C++ files.
-Preserve it until a separate archive records that nested history and working
-diff. It is excluded from current image builds and is not a live dependency.
+The retired `btop/` tree is removed from this checkout. Before removal, a
+private archive preserved the entire tree, including the nested `src/.git`,
+working files, refs, reflogs, index, and locally available objects. The original
+directory was then moved into that archive as `original-btop/`; it was not
+destroyed. The parent repo records removal of 154 tracked files and the unused
+`test:btop-agent` script. Current BFF tests remain under `test:btop`.
+
+Recovery inputs:
+
+- Parent source checkpoint: `5ecff7747ccdcffe9c0cb30b4c027ce3a20b98a4`.
+- Nested HEAD: `abcb906c951d1e79ccc1c03d219f55d2e5c52655`, branch `main`.
+- The nested repository was shallow with one reachable commit. The archive
+  preserves all locally available history, not missing upstream ancestors.
+  No alternate object store or linked worktree is required.
+- Four nested working modifications: `src/btop_config.cpp`,
+  `src/btop_draw.cpp`, `src/btop_shared.cpp`, and `src/linux/btop_collect.cpp`.
+  The archive also contains their binary-capable patch, refs, status, HEADs,
+  metadata manifests, and checksums. Do not publish the private archive or
+  nested Git configuration.
+
+Private location on luv:
+
+```text
+/home/vedanta/workspace/data/vedanta-systems/archives/legacy-btop-2026-09-11T045822Z/
+```
+
+`legacy-btop.tar.gz` SHA-256:
+`dc1a5d7b0c4587cc20d639d87903d59b53494a691ba57ea87b216f96849de0c2`.
+`nested-working-tree.patch` SHA-256:
+`175fd5d239ca2e4577fdecf332958c11fdeb03fc7602f47f82df18cdc92009eb`.
+
+Verification passed: archive checksums, independent extraction, byte-for-byte
+tree comparison including hidden Git files, file types/modes, nested Git
+integrity, HEAD, refs, status, and the four-file diff. Git commands can refresh
+a restored index's stat cache; compare raw files before inspecting the restore
+with Git. The preserved original also matched an untouched second extraction.
+
+Restore into a new directory, never over a live checkout:
+
+```bash
+archive_dir=/home/vedanta/workspace/data/vedanta-systems/archives/legacy-btop-2026-09-11T045822Z
+(cd "$archive_dir" && sha256sum -c SHA256SUMS)
+restore_dir=$(mktemp -d /tmp/legacy-btop-restore.XXXXXX)
+tar --acls --xattrs -xzf "$archive_dir/legacy-btop.tar.gz" -C "$restore_dir"
+git -C "$restore_dir/btop/src" fsck --full
+git -C "$restore_dir/btop/src" status --short
+```
+
+This archive is local recovery, not an off-node backup. It is outside the
+portal's source mount. The tree was already excluded from image builds, no
+running service consumed it, and no runtime source changed. No production
+rebuild, service restart, image prune, or upstream push is part of this cleanup.
+After removal, all 22 BFF btop tests and type-check passed. Both public node
+health endpoints remained online and synchronized; frontend/API image IDs,
+start times, and zero restart counts matched the pre-cleanup release.
+
 New source work belongs in the durable btop profile checkout and Control's
 shared telemetry tree, as routed through the
 [multi-node plan](../../../vedanta-dhobley/docs/plans/btop-multinode.md).

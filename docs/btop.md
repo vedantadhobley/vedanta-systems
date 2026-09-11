@@ -61,7 +61,8 @@ historical declarations, host bind contents, and SSH sockets are preserved.
 Ports 4102, 4103, and 3103 are retired. No broad image or volume prune ran.
 
 The later approved production cutover removed the final luv collector,
-port 3102, and proxy routes. Only the dirty nested source remains for archive.
+port 3102, and proxy routes. The nested source was subsequently
+[archived and removed](./btop-production.md#retired-source-archive--2026-09-11).
 Control's
 common exporter/relay source now lives in `shared/telemetry/`; node deployment
 and hardware profiles stay node-owned. The cross-project plan links its
@@ -99,8 +100,8 @@ relay declaration. It is now a live bind-mount dependency; preserve that
 worktree until a separate deployment-path migration. Source
 state, profile options, legacy patch history, and the packaging gate live in
 [btop source and public-display profile](./btop-source.md). This repo's
-embedded `btop/src` is retired and excluded from current image builds. Its
-nested Git history and modified C++ files must be archived before removal.
+embedded `btop/` tree is removed; its nested Git history and modified C++ files
+remain in a verified private archive. It is not a current build input.
 
 Control release `2026-09-10.4` uses exporter source `723d5ce`, the unchanged
 relay from `4cf9509`, and btop `4aca040` with immutable registry digests.

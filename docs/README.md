@@ -14,7 +14,7 @@ Use this index to route project work before searching the full docs tree.
 - [btop recovery](./btop-recovery.md) — physical-port profiles, restart
   supervision, queue-free consumption, and bounded fault acceptance.
 - [btop production cutover](./btop-production.md) — approved retirement of the
-  legacy path, release verification, and the separate nested-source archive.
+  legacy path, release verification, and verified nested-source archive recovery.
 - [Decisions](./decisions.md) — append-only record of choices that have
   landed and should not be silently revisited.
 - [Design language](./design.md) — living visual brief, confirmed product

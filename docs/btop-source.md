@@ -24,9 +24,10 @@ and production. Moving source did not replace the accepted `.3` image digests;
 the later [capture-delay rollout](./btop-recovery.md#capture-delay-rollout--deployed-2026-09-10)
 replaced only the exporter with `.4`, retaining the C++ source and relay.
 
-This repository's `btop/src` directory is a retired child, excluded from image
-builds. It has nested Git metadata and four modified C++ files; archive both
-before removal. Do not add new patches there. Control packages the durable checkout.
+This repository's retired `btop/` child was removed on 2026-09-11 after its
+nested Git metadata and four modified C++ files passed archive restoration.
+The [private archive record](./btop-production.md#retired-source-archive--2026-09-11)
+owns recovery instructions. Control packages the durable checkout, not that archive.
 Candidate `2026-09-10.2` also installs the lavender theme in btop's system
 theme directory and selects it by name. Both the hardware probe and browser
 test check the visible palette; an unregistered absolute theme path silently
@@ -64,7 +65,7 @@ Deployment evidence and remaining gates belong in the
 
 ## Legacy embedded differences
 
-The live embedded child carries older direct modifications:
+The archived embedded child carried older direct modifications:
 
 - ROCm SMI 1.x acceptance for the Ubuntu ROCm package;
 - GTT rather than the small VRAM carve-out for APU memory;
@@ -72,7 +73,7 @@ The live embedded child carries older direct modifications:
 - lavender public-display labels and theme;
 - removed box numbering and interactive CPU/network buttons.
 
-These details explain the deployed legacy image. They are not the forward
+These details explain the retired legacy image. They are not the forward
 patch plan; upstream behavior plus the configurable profile above replaces
 them.
 
@@ -113,4 +114,5 @@ Before the exporter image changes source:
 4. verify the operator default and public-display profile;
 5. update btop-owned recovery documentation;
 6. accept Control's source-pinned exporter candidate after private host tests;
-7. remove the stale embedded child only after the legacy deployment is retired.
+7. archive and remove the stale embedded child after legacy deployment retirement
+   (done on 2026-09-11; see the recovery record above).
