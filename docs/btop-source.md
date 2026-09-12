@@ -48,10 +48,20 @@ Normal operator btop remains the default. The Strix Halo public profile uses:
 
 ```ini
 public_display_mode = true
+custom_cpu_name = "AMD STRIX HALO"
+custom_gpu_name0 = "AMD STRIX HALO"
 show_net_ip = false
 gpu_mem_type = "gtt"
 show_cpu_watts = false
 ```
+
+Control profile commit `2e0bcf9` restores these display-name overrides on both
+node declarations. Luv was applied on 2026-09-12 and passed Chromium and
+mobile-sized WebKit checks on dev and public pages. Joi's matching NixOS
+configuration is built but awaits explicit SSH approval for activation.
+These labels do not alter hardware detection. Profile changes reuse the
+exporter image and reach both portal environments through their shared feed;
+no React change or frontend deployment is needed.
 
 `show_cpu_watts = false` avoids labeling whole-package APU power as CPU-only
 power. Both GPU and non-GPU builds of `4aca040` passed with GCC 14 in the pinned
