@@ -56,9 +56,9 @@ show_cpu_watts = false
 ```
 
 Control profile commit `2e0bcf9` restores these display-name overrides on both
-node declarations. Luv was applied on 2026-09-12 and passed Chromium and
-mobile-sized WebKit checks on dev and public pages. Joi's matching NixOS
-configuration is built but awaits explicit SSH approval for activation.
+node declarations. Both nodes were applied on 2026-09-12 and passed Chromium
+and mobile-sized WebKit checks on dev and public pages. Joi's guarded NixOS
+activation replaced only its exporter; inference and the relays stayed unchanged.
 These labels do not alter hardware detection. Profile changes reuse the
 exporter image and reach both portal environments through their shared feed;
 no React change or frontend deployment is needed.
