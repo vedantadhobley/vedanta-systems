@@ -246,6 +246,11 @@ marking the behavior validated, verify on a physical iPhone that:
 The production correction is an interim baseline, not the final shared shell.
 Next:
 
+- [ ] Verify held press, release, and touch cancellation on physical iPhone
+  Safari/Chrome after the snap-feedback change. The
+  [browser regression](../tests/control-feedback/README.md) checks CSS timing,
+  keyboard, taps, and mouse holds; raw Chromium touch injection does not prove
+  the iOS long-press highlight.
 - [ ] Apply the [component review gate](./interaction-principles.md#component-review-gate)
   as primitives migrate. Record input, hit-area, focus, context, text-scaling,
   state-feedback, and reduced-effect evidence; adopting the guidelines does

@@ -94,6 +94,14 @@ Sources: [Motion](https://developer.apple.com/design/human-interface-guidelines/
 
 - Input commits state immediately. Step transitions and afterglow cannot
   lock controls, delay a request, or let an old animation overwrite new intent.
+- Current-site control feedback snaps: hover, press, release, focus, and
+  selected/disabled states have no interpolated color or geometry transition.
+  Shared primitives and project controls preserve their existing state colors.
+  This project choice is not an Apple requirement. GitHub's contribution
+  animation and independent loading/live-status signals are outside this rule;
+  do not use a universal animation override. The paused phosphor workbench
+  remains a separate design experiment.
+  Verify with the [control feedback checks](../tests/control-feedback/README.md).
 - Test rapid expand/collapse reversal, not just an uninterrupted demonstration.
 - Reduced-motion and no-effect modes retain the settled content, state, and
   focus indication. Decorative flicker, spatial steps, and persistence stop.

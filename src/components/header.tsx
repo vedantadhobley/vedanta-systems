@@ -18,6 +18,7 @@ const navButtonStyles = `
   .nav-btn, .text-btn {
     position: relative;
     color: hsl(var(--corpo-text));
+    transition: none;
     -webkit-tap-highlight-color: transparent;
     touch-action: manipulation;
     user-select: none;

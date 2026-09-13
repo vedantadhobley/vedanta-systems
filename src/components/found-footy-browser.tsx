@@ -1833,7 +1833,7 @@ const MemoizedVideoModal = memo(function VideoModal({
               <button
                 onClick={handleUnmute}
                 onTouchStart={() => {}} // Required for iOS :active to work
-                className="absolute bottom-2 left-2 z-20 p-1.5 rounded bg-black/70 text-corpo-text/70 hover:text-corpo-text active:text-lavender transition-colors"
+                className="absolute bottom-2 left-2 z-20 p-1.5 rounded bg-black/70 text-corpo-text/70 hover:text-corpo-text active:text-lavender transition-none"
                 aria-label="Unmute video"
               >
                 <RiVolumeMuteLine className="w-4 h-4" />

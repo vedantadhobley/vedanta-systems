@@ -56,46 +56,29 @@ Color change only, no icon swap:
 ```
 
 **How it works:**
-- Default: `text-corpo-text/70`
-- Hover (desktop only): `text-corpo-text`
+- Default: `text-corpo-text`
+- Hover (desktop only): `text-corpo-light`
 - Active (touch & click): `text-lavender`
 
-### The CSS (from header.tsx)
+### Immediate control feedback
 
-```css
-/* Base styles */
-.nav-btn, .text-btn {
-  color: rgba(var(--corpo-text), 0.7);
-  transition: color 0.1s ease-out;
-  cursor: pointer;
-}
-.nav-btn:disabled, .text-btn:disabled {
-  opacity: 0.3;
-  cursor: not-allowed;
-}
+Hover, press, release, focus, and state changes snap to their existing styles:
+no color fade, easing, or sliding switch thumb. The shared classes in
+[header.tsx](./header.tsx) explicitly set `transition: none`; shared Button,
+BreadcrumbLink, Badge, and Switch primitives use `transition-none`, including
+the switch thumb. Project-local controls follow the same rule. Do not restore
+the inherited shadcn `transition-colors` default or add a per-page timeout.
 
-/* Icon visibility defaults */
-.nav-btn .icon-line { display: block; }
-.nav-btn .icon-fill { display: none; }
+On 2026-09-13, browser inspection found a 150 ms breadcrumb color transition
+on dev and production while the adjacent up-arrow snapped immediately. The
+source correction removes that inconsistency without changing state colors,
+line/fill swaps, click handlers, or the existing touch workaround.
 
-/* Hover - ONLY for devices that support hover (not touch) */
-@media (hover: hover) {
-  .nav-btn:not(:disabled):hover,
-  .text-btn:not(:disabled):hover {
-    color: rgb(var(--corpo-text));
-  }
-  .nav-btn:not(:disabled):hover .icon-line { display: none; }
-  .nav-btn:not(:disabled):hover .icon-fill { display: block; }
-}
-
-/* Active - works on BOTH touch and mouse */
-.nav-btn:not(:disabled):active,
-.text-btn:not(:disabled):active {
-  color: rgb(var(--lavender));
-}
-.nav-btn:not(:disabled):active .icon-line { display: none !important; }
-.nav-btn:not(:disabled):active .icon-fill { display: block !important; }
-```
+This is a control-feedback policy, not a global animation ban. GitHub's
+contribution display, loading/live-status signals, and isolated phosphor
+experiments remain independent; never disable every descendant's animation
+to make a button snap. See the [interaction contract](../../docs/interaction-principles.md#5-respond-immediately-make-effects-optional)
+and [browser regression](../../tests/control-feedback/README.md).
 
 ### Critical: iOS `:active` Workaround
 

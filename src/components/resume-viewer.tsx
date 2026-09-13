@@ -128,7 +128,7 @@ export function ResumeViewer({
               href={pdfUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 px-4 py-2 font-mono text-sm border border-corpo-border text-corpo-text hover:text-corpo-light hover:border-corpo-light transition-colors"
+              className="inline-flex items-center gap-2 px-4 py-2 font-mono text-sm border border-corpo-border text-corpo-text hover:text-corpo-light hover:border-corpo-light transition-none"
             >
               <RiExternalLinkLine size={16} />
               <span>Open PDF in new tab</span>

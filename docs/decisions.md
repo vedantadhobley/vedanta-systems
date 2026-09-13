@@ -1027,3 +1027,20 @@ directory, outside dev source mounts and image contexts. Remove the obsolete
 collector test command, but retain the BFF/browser consumer tests. This is
 source cleanup, not another production deployment. See the
 [archive and recovery record](./btop-production.md#retired-source-archive--2026-09-11).
+
+## 2026-09-13 — snap control feedback without disabling independent animation
+
+The bottom breadcrumb retained a 150 ms shadcn color transition despite the
+intended immediate button response. Shared Button/Badge/Switch defaults and
+two project-local controls also retained transitions.
+
+Control feedback now uses no transition: hover, press, release, focus, and
+selected/disabled styles settle immediately. Define this in shared control
+styles and primitives, not per-page React timers. Preserve existing colors,
+icon swaps, focus, disabled behavior, and input handling.
+
+Do not apply a site-wide animation ban. GitHub contribution animation,
+loading/live-status signals, and the isolated phosphor workbench are separate.
+The [interaction principles](./interaction-principles.md#5-respond-immediately-make-effects-optional)
+own the rule; [browser checks](../tests/control-feedback/README.md) exercise
+the actual navbar and source-owned primitives on the existing dev page.
