@@ -161,7 +161,7 @@ Pattern A vs B is the central architectural call here — see
   live updates, live/pinned intent, carryover, and recovery. Route ownership,
   explicit freshness UI, accessible primitives, and the two-plane visual
   migration remain. Do not apply the visual system until its design is ready.
-- **FF-085/FF-086 deployed, validating (2026-09-08)**: production runs
+- **FF-085/FF-086 deployed, validating (2026-09-08)**: the coordinated cutover used
   consumer `ca1f8e5` with Found Footy `3723ce2` (includes producer `dbc2a76`)
   and shared schemas `fcfb28f`. Only `event.update` / SSE `event_update` is
   accepted, with full event upserts, missing-parent recovery, and bounded
@@ -187,7 +187,11 @@ Pattern A vs B is the central architectural call here — see
   handling, and quarterly-extensible primitives remain in @docs/todo.md.
 - **Spin-cycle**: route active. Project itself is scheduled for maintenance (out-of-band). vs-api spin-cycle route is gated on `SPIN_CYCLE_POSTGRES_URI` at startup but doesn't currently degrade gracefully if the upstream goes away mid-flight. Decide-during-maintenance is in @docs/todo.md.
 - **Legal Tender**: not surfaced. It must use Pattern B when it lands.
-- **btop live in both environments (2026-09-10)**: production runs `2dcb75a`;
+- **Control feedback deployed (2026-09-13)**: frontend `3767bf9` snaps
+  control state changes; the independent GitHub animation is unchanged. The API
+  was not redeployed. Exact image, public checks, and rollback are in
+  [the frontend rollout record](./deploy/INFRA-NOTES.md#5-frontend-only-rollout--2026-09-13).
+- **btop live in both environments (2026-09-10)**: the cutover deployed `2dcb75a`;
   both tiles use NATS on `/workspace/vedanta-systems` without visual changes.
   All legacy collectors, host-port proxies, and Compose services are removed;
   images remain recovery inputs. The nested legacy source is privately archived

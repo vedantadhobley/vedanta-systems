@@ -135,3 +135,49 @@ by Caddy in prod (the prod frontend has its own internal nginx that proxies
 That's intentional and keeps the browser path same-origin. Express currently
 enables wildcard CORS globally despite not needing it for production; replace
 that with route-specific behavior during API hardening.
+
+## 5. Frontend-only rollout — 2026-09-13
+
+Instant control feedback is deployed from
+`3767bf924e71023027ea8dba7e0c990ff40462bb` at 19:30 UTC:
+
+- Frontend image: `sha256:0688a88dfcff3f07224475f29e30540264ab7476f8db9428b19dffae2344c781`.
+- Image tags: `vedanta-systems-prod-frontend` and
+  `vedanta-systems-frontend:3767bf9`; its revision label identifies the source above.
+- Public assets: `index-CXQjM2FB.js` and `index-BAlnLF7q.css`.
+- API remains on the [btop cutover release](../docs/btop-production.md#cutover-release),
+  image `sha256:179fca1acada014c7db0b1390c8e40f98c72881d28b8465a4db52c0667721b3a`.
+
+The production image build passed TypeScript and Vite with the declared
+production API URLs. A temporary 4 GiB/two-CPU builder enforced the resource
+budget; the Node build heap stayed capped at 1536 MiB. It was removed after
+the build. Only `frontend` was recreated with
+`docker compose -f docker-compose.yml up -d --no-deps --no-build frontend`.
+
+Verification passed:
+
+- nginx configuration, public home/workspace/Found Footy routes, new assets,
+  portal/Found Footy health, and both online/synchronized btop feeds.
+- Public Chromium and WebKit desktop checks: breadcrumb and up-arrow colors
+  settle at the next paint, with no CSS transition during repeated holds and
+  releases; line/fill icons still swap. Mobile-sized Chromium/WebKit checks
+  confirm the same motion defaults and working taps.
+- The GitHub graph retains its independent `opacity 0.3s` fade. No page errors
+  occurred in the completed checks. Mobile WebKit's first navigation was
+  cancelled before loading; two isolated repeat runs passed.
+- API, NATS, telemetry relays, Found Footy, and ingress container identities
+  stayed unchanged. The frontend has zero restarts and no OOM flag.
+
+Physical iPhone held-touch acceptance remains separate from browser emulation;
+see [control feedback acceptance](../tests/control-feedback/README.md).
+Existing tabs need one reload to obtain the new bundle. No upstream push,
+database migration, remote-node action, or application data repair was performed.
+Existing dependency/engine, bundle-size, and lint debt was not addressed here.
+
+Rollback is frontend-only: the prior image is retained as
+`vedanta-systems-frontend:pre-control-feedback-20260913`
+(`sha256:125226df9a0f2ea7006b79cc606b649db90a3c3d18108a32805004b12574fa70`).
+If rollback is authorized, retag that exact image as
+`vedanta-systems-prod-frontend`, recreate only `frontend` with `--no-deps
+--no-build`, and repeat public verification. No legacy btop collector is needed
+for this rollback; both images use the current NATS path.

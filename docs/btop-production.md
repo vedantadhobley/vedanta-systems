@@ -1,6 +1,11 @@
 # btop production cutover
 
-## Deployed release
+## Cutover release
+
+The [2026-09-13 control-feedback rollout](../deploy/INFRA-NOTES.md#5-frontend-only-rollout--2026-09-13)
+supersedes the frontend image below. It leaves the API and btop transport
+unchanged. The following records the original btop cutover, not the latest
+frontend image.
 
 The exporter-only [`.4` rollout](./btop-recovery.md#capture-delay-rollout--deployed-2026-09-10)
 later updated both native producers. It did not change the frontend/API release

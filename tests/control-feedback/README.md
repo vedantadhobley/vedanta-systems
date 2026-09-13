@@ -31,3 +31,14 @@ after an attempt inside the 1 GiB dev API container exhausted that container's
 memory budget. Do not run frontend bundle builds inside the serving API.
 This is source/dev acceptance, not a production deployment or physical-iPhone
 long-press acceptance.
+
+### Production follow-up
+
+The [frontend-only rollout](../../deploy/INFRA-NOTES.md#5-frontend-only-rollout--2026-09-13)
+subsequently deployed `3767bf9`. Separate checks on the actual public workspace
+page passed in desktop and mobile-sized Chromium/WebKit, without importing
+the Vite-only fixtures. Desktop holds/releases settle immediately to the
+expected colors; mobile checks cover motion defaults and taps. The GitHub
+graph retains its separate fade. Mobile WebKit initially cancelled navigation
+before page load; two isolated repeats passed. Physical iPhone long-press
+acceptance remains open.
