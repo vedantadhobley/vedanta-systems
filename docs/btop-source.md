@@ -48,15 +48,16 @@ Normal operator btop remains the default. The Strix Halo public profile uses:
 
 ```ini
 public_display_mode = true
-custom_cpu_name = "AMD STRIX HALO"
-custom_gpu_name0 = "AMD STRIX HALO"
+custom_cpu_name = "RYZEN STRIX HALO"
+custom_gpu_name0 = "RYZEN STRIX HALO"
 show_net_ip = false
 gpu_mem_type = "gtt"
 show_cpu_watts = false
 ```
 
-Control profile commit `2e0bcf9` restores these display-name overrides on both
-node declarations. Both nodes were applied on 2026-09-12 and passed Chromium
+Control profile commit `2e0bcf9` restored the display-name overrides;
+`5ac98ca` changes both to the requested `RYZEN STRIX HALO` label.
+Both nodes were applied on 2026-09-12 and passed Chromium
 and mobile-sized WebKit checks on dev and public pages. Joi's guarded NixOS
 activation replaced only its exporter; inference and the relays stayed unchanged.
 These labels do not alter hardware detection. Profile changes reuse the
