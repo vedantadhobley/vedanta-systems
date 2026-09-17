@@ -107,6 +107,28 @@ If you only have a single icon (no line/fill pair), don't use `.nav-btn`. Use a 
 
 ---
 
+## Found Footy fixture headers
+
+The header keeps two independent rows in grouped and search views:
+
+- Team names/score on the first row, with discovery/search indicators and the
+  backend-selected match clock or status at the right.
+- Competition/round on the second row, with scheduled kickoff at the right.
+
+Kickoff remains visible for upcoming, playing, finished, and deferred fixtures,
+including rows without a round label. Only upcoming fixtures append a countdown;
+it is removed when the backend changes the presentation state. Kickoff uses the
+API's fixture date and the existing Local/UTC formatter, not a locally inferred
+actual start time. A schedule change returned by the API updates the label.
+
+The second row must not reserve width beside team names on the first row.
+One local `FixtureMetadata` component owns the schedule row in all fixture
+variants. Clock/status selection, ordering, expansion, and stream contracts
+are unchanged. See [browser acceptance](../../tests/fixture-schedule/README.md).
+This source change is available in dev; production deployment is separate.
+
+---
+
 ## 🎬 Video Player Controls
 
 ### The Problem

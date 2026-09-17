@@ -1044,3 +1044,13 @@ loading/live-status signals, and the isolated phosphor workbench are separate.
 The [interaction principles](./interaction-principles.md#5-respond-immediately-make-effects-optional)
 own the rule; [browser checks](../tests/control-feedback/README.md) exercise
 the actual navbar and source-owned primitives on the existing dev page.
+
+## 2026-09-16 — retain fixture kickoff after play starts
+
+Keep scheduled kickoff in the fixture's secondary metadata row through every
+presentation state. Keep the match clock/status at the top right. Only the
+upcoming countdown disappears at kickoff; the schedule itself does not.
+Use the same row structure in grouped and search views, without taking team-name
+width from the schedule row. Reuse the API timestamp and Local/UTC formatter;
+do not infer actual kickoff or introduce frontend status-code classification.
+See [fixture header behavior](../src/components/UI-PATTERNS.md#found-footy-fixture-headers).

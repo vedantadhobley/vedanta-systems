@@ -723,6 +723,7 @@ export function FoundFootyBrowser({
                         <FixtureItem
                           key={fixture._id}
                           fixture={fixture}
+                          formatKickoff={formatKickoff}
                           isExpanded={expandedFixture === fixture._id}
                           expandedEvent={expandedEvent}
                           onToggle={() => toggleFixture(fixture._id)}
@@ -822,6 +823,7 @@ export function FoundFootyBrowser({
                             <FixtureItem
                               key={fixture._id}
                               fixture={fixture}
+                              formatKickoff={formatKickoff}
                               isExpanded={expandedFixture === fixture._id}
                               expandedEvent={expandedEvent}
                               onToggle={() => toggleFixture(fixture._id)}
@@ -855,6 +857,27 @@ export function FoundFootyBrowser({
         />
       )}
     </div>
+  )
+}
+
+// Keep schedule metadata on its own row in every presentation state. Its width
+// must not take space from the team names or the live clock/status above it.
+function FixtureMetadata({ competitionText, date, kickoffTime, countdown }: {
+  competitionText: string
+  date: string
+  kickoffTime: string
+  countdown?: string
+}) {
+  return (
+    <span className="flex items-baseline gap-2 min-w-0 text-sm font-light">
+      {competitionText && (
+        <span className={cn("truncate flex-1 min-w-0", competitionText === 'Final' ? "text-lavender" : "text-corpo-text/40")}>{competitionText}</span>
+      )}
+      <span className="ml-auto text-corpo-text/40 flex-shrink-0 tabular-nums">
+        <time dateTime={date} aria-label={`Scheduled kickoff ${kickoffTime}`}>{kickoffTime}</time>
+        {countdown && ` · ${countdown}`}
+      </span>
+    </span>
   )
 }
 
@@ -940,14 +963,7 @@ function StagingFixtureItem({ fixture, formatKickoff, searchTeamMatch, roundOnly
               {formatFixtureIndicator(fixture)}
             </span>
           </span>
-          <span className="flex items-baseline gap-2 min-w-0 text-sm font-light">
-            {competitionText && (
-              <span className={cn("truncate flex-1 min-w-0", competitionText === 'Final' ? "text-lavender" : "text-corpo-text/40")}>{competitionText}</span>
-            )}
-            <span className="ml-auto text-corpo-text/40 flex-shrink-0 tabular-nums">
-              {kickoffTime}{countdown && ` · ${countdown}`}
-            </span>
-          </span>
+          <FixtureMetadata competitionText={competitionText} date={fixtureInfo.date} kickoffTime={kickoffTime} countdown={countdown} />
         </span>
       </div>
     </div>
@@ -967,6 +983,7 @@ function StagingFixtureItem({ fixture, formatKickoff, searchTeamMatch, roundOnly
 
 interface FixtureItemProps {
   fixture: Fixture
+  formatKickoff: (dateStr: string) => string
   isExpanded: boolean
   expandedEvent: string | null
   onToggle: () => void
@@ -979,6 +996,7 @@ interface FixtureItemProps {
 
 function FixtureItem({ 
   fixture, 
+  formatKickoff,
   isExpanded, 
   expandedEvent, 
   onToggle, 
@@ -990,6 +1008,7 @@ function FixtureItem({
 }: FixtureItemProps) {
   
   const { teams, goals, score, events, league } = fixture
+  const kickoffTime = formatKickoff(fixture.fixture.date)
   const competitionText = roundOnly
     ? formatRound(league?.round)
     : (league ? `${league.country} - ${league.name}${league.round ? ` (${league.round})` : ''}` : 'Unknown Competition')
@@ -1015,21 +1034,20 @@ function FixtureItem({
           <span className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
           {/* Teams with 'vs' (same layout as a not-started match) + competition subtitle */}
           <span className="flex-1 flex flex-col min-w-0">
-            <span className="truncate flex items-center">
-              <span>{teams.home.name}</span>
-              <span className="text-corpo-text/50 mx-2">vs</span>
-              <span>{teams.away.name}</span>
+            <span className="flex items-center gap-2 min-w-0">
+              <span className="truncate flex-1 min-w-0">
+                <span>{teams.home.name}</span>
+                <span className="text-corpo-text/50 mx-2">vs</span>
+                <span>{teams.away.name}</span>
+              </span>
+              <span
+                className="flex-shrink-0 text-sm uppercase tracking-wider text-corpo-text/40"
+                title={fixture.status.long}
+              >
+                {formatFixtureIndicator(fixture)}
+              </span>
             </span>
-            {competitionText && (
-              <span className={cn("text-sm truncate font-light", competitionText === 'Final' ? "text-lavender" : "text-corpo-text/40")}>{competitionText}</span>
-            )}
-          </span>
-          {/* Status on the right, where the kickoff time sits for a pending match */}
-          <span
-            className="flex-shrink-0 text-sm uppercase tracking-wider text-corpo-text/40"
-            title={fixture.status.long}
-          >
-            {formatFixtureIndicator(fixture)}
+            <FixtureMetadata competitionText={competitionText} date={fixture.fixture.date} kickoffTime={kickoffTime} />
           </span>
         </div>
       </div>
@@ -1068,50 +1086,47 @@ function FixtureItem({
           </>
         )}
         
-        {/* Fixture title with scanning indicator on right */}
+        {/* Two independent rows, matching upcoming fixtures: teams/status,
+            then competition/kickoff. Countdown ends when the match starts. */}
         <span className="flex-1 flex flex-col min-w-0">
-          <span className="truncate flex items-center">
-            <span className={cn(homeWins && "text-lavender")}>{teams.home.name}</span>
-            <span className="text-corpo-text/50 mx-2">
-              {showPenaltyScore 
-                ? `${goals.home} (${score.penalty!.home}) - (${score.penalty!.away}) ${goals.away}`
-                : hasScore ? `${goals.home} - ${goals.away}` : 'vs'
-              }
+          <span className="flex items-center gap-2 min-w-0">
+            <span className="truncate flex-1 min-w-0">
+              <span className={cn(homeWins && "text-lavender")}>{teams.home.name}</span>
+              <span className="text-corpo-text/50 mx-2">
+                {showPenaltyScore
+                  ? `${goals.home} (${score.penalty!.home}) - (${score.penalty!.away}) ${goals.away}`
+                  : hasScore ? `${goals.home} - ${goals.away}` : 'vs'
+                }
+              </span>
+              <span className={cn(awayWins && "text-lavender")}>{teams.away.name}</span>
             </span>
-            <span className={cn(awayWins && "text-lavender")}>{teams.away.name}</span>
+
+            {/* One discovery icon at fixture level: extracting > validating. */}
+            {hasActiveScanning && (
+              <span className="text-lavender/70 flex-shrink-0">
+                {hasExtracting ? (
+                  <ExtractingIcon className="w-4 h-4" />
+                ) : hasValidating ? (
+                  <ValidatingIcon className="w-4 h-4" />
+                ) : null}
+              </span>
+            )}
+
+            {searchMatchedEventIds && searchMatchedEventIds.length > 0 && (
+              <span className="text-lavender flex items-center gap-1 flex-shrink-0">
+                <RiSearchFill className="w-4 h-4" />
+                <span className="text-sm font-light">{searchMatchedEventIds.length}</span>
+              </span>
+            )}
+
+            <span className={cn(
+              "text-corpo-text/60 flex-shrink-0 font-light",
+              isLive && "text-lavender"
+            )} title={fixture.status.long}>
+              {formatFixtureIndicator(fixture)}
+            </span>
           </span>
-          {/* Competition line — full in search; just the matchweek in the grouped view */}
-          {competitionText && (
-            <span className={cn("text-sm truncate font-light", competitionText === 'Final' ? "text-lavender" : "text-corpo-text/40")}>{competitionText}</span>
-          )}
-          
-        </span>
-        
-        {/* Status indicator - only show one icon at fixture level, priority: extracting > validating */}
-        {hasActiveScanning && (
-          <span className="text-lavender/70 flex-shrink-0">
-            {hasExtracting ? (
-              <ExtractingIcon className="w-4 h-4" />
-            ) : hasValidating ? (
-              <ValidatingIcon className="w-4 h-4" />
-            ) : null}
-          </span>
-        )}
-        
-        {/* Search match indicator - icon with count, mirrors scanning indicator */}
-        {searchMatchedEventIds && searchMatchedEventIds.length > 0 && (
-          <span className="text-lavender flex items-center gap-1 flex-shrink-0">
-            <RiSearchFill className="w-4 h-4" />
-            <span className="text-sm font-light">{searchMatchedEventIds.length}</span>
-          </span>
-        )}
-        
-        {/* Status on far right */}
-        <span className={cn(
-          "text-corpo-text/60 flex-shrink-0 font-light",
-          isLive && "text-lavender"
-        )} title={fixture.status.long}>
-          {formatFixtureIndicator(fixture)}
+          <FixtureMetadata competitionText={competitionText} date={fixture.fixture.date} kickoffTime={kickoffTime} />
         </span>
       </button>
 

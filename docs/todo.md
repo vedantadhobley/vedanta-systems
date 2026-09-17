@@ -403,6 +403,13 @@ preview edge remains in `docs/found-footy-timezone.md`:
    edge case is already half-acknowledged in
    `found-footy-timezone.md` §"Fixture straddles midnight".
 
+- [ ] Correct historical kickoff timezone abbreviations: `formatTime(date)`
+  uses the fixture timestamp, but `getTimezoneAbbr()` caches the abbreviation
+  for the current date. A retained fixture across a daylight-saving boundary
+  can therefore have the correct local hour with the wrong EST/EDT label.
+  Derive the label from the fixture timestamp and cover both DST directions;
+  the kickoff-retention change preserves the existing formatter.
+
 ---
 
 ## Deferred runtime cleanup
