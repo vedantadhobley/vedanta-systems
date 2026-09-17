@@ -3,9 +3,33 @@ import test from 'node:test'
 
 import type { Fixture, FixturePresentationState } from '@/types/found-footy'
 import {
+  formatKickoffCountdown,
   getFixturePresentationState,
   orderFixturesForPresentation,
 } from './found-footy-presentation'
+
+test('counts whole minutes before and after scheduled kickoff without negative zero', () => {
+  const kickoff = '2026-09-16T18:00:00Z'
+  for (const [offset, expected] of [
+    [-3_660_000, '1h 1m'],
+    [-3_600_000, '1h 0m'],
+    [-120_000, '2m'],
+    [-60_000, '1m'],
+    [-59_999, '0m'],
+    [0, '0m'],
+    [1, '0m'],
+    [59_999, '0m'],
+    [60_000, '−1m'],
+    [120_000, '−2m'],
+    [3_599_999, '−59m'],
+    [3_600_000, '−1h 0m'],
+    [3_660_000, '−1h 1m'],
+    [90_060_000, '−25h 1m'],
+  ] as const) {
+    assert.equal(formatKickoffCountdown(kickoff, Date.parse(kickoff) + offset), expected)
+  }
+  assert.equal(formatKickoffCountdown('invalid', Date.parse(kickoff)), '')
+})
 
 function fixture(
   id: number,

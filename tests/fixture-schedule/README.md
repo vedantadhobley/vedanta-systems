@@ -14,6 +14,10 @@ This test requires Vite; it does not run against the production static bundle.
 It covers upcoming → playing → halftime → finished, deferred and roundless
 fixtures, grouped/search views, expansion, Local/UTC, long team names, and
 independent title/metadata widths at desktop, 320 px, and mobile-WebKit sizes.
+It advances browser time through scheduled kickoff and two overdue minutes
+while the fixture remains upcoming, then confirms the backend playing state
+removes the signed countdown. Pure formatting tests cover zero, sub-minute
+rounding, hours, and invalid timestamps in the Found Footy regression suite.
 It is browser emulation, not physical-iPhone acceptance.
 
 2026-09-16: all three browser configurations, source type-check, the existing

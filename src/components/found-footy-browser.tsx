@@ -12,6 +12,7 @@ import { cn } from '@/lib/utils'
 import { useTimezone } from '@/contexts/timezone-context'
 import { useTransientScrollSpace } from '@/lib/use-transient-scroll-space'
 import {
+  formatKickoffCountdown,
   getFixturePresentationState,
   orderFixturesForPresentation,
 } from '@/lib/found-footy-presentation'
@@ -903,23 +904,7 @@ function StagingFixtureItem({ fixture, formatKickoff, searchTeamMatch, roundOnly
     let intervalId: NodeJS.Timeout | null = null
     
     const updateCountdown = () => {
-      const now = new Date()
-      const kickoff = new Date(fixtureInfo.date)
-      const diff = kickoff.getTime() - now.getTime()
-      
-      if (diff <= 0) {
-        setCountdown('Starting...')
-        return
-      }
-      
-      const hours = Math.floor(diff / (1000 * 60 * 60))
-      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
-      
-      if (hours > 0) {
-        setCountdown(`${hours}h ${minutes}m`)
-      } else {
-        setCountdown(`${minutes}m`)
-      }
+      setCountdown(formatKickoffCountdown(fixtureInfo.date))
     }
     
     updateCountdown()

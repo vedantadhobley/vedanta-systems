@@ -6,6 +6,19 @@ export function getFixturePresentationState(fixture: Fixture): FixturePresentati
   return fixture.presentation_state
 }
 
+// Schedule distance, not a match clock. Show whole minutes on either side of
+// kickoff; suppress negative zero during the first overdue minute.
+export function formatKickoffCountdown(kickoff: string, now = Date.now()): string {
+  const diff = Date.parse(kickoff) - now
+  if (!Number.isFinite(diff)) return ''
+
+  const totalMinutes = Math.floor(Math.abs(diff) / 60_000)
+  const sign = diff < 0 && totalMinutes > 0 ? '−' : ''
+  const hours = Math.floor(totalMinutes / 60)
+  const minutes = totalMinutes % 60
+  return `${sign}${hours > 0 ? `${hours}h ` : ''}${minutes}m`
+}
+
 function compareFixtureIdentity(a: Fixture, b: Fixture): number {
   return a.fixture.date.localeCompare(b.fixture.date) || a._id - b._id
 }

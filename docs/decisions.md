@@ -1054,3 +1054,11 @@ Use the same row structure in grouped and search views, without taking team-name
 width from the schedule row. Reuse the API timestamp and Local/UTC formatter;
 do not infer actual kickoff or introduce frontend status-code classification.
 See [fixture header behavior](../src/components/UI-PATTERNS.md#found-footy-fixture-headers).
+
+## 2026-09-16 — count past scheduled kickoff without claiming a start
+
+Replace `Starting...` with a signed countdown for fixtures still presented as
+upcoming. Negative values mean whole minutes past the API's scheduled kickoff,
+not confirmed delay or elapsed playing time. Retain minute-boundary updates,
+hour/minute formatting, and `0m` rather than negative zero for sub-minute
+distances. The backend presentation state alone ends this countdown.

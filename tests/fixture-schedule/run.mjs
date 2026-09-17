@@ -57,6 +57,17 @@ for (const [name, engine, viewport, touch] of [
     await render()
     await host.getByRole('button', { name: /USA - Test League/ }).click()
     const upcoming = await check('Not Started', 'NS', true)
+    // Cross zero through the real minute-boundary timer without backend state
+    // changes. Advancing wall time alone must never claim the match has started.
+    await page.clock.fastForward(new Date('2026-09-16T18:00:00Z').getTime() - await page.evaluate(() => Date.now()))
+    await check('Not Started', 'NS', true)
+    assert.match(await time.evaluate(el => el.parentElement.textContent), / · 0m$/)
+    await page.clock.fastForward(60_000)
+    await check('Not Started', 'NS', true)
+    assert.match(await time.evaluate(el => el.parentElement.textContent), / · −1m$/)
+    await page.clock.fastForward(60_000)
+    await check('Not Started', 'NS', true)
+    assert.match(await time.evaluate(el => el.parentElement.textContent), / · −2m$/)
     const playing = { state: 'active', presentation_state: 'playing', display: 'clock',
       status: { short: '1H', long: 'First Half' }, clock: { minute: 12, extra: null }, goals: { home: 1, away: 0 } }
     await render(playing)
@@ -87,7 +98,7 @@ for (const [name, engine, viewport, touch] of [
     await check('First Half', "12'")
     assert.deepEqual(errors, [])
     await page.screenshot({ path: `/artifacts/fixture-schedule-${name}.png`, fullPage: true })
-    console.log(`PASS ${name}: kickoff persists, countdown ends, status/clock alignment, expansion, roundless/search, timezone`)
+    console.log(`PASS ${name}: signed countdown through zero, removed on kickoff, retained schedule, alignment, expansion, search, timezone`)
   } finally { await browser.close() }
 }
 console.log('FIXTURE_SCHEDULE_ACCEPTANCE_PASS')

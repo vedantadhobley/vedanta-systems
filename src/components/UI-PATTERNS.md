@@ -121,6 +121,13 @@ it is removed when the backend changes the presentation state. Kickoff uses the
 API's fixture date and the existing Local/UTC formatter, not a locally inferred
 actual start time. A schedule change returned by the API updates the label.
 
+The countdown continues past zero instead of saying `Starting...`:
+`2m → 1m → 0m → −1m → −2m`. Negative values mean whole minutes past scheduled
+kickoff while the backend still says upcoming; they do not assert a confirmed
+delay or match progress. Sub-minute distances show `0m`, never `−0m`. Hours
+keep the existing compact format, including `−1h 5m` when overdue. Only a
+backend presentation change removes the countdown, not the local wall clock.
+
 The second row must not reserve width beside team names on the first row.
 One local `FixtureMetadata` component owns the schedule row in all fixture
 variants. Clock/status selection, ordering, expansion, and stream contracts
