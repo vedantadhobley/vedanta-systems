@@ -181,3 +181,41 @@ If rollback is authorized, retag that exact image as
 `vedanta-systems-prod-frontend`, recreate only `frontend` with `--no-deps
 --no-build`, and repeat public verification. No legacy btop collector is needed
 for this rollback; both images use the current NATS path.
+
+## 6. Fixture schedule rollout — 2026-09-16
+
+Deployed frontend `47c2a1f92374320033b1cf704f0e92c55821c978` at
+2026-09-17 01:12 UTC (September 16 EDT). This includes retained kickoff times
+from `1a13005` and the signed upcoming countdown from `47c2a1f`.
+
+- Image: `sha256:8cd8d28a4f43d6a42fb54fad8ceb83913e24cb45c82bff09a442c32564c2e147`.
+- Tags: `vedanta-systems-prod-frontend` and `vedanta-systems-frontend:47c2a1f`;
+  the revision label matches the source commit above.
+- Public assets: `index-D4BfK4Pf.js` and unchanged `index-BAlnLF7q.css`.
+- API image/revision remains unchanged from the preceding rollout.
+
+The 4 GiB/two-CPU temporary builder passed TypeScript and Vite with the
+production API URLs and 1536 MiB Node heap. Only `frontend` was recreated,
+using `--no-deps --no-build`. The temporary builder was removed afterward.
+
+nginx validation, public home/Found Footy routes, assets, portal/Found Footy
+health, and both btop health endpoints passed. Public desktop Chromium and
+mobile-sized WebKit checked actual upcoming, playing, finished, and deferred
+fixtures: scheduled kickoff persists, countdown is upcoming-only, clock/status
+and metadata rows align, and no page errors occur. The smoke check waits for
+the countdown mount effect and selects fixtures from the displayed local date;
+early test attempts did not respect those conditions. No source correction
+was needed during rollout. Negative-countdown boundaries and the transition
+to playing passed the [deterministic dev regression](../tests/fixture-schedule/README.md)
+before deployment; no production fixture or clock was altered to stage a delay.
+
+API, NATS, both telemetry relays, and Found Footy API container identities and
+start times matched the baseline. The frontend has zero restarts and no OOM
+flag. No backend deployment, database migration, upstream push, or remote-node
+action occurred. Physical-device acceptance and existing audit debt remain
+separate. Existing tabs need a reload to load the new JavaScript.
+
+Rollback image: `vedanta-systems-frontend:pre-fixture-schedule-20260916`,
+`sha256:0688a88dfcff3f07224475f29e30540264ab7476f8db9428b19dffae2344c781`.
+If rollback is authorized, retag it as `vedanta-systems-prod-frontend`, recreate
+only `frontend` with `--no-deps --no-build`, and repeat public checks.

@@ -23,4 +23,11 @@ It is browser emulation, not physical-iPhone acceptance.
 2026-09-16: all three browser configurations, source type-check, the existing
 Found Footy regressions (optional broker integration skipped), and the production
 Vite build passed. No BFF/backend change or production deployment is required
-to test this in dev; production still needs its separate frontend rollout.
+to test this in dev.
+
+The subsequent [frontend-only production rollout](../../deploy/INFRA-NOTES.md#6-fixture-schedule-rollout--2026-09-16)
+deployed both changes as `47c2a1f`. Separate public Chromium and mobile-WebKit
+checks passed on real fixtures in all four presentation states. Those checks
+use a separate REST read (the page can cancel its initial fetch on SSE recovery),
+scope fixture selection to the displayed local date, and wait for the countdown
+mount effect. No production data was changed to simulate a delayed kickoff.

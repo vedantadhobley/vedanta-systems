@@ -2,7 +2,7 @@
 
 ## Cutover release
 
-The [2026-09-13 control-feedback rollout](../deploy/INFRA-NOTES.md#5-frontend-only-rollout--2026-09-13)
+The [2026-09-16 fixture-schedule rollout](../deploy/INFRA-NOTES.md#6-fixture-schedule-rollout--2026-09-16)
 supersedes the frontend image below. It leaves the API and btop transport
 unchanged. The following records the original btop cutover, not the latest
 frontend image.

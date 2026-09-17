@@ -132,7 +132,8 @@ The second row must not reserve width beside team names on the first row.
 One local `FixtureMetadata` component owns the schedule row in all fixture
 variants. Clock/status selection, ordering, expansion, and stream contracts
 are unchanged. See [browser acceptance](../../tests/fixture-schedule/README.md).
-This source change is available in dev; production deployment is separate.
+Both kickoff retention and the signed countdown are deployed in production;
+see the [release record](../../deploy/INFRA-NOTES.md#6-fixture-schedule-rollout--2026-09-16).
 
 ---
 
