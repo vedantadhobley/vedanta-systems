@@ -191,6 +191,10 @@ Pattern A vs B is the central architectural call here — see
   kickoff across match states, counts past scheduled kickoff while upcoming,
   and pins kickoff to the right of the countdown. The API is unchanged. See
   [the latest release record](./deploy/INFRA-NOTES.md#7-kickoff-anchor-rollout--2026-09-18).
+- **Found Footy search provenance deployed (2026-09-18)**: API/BFF `10c73a1`
+  translates producer-owned, accent-insensitive `search_match` provenance into
+  the existing React `_search` projection. The frontend image is unchanged.
+  See [the API rollout record](./deploy/INFRA-NOTES.md#8-found-footy-search-provenance-rollout--2026-09-18).
 - **Control feedback deployed (2026-09-13)**: frontend `3767bf9` snaps
   control state changes; the independent GitHub animation is unchanged. The API
   was not redeployed. Exact image, public checks, and rollback are in

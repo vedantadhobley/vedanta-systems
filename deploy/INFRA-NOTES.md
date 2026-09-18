@@ -254,3 +254,38 @@ Rollback image: `vedanta-systems-frontend:pre-kickoff-anchor-20260918`,
 `sha256:8cd8d28a4f43d6a42fb54fad8ceb83913e24cb45c82bff09a442c32564c2e147`.
 If rollback is authorized, retag it as `vedanta-systems-prod-frontend`, recreate
 only `frontend` with `--no-deps --no-build`, and repeat public checks.
+
+## 8. Found Footy search-provenance rollout — 2026-09-18
+
+Deployed API/BFF `10c73a19a4bd8c4fccbb108df58b8c3c0f484e33` at
+2026-09-18 18:01 UTC. The BFF now trusts Found Footy's additive
+`search_match` provenance instead of repeating case-sensitive display-string
+matching. The existing React client continues to render its `_search`
+projection, so the frontend image and public assets did not change.
+
+- API image: `sha256:e381eb5abb0521cff2d25f5f6ad01dbb2d10f6c0901054f037f9ae0f229e6543`.
+- Image tags: `vedanta-systems-prod-api` and
+  `vedanta-systems-api:10c73a1`; the revision label matches the source commit.
+- Frontend remains on `cc4a67e`, image
+  `sha256:998bb4a6f9b5d96743b95696bac85c12d1245f2b8984ce5c816bef9cce8f2120`.
+
+The focused Found Footy suite passed all 38 active tests; its external NATS
+integration remained intentionally skipped. TypeScript and `git diff --check`
+passed. Only `api` was recreated with `--no-deps --no-build`.
+
+Production verification passed the portal health endpoint and both NATS bridge
+connections. For the real `mbappe` query, Found Footy returned six complete
+fixtures with ten declared event matches; the public BFF returned the same ten
+matched event IDs. The preceding BFF exposed only three because it repeated
+accent-sensitive matching locally.
+
+The frontend, Found Footy, NATS, telemetry relays, databases, and application
+data were untouched. Found Footy had been recreated independently about
+14 minutes before this rollout; its earlier start time confirms that this
+scoped deployment did not recreate it. No upstream push occurred.
+
+Rollback image: `vedanta-systems-api:pre-search-provenance-20260918`,
+`sha256:179fca1acada014c7db0b1390c8e40f98c72881d28b8465a4db52c0667721b3a`.
+If rollback is authorized, retag it as `vedanta-systems-prod-api`, recreate
+only `api` with `--no-deps --no-build`, and repeat the public search and health
+checks.
