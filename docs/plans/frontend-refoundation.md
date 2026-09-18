@@ -264,11 +264,13 @@ causes scroll lag or keeps the mobile radio awake fails the gate.
   [timezone todo](../todo.md).
 - **Landed for shared targets:** abort and generation-protect superseded
   retained-event requests. Search request ownership remains open.
-- **Deployed in FF-085/FF-086, validating natural delivery:** complete
-  `event.update` upserts, targeted missing-parent recovery, a bounded live-message journal shared by
-  recovery reads, and bounded delivery/application diagnostics. Carry these
-  invariants into the route runtime; do not restore a replacement-only event
-  path or make clip/discovery changes advance fixture recency. The
+- **Deployed in FF-085/FF-086, validating natural delivery:** targeted
+  `event.update`, complete-parent recovery, a bounded live-message journal
+  shared by recovery reads, and bounded delivery/application diagnostics.
+  The current public-presentation consumer replaces known events only. Missing
+  event membership or a missing parent triggers a complete targeted fixture
+  replacement, so React never appends an unordered partial event. Do not make
+  clip/discovery changes advance fixture recency. The
   [live-data contract](../found-footy-live-data.md) owns the coordinated gate.
 - Expose transport and freshness as separate state.
 - Keep the current production markup while these invariants settle.

@@ -164,7 +164,8 @@ Pattern A vs B is the central architectural call here — see
 - **FF-085/FF-086 deployed, validating (2026-09-08)**: the coordinated cutover used
   consumer `ca1f8e5` with Found Footy `3723ce2` (includes producer `dbc2a76`)
   and shared schemas `fcfb28f`. Only `event.update` / SSE `event_update` is
-  accepted, with full event upserts, missing-parent recovery, and bounded
+  accepted, with replacement-only event patches, complete-parent recovery for
+  missing event membership, and bounded
   diagnostics. Release identities, public REST, NATS subscription, and SSE
   connection/heartbeat/reopening passed independent checks. Natural clip and
   no-candidate completion delivery to React remains unproven. Existing tabs
@@ -192,8 +193,9 @@ Pattern A vs B is the central architectural call here — see
   and pins kickoff to the right of the countdown. The API is unchanged. See
   [the latest release record](./deploy/INFRA-NOTES.md#7-kickoff-anchor-rollout--2026-09-18).
 - **Found Footy search provenance deployed (2026-09-18)**: API/BFF `10c73a1`
-  translates producer-owned, accent-insensitive `search_match` provenance into
-  the existing React `_search` projection. The frontend image is unchanged.
+  introduced producer-owned, accent-insensitive `search_match` provenance.
+  The public-presentation consumer now preserves that shape directly; React
+  only applies timezone grouping and visual highlighting.
   See [the API rollout record](./deploy/INFRA-NOTES.md#8-found-footy-search-provenance-rollout--2026-09-18).
 - **Control feedback deployed (2026-09-13)**: frontend `3767bf9` snaps
   control state changes; the independent GitHub animation is unchanged. The API

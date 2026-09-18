@@ -13,6 +13,12 @@ natural event-to-React acceptance remains open. See
 [post-rollout verification](#post-rollout-verification) and
 [the coordinated release gate](#coordinated-release-gate).
 
+**Presentation-contract state (2026-09-18):** Found Footy production runs
+`d256c7e`, including additive producer commits `921e187` and `41b7d5e`.
+Vedanta Systems now consumes that contract directly in source. Deployment is
+recorded separately from implementation so this statement never implies that
+an old browser bundle can understand the new consumer shape.
+
 ## System path
 
 ```text
@@ -31,14 +37,11 @@ messages reduce latency and read volume.
 
 ## Fixture contract
 
-Every REST fixture carries two independent kinds of state:
-
-- `state`: Found Footy's `staging`, `active`, or `completed` processing state;
-- `presentation_state`: `playing`, `finished`, `upcoming`, or `deferred`.
-
-Only `presentation_state` controls browser grouping, live badges, and finished
-winner highlighting. The BFF and React do not classify API-Football status
-codes.
+Found Footy's REST resource contains internal processing `state` and public
+`presentation_state`, but the clean BFF/browser resource omits processing
+state entirely. `presentation_state` (`playing`, `finished`, `upcoming`, or
+`deferred`) alone controls grouping, live badges, and finished winner
+highlighting. The BFF and React do not classify API-Football status codes.
 
 The complete inline indicator projection is:
 
@@ -56,6 +59,20 @@ minute and extra time. `status` renders `status.short`; `status.long` supplies
 accessible or expanded context. Provider codes remain visible data, not
 consumer control flow. Winner fields and non-null penalty fields come directly
 from the backend.
+
+The browser consumes producer-owned league presentation directly:
+`priority`, `round_label`, and `round_kind`. It never sorts by provider league
+ID or parses the provider's raw round string.
+
+Each event carries `kind`, `presentation_state`, `presentation.label`,
+`presentation.team_side`, nullable `presentation.score_before` and
+`presentation.score_after`, and videos with explicit `share_id`. React selects
+icons, typography, highlighting, and layout from those fields. It does not
+parse raw event type/detail, reconstruct discovery state, compare team IDs to
+infer a side, count goals to invent historical score, or parse a share ID from
+a media URL. Event presentation state and video presence are independent.
+When score context or team side is null, the browser leaves it unknown; it
+never falls back to the fixture's current/final score.
 
 ## NATS to SSE mapping
 
@@ -91,7 +108,7 @@ The BFF retains one environment-wide subscription:
 |---|---|---|
 | `fixture.status` | Forward the complete projection | Replace the four presentation fields by fixture ID without fetching or reordering |
 | `fixture.update` | Union IDs across the short coalescing window and fetch `/api/v1/fixtures?ids=...` once | Replace only those IDs, then regroup and reorder by `presentation_state` and `last_activity_at` |
-| `event.update` | Fetch `/api/v1/events?ids=<event_id>` and emit SSE `event_update` with both IDs and the complete event projection | Upsert that event inside `fixture_id`; preserve fixture recency and order |
+| `event.update` | Fetch `/api/v1/events?ids=<event_id>` and emit SSE `event_update` with both IDs and the complete event projection | Replace the existing event inside `fixture_id`; preserve fixture recency and order. Recover the complete parent if membership is missing |
 | NATS connect or reconnect | Emit `resync` | Take a complete fixture snapshot |
 
 `fixture.status` replaces the obsolete `fixture.clock` path. A minute change
@@ -108,18 +125,18 @@ Provider-driven event additions, removals, and corrections remain
 
 ### Event recovery
 
-- A valid event response includes row data, clips, and discovery flags. React
-  replaces or inserts it by ID. The BFF and browser share one pure helper for
-  fixture-dependent event labels, so insertion needs no extra fixture read
-  when the parent already exists.
-- A missing parent triggers `GET /api/found-footy/fixtures?ids=<fixture_id>`;
-  the BFF forwards the targeted fixture read. Requests deduplicate by parent,
-  have a 15-second deadline, and are capped at 16 pending parents. Overflow
-  requests a full resynchronization.
-- Parent recovery replays the triggering event and later live messages over
-  the fixture response. A later authoritative fixture replacement/removal
-  wins over an older parent read. A late read cannot replace an already
-  recovered parent.
+- A valid event response contains the complete public event projection. React
+  replaces an existing row by ID. It never appends a partial row because the
+  producer owns event-array order.
+- A missing event or parent triggers
+  `GET /api/found-footy/fixtures?ids=<fixture_id>`. Requests deduplicate by
+  parent, have a 15-second deadline, and are capped at 16 pending event
+  recoveries. Overflow requests a full resynchronization.
+- Parent recovery replaces the complete fixture, then replays later live
+  messages. A later authoritative fixture replacement/removal wins over an
+  older parent read. A late read cannot overwrite an already recovered event.
+  If the recovered parent still lacks the target event, the browser requests
+  resynchronization rather than inventing membership or ordering.
 - An empty, mismatched, or failed event read is **not deletion evidence**.
   The BFF recovers its parent and emits an authoritative `fixture_update`.
   If that also fails or returns no parent, it emits `resync`. The browser
@@ -150,6 +167,11 @@ Equal recency uses kickoff and fixture ID as deterministic tie breakers.
 Inline `fixture.status` and `event.update` applications preserve the exact
 fixture array order. Clip changes and discovery completion do not create
 fixture recency; recovered parents use the backend's existing recency.
+
+Found Footy supplies fixture event arrays in deterministic match-clock order.
+The current UI reverses a copy only to render recent events first. Equal-clock
+goals can carry null score context when their real order is unknowable; the
+consumer preserves that uncertainty.
 
 `last_activity_at` comes from Found Footy. Polls, clock ticks, and ordinary
 within-group status changes do not advance it. The portal never manufactures a

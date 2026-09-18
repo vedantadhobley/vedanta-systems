@@ -292,37 +292,29 @@ UI's wording. Hold the seam at layer 2. It's the same line drawn for live
 updates — **the API is truth; the frontend renders** (SSE is a hint, REST is
 the truth; the backend derives phase, the frontend derives pixels).
 
-### Worked example — found-footy event `phase`
+### Worked example — Found Footy event presentation
 
-Contract handed to the found-footy Go API (2026-08-13). The `eventDTO` carries:
+The public event contract carries:
 
-- **`phase`** — derived enum, first match wins: `removed` (`removed=true`;
-  terminal, wins even after complete — VAR) → `complete`
-  (discovery `edw.completed_at` set) → `searching` (`downstream_triggered=true`,
-  `edw.completed_at` null) → `detected` (otherwise — goal exists, discovery not
-  started).
-- **`debounce_count`** (0–3) — raw, for "confirming N/3" during `detected`.
-- **`player`** (nullable) — `null` = unknown scorer; distinguishes, *within*
-  `detected`, "won't be searched" from "confirming". No separate `unsearched`
-  phase.
-- **`videos[]`** — the **orthogonal** axis. Clips surface incrementally *during*
-  `searching` and persist into `complete`; video count is never a phase signal.
-  `phase` and `videos.length` are independent.
+- **`presentation_state`** — `unidentified`, `confirming`, `searching`,
+  `complete`, or `removed`; Found Footy derives it from discovery state and
+  player identity;
+- **`kind`** and **`presentation.label`** — provider-independent event meaning
+  and display copy;
+- **`presentation.team_side`** and nullable score context — authoritative
+  highlighting inputs without consumer-side team matching or goal counting;
+- **`videos[]`** — the orthogonal media axis, each with explicit `share_id`.
 
-**Not on the DTO** (layer 1 / layer 3): no `edw.completed_at`, `outcome_class`,
-`downstream_triggered`, `monitor_complete`/`download_complete`; no display copy.
+The frontend renders `presentation_state` and `videos.length` independently:
+`searching`+0 shows active discovery, `complete`+0 shows no clips found,
+`complete`+N shows clips, `unidentified` explains the absent searchable player,
+and `removed` marks the event overturned. A clip can exist in any applicable
+state; clip count never derives state.
 
-The frontend renders `phase` × `videos.length` (× `player`, `debounce_count`):
-`searching`+0 → "searching…", `searching`+N → "N clips · still searching",
-`complete`+0 → "no clips found", `complete`+N → "N clips", `detected`+null →
-"unknown scorer", `removed` → "VAR — overturned".
-
-`phase` and `debounce_count` now ship from the Found Footy Go API. The current
-Pattern-B shim (`src/server/routes/found-footy.ts`) maps that semantic phase
-back into the legacy `_monitor_complete` / `_download_complete` fields because
-the production component still consumes the old Mongo-shaped contract. A
-pre-phase fallback remains for compatibility. The migrated frontend should
-consume the semantic phase directly and delete that presentation-era mapping.
+The BFF preserves these fields and changes only media transport URLs. It does
+not expose Found Footy's raw event `phase`, type/detail provider strings, or
+internal fixture processing state. React still owns visual composition, but it
+does not recover football meaning from raw data.
 
 ## Where this connects
 

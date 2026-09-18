@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import type {
   Fixture,
   FootyDateIntent,
-  SearchDateGroup,
+  SearchFixture,
   SharedEventTarget,
 } from '@/types/found-footy'
 import { useTimezone } from '@/contexts/timezone-context'
@@ -10,13 +10,16 @@ import {
   applyFootyLiveEvent,
   createFootyLiveJournal,
   dateIntentForSelection,
+  hasEvent,
   isFixturesResponse,
   isFootyLiveEvent,
+  isSearchResponse,
   isSharedEventTargetResponse,
   mergeSharedTargetFixture,
   resolveRecoveryDate,
   recoverFootyParent,
   type FootyLiveEvent,
+  type EventRecovery,
 } from '@/lib/found-footy-live'
 import { orderFixturesForPresentation } from '@/lib/found-footy-presentation'
 import { createFootyDiagnostics } from '@/lib/found-footy-diagnostics'
@@ -37,11 +40,11 @@ interface FootyState {
   isChangingDate: boolean
   error: string | null
   lastUpdate: Date | null
-  parentRecoveries: Array<{ fixtureId: number; after: number }>
+  parentRecoveries: EventRecovery[]
 
   searchMode: boolean
   searchQuery: string
-  searchResults: SearchDateGroup[]
+  searchResults: SearchFixture[]
   isSearching: boolean
   searchTotalFixtures: number
 }
@@ -113,43 +116,51 @@ export function FootyStreamProvider({ children }: { children: ReactNode }) {
   useEffect(() => { dateIntentRef.current = state.dateIntent }, [state.dateIntent])
 
   const fixtureDates = useCallback((fixtures: readonly Fixture[]) => (
-    [...new Set(fixtures.map(fixture => getDateForTimestamp(fixture.fixture.date)))].sort().reverse()
+    [...new Set(fixtures.map(fixture => getDateForTimestamp(fixture.kickoff)))].sort().reverse()
   ), [getDateForTimestamp])
 
   const applyLiveEvent = useCallback((event: FootyLiveEvent) => {
     const revision = journal.record(event)
 
     setState(current => {
-      const fixtures = applyFootyLiveEvent(current.fixtures, event)
       const target = current.sharedTarget
+      const eventMissing = event.type === 'event_update' &&
+        !hasEvent(current.fixtures, event.fixture_id, event.event_id) &&
+        !(target && hasEvent([target.fixture], event.fixture_id, event.event_id)) &&
+        !hasEvent(current.searchResults, event.fixture_id, event.event_id)
+      const fixtures = applyFootyLiveEvent(current.fixtures, event)
       const updatedTarget = target ? applyFootyLiveEvent([target.fixture], event)
-        .find(fixture => fixture._id === target.fixture._id) : undefined
-      const missingParent = event.type === 'event_update' &&
-        !fixtures.some(fixture => fixture._id === event.fixture_id) && target?.fixture._id !== event.fixture_id
-      let parentRecoveries = current.parentRecoveries.filter(({ fixtureId }) =>
-        !fixtures.some(fixture => fixture._id === fixtureId) && target?.fixture._id !== fixtureId &&
-        !(event.type === 'fixture_update' && event.fixture_ids.includes(fixtureId)))
-      if (missingParent && !parentRecoveries.some(item => item.fixtureId === event.fixture_id)) {
-        parentRecoveries = [...parentRecoveries, { fixtureId: event.fixture_id, after: revision - 1 }]
+        .find(fixture => fixture.id === target.fixture.id) : undefined
+      let parentRecoveries = current.parentRecoveries.filter(recovery => {
+        if (event.type === 'fixture_update' && event.fixture_ids.includes(recovery.fixtureId)) return false
+        return !hasEvent(fixtures, recovery.fixtureId, recovery.eventId) &&
+          !(updatedTarget && hasEvent([updatedTarget], recovery.fixtureId, recovery.eventId)) &&
+          !hasEvent(current.searchResults, recovery.fixtureId, recovery.eventId)
+      })
+      if (eventMissing && !parentRecoveries.some(item =>
+        item.fixtureId === event.fixture_id && item.eventId === event.event_id)) {
+        parentRecoveries = [...parentRecoveries, {
+          fixtureId: event.fixture_id,
+          eventId: event.event_id,
+          after: revision - 1,
+        }]
       }
       if (parentRecoveries.length > 16) {
         diagnostics.record({ stage: 'parent_recovery', outcome: 'overflow' })
         requestResync('parent-recovery-overflow')
       }
       const matched = event.type === 'fixture_status' ? event.fixtures.filter(projection =>
-        current.fixtures.some(fixture => fixture._id === projection.fixture_id) || target?.fixture._id === projection.fixture_id).length : undefined
-      diagnostics.record({ stage: 'client_apply', outcome: missingParent ? 'missing-parent' : matched === 0 ? 'ignored' : 'applied', count: matched,
+        current.fixtures.some(fixture => fixture.id === projection.fixture_id) || target?.fixture.id === projection.fixture_id).length : undefined
+      diagnostics.record({ stage: 'client_apply', outcome: eventMissing ? 'missing-event' : matched === 0 ? 'ignored' : 'applied', count: matched,
         ...(event.type === 'event_update' ? { event_id: event.event_id, fixture_id: event.fixture_id } : {}) })
       return {
         ...current,
         fixtures,
         sharedTarget: target && updatedTarget ? { ...target, fixture: updatedTarget } : target,
-        searchResults: event.type !== 'event_update' ? current.searchResults : current.searchResults.map(group => ({ ...group,
-          fixtures: group.fixtures.map(fixture => {
-            const updated = applyFootyLiveEvent([fixture], event).find(item => item._id === fixture._id)
-            return updated ? { ...updated, _search: fixture._search } : fixture
-          }),
-        })),
+        searchResults: event.type !== 'event_update' ? current.searchResults : current.searchResults.map(fixture => {
+          const updated = applyFootyLiveEvent([fixture], event).find(item => item.id === fixture.id)
+          return updated ? { ...updated, search_match: fixture.search_match } : fixture
+        }),
         parentRecoveries: parentRecoveries.slice(-16),
         availableDates: event.type === 'fixture_update' ? fixtureDates(fixtures) : current.availableDates,
         lastUpdate: new Date(),
@@ -175,7 +186,7 @@ export function FootyStreamProvider({ children }: { children: ReactNode }) {
       const response = await fetch(`${API_BASE}/fixtures`, { signal: controller.signal })
       if (!response.ok) throw new Error(`fixture snapshot returned ${response.status}`)
       const body: unknown = await response.json()
-      if (!isFixturesResponse(body)) throw new Error('fixture snapshot did not match the FF-077 contract')
+      if (!isFixturesResponse(body)) throw new Error('fixture snapshot did not match the public presentation contract')
       if (controller.signal.aborted || generation !== snapshotGenerationRef.current) {
         diagnostics.record({ stage: 'snapshot', outcome: 'ignored', reason: 'superseded' })
         return
@@ -185,16 +196,19 @@ export function FootyStreamProvider({ children }: { children: ReactNode }) {
       if (!fixtures) throw new Error('live replay overflow')
       diagnostics.record({ stage: 'snapshot', outcome: 'applied', count: fixtures.length })
       setState(current => {
-        const recoveries = new Map(current.parentRecoveries.map(item => [item.fixtureId, item]))
-        for (const fixtureId of journal.missingParents(fixtures, startRevision)) {
-          if (!recoveries.has(fixtureId)) recoveries.set(fixtureId, { fixtureId, after: startRevision })
+        const recoveries = new Map(current.parentRecoveries.map(item => [`${item.fixtureId}:${item.eventId}`, item]))
+        for (const recovery of journal.missingEvents(fixtures, startRevision)) {
+          const key = `${recovery.fixtureId}:${recovery.eventId}`
+          if (!recoveries.has(key)) recoveries.set(key, recovery)
         }
         return {
           ...current,
           fixtures,
           availableDates: fixtureDates(fixtures),
-          parentRecoveries: [...recoveries.values()].filter(({ fixtureId }) =>
-            !fixtures.some(fixture => fixture._id === fixtureId) && current.sharedTarget?.fixture._id !== fixtureId).slice(-16),
+          parentRecoveries: [...recoveries.values()].filter(({ fixtureId, eventId }) =>
+            !hasEvent(fixtures, fixtureId, eventId) &&
+            !(current.sharedTarget && hasEvent([current.sharedTarget.fixture], fixtureId, eventId)) &&
+            !hasEvent(current.searchResults, fixtureId, eventId)).slice(-16),
           isLoading: false,
           isChangingDate: false,
           isBackendOnline: true,
@@ -226,7 +240,7 @@ export function FootyStreamProvider({ children }: { children: ReactNode }) {
         controller.abort()
       }
     }
-    for (const { fixtureId, after } of state.parentRecoveries) {
+    for (const { fixtureId, eventId, after } of state.parentRecoveries) {
       if (parentRequests.current.has(fixtureId)) continue
       const controller = new AbortController()
       parentRequests.current.set(fixtureId, controller)
@@ -242,15 +256,36 @@ export function FootyStreamProvider({ children }: { children: ReactNode }) {
           return
         }
         if (controller.signal.aborted) throw new Error('parent recovery timeout')
+        if (fixture && !fixture.events.some(event => event.id === eventId)) {
+          throw new Error('recovered parent missing target event')
+        }
         setState(current => {
-          // A newer targeted fixture update or snapshot may already have
-          // supplied the parent. Never replace that state with a late read.
-          const exists = current.fixtures.some(item => item._id === fixtureId) || current.sharedTarget?.fixture._id === fixtureId
-          const fixtures = fixture && !exists
-            ? orderFixturesForPresentation([...current.fixtures, fixture]) : current.fixtures
-          diagnostics.record({ stage: 'parent_recovery', outcome: !fixture || exists ? 'ignored' : 'applied', fixture_id: fixtureId })
-          return { ...current, fixtures, availableDates: fixtureDates(fixtures),
-            parentRecoveries: current.parentRecoveries.filter(item => item.fixtureId !== fixtureId) }
+          const pending = current.parentRecoveries.filter(item => item.fixtureId === fixtureId)
+          const alreadyRecovered = pending.length > 0 && pending.every(item =>
+            hasEvent(current.fixtures, fixtureId, item.eventId) ||
+            (current.sharedTarget && hasEvent([current.sharedTarget.fixture], fixtureId, item.eventId)) ||
+            hasEvent(current.searchResults, fixtureId, item.eventId))
+          // A newer fixture update clears the recovery before this read commits.
+          // Otherwise this complete fixture replaces any stale local parent.
+          const shouldApply = !!fixture && pending.length > 0 && !alreadyRecovered
+          const inSnapshot = current.fixtures.some(item => item.id === fixtureId)
+          const outsideSnapshot = !inSnapshot && (
+            current.sharedTarget?.fixture.id === fixtureId ||
+            current.searchResults.some(item => item.id === fixtureId)
+          )
+          const fixtures = shouldApply && !outsideSnapshot
+            ? orderFixturesForPresentation([...current.fixtures.filter(item => item.id !== fixtureId), fixture])
+            : current.fixtures
+          const sharedTarget = shouldApply && current.sharedTarget?.fixture.id === fixtureId
+            ? { ...current.sharedTarget, fixture }
+            : current.sharedTarget
+          const recoveredEventIds = new Set(fixture?.events.map(event => event.id) || [])
+          const searchResults = shouldApply ? current.searchResults.map(item =>
+            item.id === fixtureId ? { ...fixture, search_match: item.search_match } : item) : current.searchResults
+          diagnostics.record({ stage: 'parent_recovery', outcome: shouldApply ? 'applied' : 'ignored', fixture_id: fixtureId })
+          return { ...current, fixtures, sharedTarget, searchResults, availableDates: fixtureDates(fixtures),
+            parentRecoveries: current.parentRecoveries.filter(item => item.fixtureId !== fixtureId ||
+              (!alreadyRecovered && !recoveredEventIds.has(item.eventId))) }
         })
       }).catch(() => {
         if (parentRequests.current.get(fixtureId) !== controller) return
@@ -315,13 +350,13 @@ export function FootyStreamProvider({ children }: { children: ReactNode }) {
       if (controller.signal.aborted || generation !== targetGenerationRef.current) return false
 
       const replayed = journal.replay([body.fixture], startRevision)
-      const targetFixture = replayed?.find(fixture => fixture._id === body.fixture._id)
+      const targetFixture = replayed?.find(fixture => fixture.id === body.fixture.id)
       if (!targetFixture) {
         diagnostics.record({ stage: 'shared_target', outcome: 'ignored', reason: 'live-replay-conflict' })
         requestResync('shared-target-replay-conflict')
         throw new Error('shared target needs resynchronization')
       }
-      const targetDate = getDateForTimestamp(targetFixture.fixture.date)
+      const targetDate = getDateForTimestamp(targetFixture.kickoff)
       currentDateRef.current = targetDate
       dateIntentRef.current = 'pinned'
       setState(current => ({
@@ -592,11 +627,12 @@ export function FootyStreamProvider({ children }: { children: ReactNode }) {
       try {
         const response = await fetch(`${API_BASE}/search?q=${encodeURIComponent(query.trim())}`)
         if (!response.ok) throw new Error(`search returned ${response.status}`)
-        const data = await response.json()
+        const data: unknown = await response.json()
+        if (!isSearchResponse(data)) throw new Error('search response did not match the public presentation contract')
         setState(current => ({
           ...current,
-          searchResults: data.results || [],
-          searchTotalFixtures: data.totalFixtures || 0,
+          searchResults: data.fixtures,
+          searchTotalFixtures: data.totalFixtures,
           isSearching: false,
         }))
       } catch (error) {

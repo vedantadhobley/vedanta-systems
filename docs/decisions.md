@@ -1083,3 +1083,24 @@ failing to highlight his event. It does not change result scope, timezone
 grouping, or the browser's existing `_search` shape. Deploy the additive Found
 Footy response before this required consumer; no dual matcher or fallback is
 retained afterward.
+
+## 2026-09-18 — consume Found Footy's public presentation contract directly
+
+Found Footy production `d256c7e` now supplies canonical event kind, complete
+event presentation state, label, team side, nullable score context, explicit
+video share ID, league priority, and normalized round fields. Hard-cut the BFF
+and React resource types to that producer shape. Remove the Mongo-shaped
+underscore adapter, raw provider interpretation, discovery reconstruction,
+score counting, team-ID comparison, round parsing, provider-ID competition
+ordering, and share-ID URL parsing. This supersedes the preceding decision's
+temporary `_search` translation: search provenance now passes through as
+`search_match`, and React only groups it by the selected timezone.
+
+Keep fixture sorting and timezone grouping in React because they are explicit
+browser presentation policy. Keep same-origin media URL rewriting, targeted
+REST reads, NATS/SSE transport, and recovery in the BFF because they are
+transport policy. An `event.update` replaces an existing event only. If the
+event or parent is missing, fetch and replace the complete parent fixture;
+never append an unordered partial event. Preserve null event score context and
+null team side as unknown. Existing tabs must reload the new bundle; do not add
+a permanent legacy path or versioned compatibility layer.

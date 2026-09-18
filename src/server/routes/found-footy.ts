@@ -3,11 +3,10 @@ import { Readable } from 'node:stream'
 import { loadNatsAuthenticator } from '../nats-auth'
 import type {
   Fixture,
-  GoalEvent,
+  FootyEvent,
   SearchFixture,
   SharedMediaState,
 } from '../../types/found-footy'
-import { withEventContext, type EventProjection } from '../../lib/found-footy-event'
 import { createFootyDiagnostics } from '../../lib/found-footy-diagnostics'
 import { createEventUpdateForwarder, createFixtureUpdateBatcher, foundFootyLiveTopic, type BridgeMessage } from './found-footy-live-bridge'
 
@@ -16,9 +15,8 @@ import { createEventUpdateForwarder, createFixtureUpdateBatcher, foundFootyLiveT
  *
  * vs-api no longer reads found-footy's Mongo/MinIO directly. It calls the
  * found-footy Go read API (`found-footy-{env}-api`, REST at `/api/v1/*`) and
- * **reshapes** the flat+nested Go DTOs into the portal's existing fixture and
- * event component model. Found Footy owns presentation classification; the
- * adapter preserves its root projection without interpreting provider codes.
+ * preserves Found Footy's public presentation projection. The BFF changes
+ * transport URLs and owns recovery, but does not interpret football concepts.
  *
  * ── Video / share URLs (the new sharing model) ──────────────────────────
  * Old: MinIO object paths, proxied at `/api/found-footy/video/:bucket/*`.
@@ -34,10 +32,8 @@ import { createEventUpdateForwarder, createFixtureUpdateBatcher, foundFootyLiveT
  * never-minted id 404s. The share ID remains the durable identity even after
  * its media bytes become unavailable.
  *
- * The adapter also owns timezone-offset `/dates` synthesis, search reshaping,
- * and the NATS→SSE bridge. The Go API now supplies `phase`,
- * `debounce_count`, and forward-only assist data; this shim maps semantic
- * phase back into the legacy flags consumed by the current frontend.
+ * The adapter also owns timezone-offset `/dates` synthesis and the NATS→SSE
+ * bridge. Search provenance and presentation fields pass through unchanged.
  */
 
 // Configuration interface for Found Footy routes
@@ -55,7 +51,10 @@ type GoPresentationState = 'playing' | 'finished' | 'upcoming' | 'deferred'
 type GoDisplay = 'clock' | 'status'
 interface GoClock { minute: number | null; extra: number | null }
 interface GoStatus { short: string; long: string }
-interface GoLeague { id: number; name: string; season: number; country?: string; round?: string }
+interface GoLeague {
+  id: number; name: string; season: number; country?: string
+  priority: number; round_label: string; round_kind: 'regular_season' | 'final' | 'other' | 'unknown'
+}
 interface GoVideo {
   share_id: string; url: string; rank: number; verified: boolean
   extracted_minute: number | null; popularity: number
@@ -63,9 +62,17 @@ interface GoVideo {
 }
 interface GoEvent {
   id: string; fixture_id: number; type: string; detail: string
+  kind: 'goal' | 'red_card' | 'missed_penalty' | 'other'
+  presentation_state: 'unidentified' | 'confirming' | 'searching' | 'complete' | 'removed'
   minute: number; extra: number | null
   team: { id: number; name: string }; player: { id: number; name: string } | null
-  assist?: { id: number; name: string } | null   // captured end-to-end now (was parsed-but-dropped); goals only
+  assist: { id: number; name: string } | null
+  presentation: {
+    label: string
+    team_side: 'home' | 'away' | null
+    score_before: { home: number; away: number } | null
+    score_after: { home: number; away: number } | null
+  }
   videos: GoVideo[]
   phase: 'detected' | 'searching' | 'complete' | 'removed'
   debounce_count: number
@@ -173,91 +180,48 @@ export function createFoundFootyRouter(config: FoundFootyConfig): Router {
     throw new Error(`found-footy-api media probe ${shareId} -> ${response.status}`)
   }
 
-  function legacyEventFlags(e: GoEvent) {
-    switch (e.phase) {
-      case 'removed':
-        return { monitorComplete: true, downloadComplete: true, removed: true }
-      case 'complete':
-        return { monitorComplete: true, downloadComplete: true, removed: false }
-      case 'searching':
-        return { monitorComplete: true, downloadComplete: false, removed: false }
-      case 'detected':
-        // Unknown-player placeholders never enter discovery; the current UI's
-        // legacy flags must not render them as an active search.
-        return e.player
-          ? { monitorComplete: false, downloadComplete: false, removed: false }
-          : { monitorComplete: true, downloadComplete: true, removed: false }
-    }
-  }
-
-  function reshapeEvent(e: GoEvent): EventProjection | null {
-    const kind = e.type === 'goal' ? 'goal'
-      : e.type === 'card' && /red/i.test(e.detail || '') ? 'card'
-      : e.type === 'missed penalty' ? 'penalty-miss' : null
-    if (!kind) return null
-    const videos = [...(e.videos || [])].sort((a, b) => a.rank - b.rank)
-    const { monitorComplete, downloadComplete, removed } = legacyEventFlags(e)
+  function reshapeEvent(e: GoEvent): FootyEvent {
     return {
-      type: 'Goal',
-      _kind: kind,
-      detail: kind === 'card' ? 'Red Card' : kind === 'penalty-miss' ? 'Missed Penalty' : e.detail,
-      time: { elapsed: e.minute, extra: e.extra },
-      team: { ...e.team, logo: '' },
-      player: e.player || { id: null, name: null },
-      assist: kind === 'goal' && e.assist ? e.assist : { id: null, name: null },
-      comments: null,
-      _event_id: e.id,
-      _twitter_search: '',
-      _discovered_videos: [],
-      _s3_urls: videos.map(v => videoUrl(v.share_id)),
-      _s3_videos: videos.map(v => ({
-        url: videoUrl(v.share_id), perceptual_hash: '',
-        resolution_score: (v.width || 0) * (v.height || 0),
-        popularity: v.popularity || 0, rank: v.rank,
-      })),
-      _perceptual_hashes: [],
-      _monitor_complete: monitorComplete,
-      _download_complete: downloadComplete,
-      _removed: removed,
+      id: e.id,
+      fixture_id: e.fixture_id,
+      kind: e.kind,
+      presentation_state: e.presentation_state,
+      minute: e.minute,
+      extra: e.extra,
+      team: e.team,
+      player: e.player,
+      assist: e.assist,
+      presentation: e.presentation,
+      debounce_count: e.debounce_count,
+      videos: (e.videos || []).map(video => ({ ...video, url: videoUrl(video.share_id) })),
     }
-  }
-
-  function reshapeEvents(g: GoFixture): GoalEvent[] {
-    const events = (g.events || []).map(reshapeEvent)
-      .filter((event): event is EventProjection => event !== null)
-    return withEventContext({
-      teams: { home: g.home, away: g.away },
-      fixture: { date: g.kickoff },
-    }, events)
   }
 
   function reshapeFixture(g: GoFixture): Fixture {
     return {
-      _id: g.id,
-      state: g.state,
+      id: g.id,
+      kickoff: g.kickoff,
       presentation_state: g.presentation_state,
       clock: g.clock,
       status: g.status,
       display: g.display,
-      fixture: {
-        id: g.id,
-        referee: null,
-        timezone: 'UTC',
-        date: g.kickoff,
-        timestamp: Math.floor(new Date(g.kickoff).getTime() / 1000),
+      league: {
+        id: g.league.id,
+        name: g.league.name,
+        country: g.league.country || '',
+        season: g.league.season,
+        priority: g.league.priority,
+        round_label: g.league.round_label,
+        round_kind: g.league.round_kind,
       },
-      league: { id: g.league.id, name: g.league.name, country: g.league.country || '', logo: '', flag: '', season: g.league.season, round: g.league.round || '' },
-      teams: {
-        home: { id: g.home.id, name: g.home.name, winner: g.home.winner, logo: '' },
-        away: { id: g.away.id, name: g.away.name, winner: g.away.winner, logo: '' },
-      },
-      goals: { home: g.home.score, away: g.away.score },
-      score: { penalty: g.penalty || null },
-      events: reshapeEvents(g),
+      home: g.home,
+      away: g.away,
+      penalty: g.penalty || null,
+      events: (g.events || []).map(reshapeEvent),
       // found-footy's API derives last_activity_at from activation, first terminal observation,
       // and eligible events. Legacy/direct-complete rows fall back to completion. The later
       // active→completed process transition therefore cannot reorder an already-finished match.
-      _last_activity: g.last_activity_at || undefined,
+      last_activity_at: g.last_activity_at,
     }
   }
 
@@ -397,9 +361,8 @@ export function createFoundFootyRouter(config: FoundFootyConfig): Router {
     })
   })
 
-  // GET /fixtures - one complete authoritative fixture window. Presentation
-  // grouping comes from presentation_state; Found Footy's processing state is
-  // preserved as data but never becomes a browser bucket.
+  // GET /fixtures - one complete authoritative fixture window. Found Footy's
+  // internal processing state is deliberately absent from the browser shape.
   router.get('/fixtures', async (req: Request, res: Response) => {
     try {
       if (req.query.ids !== undefined) {
@@ -441,48 +404,26 @@ export function createFoundFootyRouter(config: FoundFootyConfig): Router {
 
   // GET /search?q= - proxy Go's /api/v1/search (case- and accent-insensitive substring across
   // competition, team, scorer, and assist names). Go returns complete fixtures plus authoritative
-  // field-level match provenance. This adapter reshapes that provenance for the existing UI; it
-  // never repeats text matching. The frontend re-buckets per timezone + applies its cutoff.
+  // field-level match provenance. The frontend buckets the flat result by its selected timezone.
   router.get('/search', async (req: Request, res: Response) => {
     const q = ((req.query.q as string) || '').trim()
     // Frontend already gates <2 chars; guard here too, and never send an empty q (Go 400s it).
     if (!isConfigured || q.length < 2) {
-      return res.json({ results: [], query: q, totalFixtures: 0 })
+      return res.json({ fixtures: [], query: q, totalFixtures: 0 })
     }
     try {
       const all = await goJson<GoSearchFixture[]>(`/api/v1/search?q=${encodeURIComponent(q)}`)
 
-      const fixtures = all.map(g => {
-        const base = reshapeFixture(g)
-        const visibleEventIds = new Set(base.events.map(event => event._event_id))
-        const matchedEventIds = g.search_match.events
-          .map(event => event.event_id)
-          .filter(eventId => visibleEventIds.has(eventId))
-        const teamMatch = g.search_match.home_team || g.search_match.away_team
-        const fixture: SearchFixture = {
-          ...base,
-          _search: { teamMatch, matchedEventIds, matchCount: matchedEventIds.length + (teamMatch ? 1 : 0) },
-        }
-        return fixture
-      })
-
-      // Group by UTC date, newest first (the frontend regroups by tz-local date).
-      const byDate = new Map<string, SearchFixture[]>()
-      for (const f of fixtures) {
-        const date = (f.fixture.date || '').slice(0, 10)
-        if (!byDate.has(date)) byDate.set(date, [])
-        byDate.get(date)!.push(f)
-      }
-      const results = Array.from(byDate.entries())
-        .sort((a, b) => b[0].localeCompare(a[0]))
-        .map(([date, groupFixtures]) => ({ date, fixtures: groupFixtures }))
-
-      res.json({ results, query: q, totalFixtures: fixtures.length })
+      const fixtures: SearchFixture[] = all.map(g => ({
+        ...reshapeFixture(g),
+        search_match: g.search_match,
+      }))
+      res.json({ fixtures, query: q, totalFixtures: fixtures.length })
     } catch (e) {
       // Pre-migration Go /search 404s (goJson throws on non-2xx) — degrade to empty results
       // rather than surfacing an error in the search UI.
       console.warn('[found-footy] /search:', (e as Error).message)
-      res.json({ results: [], query: q, totalFixtures: 0 })
+      res.json({ fixtures: [], query: q, totalFixtures: 0 })
     }
   })
 
@@ -519,7 +460,7 @@ export function createFoundFootyRouter(config: FoundFootyConfig): Router {
         events: [
           ...(fixture.events || []).filter(candidate => candidate.id !== event.id),
           event,
-        ],
+        ].sort((a, b) => a.minute - b.minute || (a.extra || 0) - (b.extra || 0)),
       }
       res.json({
         eventId,

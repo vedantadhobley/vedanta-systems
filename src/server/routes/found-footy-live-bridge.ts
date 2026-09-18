@@ -1,5 +1,5 @@
 import type { Fixture } from '../../types/found-footy'
-import type { EventProjection } from '../../lib/found-footy-event'
+import type { FootyEvent } from '../../types/found-footy'
 import type { FootyLiveEvent } from '../../lib/found-footy-live'
 import type { FootyDiagnostic } from '../../lib/found-footy-diagnostics'
 
@@ -46,7 +46,7 @@ export function createFixtureUpdateBatcher(
 export type BridgeMessage = FootyLiveEvent | { type: 'resync'; reason: string }
 
 export function createEventUpdateForwarder(deps: {
-  fetchEvent: (eventId: string, fixtureId: number) => Promise<EventProjection | null>
+  fetchEvent: (eventId: string, fixtureId: number) => Promise<FootyEvent | null>
   fetchFixtures: (fixtureIds: number[]) => Promise<Fixture[]>
   broadcast: (message: BridgeMessage) => void
   record: (entry: FootyDiagnostic) => void
@@ -69,7 +69,7 @@ export function createEventUpdateForwarder(deps: {
     try {
       const event = await deps.fetchEvent(eventId, fixtureId)
       if (stale()) return
-      if (!event || event._event_id !== eventId) throw new Error('empty-or-mismatched-event')
+      if (!event || event.id !== eventId) throw new Error('empty-or-mismatched-event')
       deps.record({ ...ids, stage: 'targeted_event', outcome: 'fetched' })
       deps.broadcast({ type: 'event_update', ...ids, event })
     } catch {
@@ -80,7 +80,7 @@ export function createEventUpdateForwarder(deps: {
       try {
         const fixtures = await deps.fetchFixtures([fixtureId])
         if (stale()) return
-        if (fixtures.length !== 1 || fixtures[0]._id !== fixtureId) throw new Error('missing-parent')
+        if (fixtures.length !== 1 || fixtures[0].id !== fixtureId) throw new Error('missing-parent')
         deps.record({ ...ids, stage: 'targeted_fixture', outcome: 'fetched' })
         deps.broadcast({ type: 'fixture_update', fixture_ids: [fixtureId], fixtures })
       } catch {

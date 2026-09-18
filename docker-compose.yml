@@ -36,8 +36,8 @@ services:
       - API_PORT=3001
       # Server-only GitHub credential for the cached contribution calendar.
       - GITHUB_TOKEN=${GITHUB_TOKEN}
-      # Found Footy — Pattern B: proxy the Go read API (reshaped to the legacy frontend shape
-      # in src/server/routes/found-footy.ts). Replaces the old direct Mongo/MinIO reads.
+      # Found Footy — Pattern B: proxy the Go read API and preserve its public
+      # presentation contract. Replaces the old direct Mongo/MinIO reads.
       - FOUND_FOOTY_API_URL=http://found-footy-prod-api:8081
       # Live-feed bridge: NODE_ENV=production scopes the subscription to found-footy.prod.>
       # on the shared workspace NATS, fanned to SSE.

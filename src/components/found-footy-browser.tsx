@@ -2,9 +2,10 @@ import { useState, useCallback, useEffect, useRef, memo, useMemo } from 'react'
 import { RiCloseLine, RiCloseFill, RiShareBoxLine, RiShareBoxFill, RiDownload2Line, RiDownload2Fill, RiCheckFill, RiVidiconFill, RiScan2Line, RiHourglass2Line, RiHourglass2Fill, RiExpandUpDownLine, RiExpandUpDownFill, RiContractUpDownLine, RiContractUpDownFill, RiVolumeMuteLine, RiPlayFill, RiErrorWarningLine, RiArrowLeftSLine, RiArrowLeftSFill, RiArrowRightSLine, RiArrowRightSFill, RiArrowGoBackLine, RiArrowGoBackFill, RiArrowGoForwardLine, RiArrowGoForwardFill, RiSearchLine, RiSearchFill } from '@remixicon/react'
 import type {
   Fixture,
-  GoalEvent,
-  RankedVideo,
+  FootyEvent,
+  FootyVideo,
   SearchDateGroup,
+  SearchFixture,
   SharedEventTarget,
   SharedMediaState,
 } from '@/types/found-footy'
@@ -17,73 +18,7 @@ import {
   orderFixturesForPresentation,
 } from '@/lib/found-footy-presentation'
 import { formatFixtureIndicator } from '@/lib/found-footy-live'
-
-/**
- * Generate event display title with <<highlighted>> markers around scoring team's score
- * Format: "Home X-(Y) Away" where scoring team's score is in parentheses and highlighted
- * Uses _score_after (score at moment of goal) and _scoring_team from the event
- */
-function generateEventTitle(fixture: Fixture, event: GoalEvent): string {
-  const { teams } = fixture
-
-  // Non-scoring events (red card, missed penalty): no score line — just name the involved
-  // team (highlighted). EventItem adds a kind-specific mark; _scoring_team carries which side
-  // (carded offender / penalty taker). The subtitle's `detail` says which it is.
-  if (event._kind === 'card' || event._kind === 'penalty-miss') {
-    const team = event._scoring_team === 'home' ? teams.home.name : teams.away.name
-    return `<<${team}>>`
-  }
-
-  // Use _score_after for the score at this moment, fallback to fixture goals
-  const homeScore = event._score_after?.home ?? fixture.goals?.home ?? 0
-  const awayScore = event._score_after?.away ?? fixture.goals?.away ?? 0
-  
-  // Use _scoring_team to determine which team scored
-  const scoringTeamIsHome = event._scoring_team === 'home'
-  
-  if (scoringTeamIsHome) {
-    // Home team scored - highlight home score with parentheses
-    return `<<${teams.home.name} (${homeScore})>> - ${awayScore} ${teams.away.name}`
-  } else {
-    // Away team scored - highlight away score with parentheses
-    return `${teams.home.name} ${homeScore} - <<(${awayScore}) ${teams.away.name}>>`
-  }
-}
-
-// Display label for an event, from its semantic detail (+ _kind for non-scoring events). The
-// shim carries the raw detail across the API; the display copy lives here (design.md: the
-// backend derives phase/detail, the frontend renders it). The five events we surface today.
-function formatEventDetail(detail: string, kind?: string): string {
-  if (kind === 'card') return 'Red Card'
-  if (kind === 'penalty-miss') return 'Penalty Miss'
-  switch ((detail || '').toLowerCase()) {
-    case 'normal goal':    return 'Goal'
-    case 'penalty':        return 'Penalty Goal'
-    case 'own goal':       return 'Own Goal'
-    case 'red card':       return 'Red Card'
-    case 'missed penalty': return 'Penalty Miss'
-    default:               return detail || 'Goal'
-  }
-}
-
-/**
- * Generate event display subtitle with <<highlighted>> markers around scorer name
- * Format: "45' Goal - <<Scorer Name>> (Assister Name)" or "45+2' Goal - <<Scorer Name>>"
- */
-function generateEventSubtitle(event: GoalEvent): string {
-  const timeStr = event.time.extra
-    ? `${event.time.elapsed}+${event.time.extra}'`
-    : `${event.time.elapsed}'`
-
-  const eventType = formatEventDetail(event.detail, event._kind)
-  const scorerName = event.player?.name || 'Unknown'
-  const assistName = event.assist?.name
-  
-  if (assistName) {
-    return `${timeStr} ${eventType} - <<${scorerName}>> (${assistName})`
-  }
-  return `${timeStr} ${eventType} - <<${scorerName}>>`
-}
+import { formatEventSubtitle, formatEventTitle } from '@/lib/found-footy-display'
 
 // Competition group label: "{country} - {name}". League only — NO round: fixtures within one
 // league can span matchweeks on the same day, so round is a per-fixture property, not a group
@@ -96,10 +31,8 @@ function competitionLabel(league: Fixture['league']): string {
 // Matchweek/round for a fixture ROW. In the grouped view the header carries the league, so the
 // row only shows the part that varies per fixture: "Regular Season - 5" -> "MW 5"; cup rounds
 // ("Round of 64", "Final", "Group Stage") shown as-is; roundless comps -> "" (no line).
-function formatRound(round: string | undefined): string {
-  if (!round) return ''
-  const m = round.match(/^Regular Season - (\d+)$/i)
-  return m ? `Matchweek ${m[1]}` : round
+function formatRound(league: Fixture['league']): string {
+  return league.round_label
 }
 
 // Synced pulse animation - all icons sync to wall clock
@@ -129,20 +62,6 @@ function UnknownPlayerIcon({ className }: { className?: string }) {
   return (
     <RiErrorWarningLine className={className} />
   )
-}
-
-// Check if player is unknown (null, undefined, or "Unknown")
-function isUnknownPlayer(player: { name: string | null } | null | undefined): boolean {
-  return !player?.name || player.name === 'Unknown'
-}
-
-// Extract the share_id from a clip URL (e.g. "s_8445a5f3a3dc" from ".../video/s_8445a5f3a3dc").
-// The share_id is the stable, shareable unit — it self-upgrades to the current best clip
-// across replacement. Removed or retention-reclaimed media returns 410; a
-// never-minted share returns 404. Stable identity does not imply permanent bytes.
-function getShareId(url: string): string {
-  const match = url.match(/\/video\/(s_[a-f0-9]{12})(?:$|[/?#])/i)
-  return match?.[1] || ''
 }
 
 // Copy text to the clipboard, working in dev too. navigator.clipboard only exists in a secure
@@ -176,6 +95,7 @@ async function copyToClipboard(text: string): Promise<boolean> {
 // Video info for modal and sharing
 interface VideoInfo {
   url: string
+  shareId: string
   title: string
   subtitle: string
   eventId: string
@@ -208,7 +128,7 @@ interface FoundFootyBrowserProps {
   // Search
   searchMode: boolean
   searchQuery: string
-  searchResults: SearchDateGroup[]
+  searchResults: SearchFixture[]
   isSearching: boolean
   onEnterSearch: () => void
   onExitSearch: () => void
@@ -280,21 +200,19 @@ export function FoundFootyBrowser({
     const groupMap = new Map<string, SearchDateGroup['fixtures']>()
     let count = 0
     
-    for (const group of searchResults) {
-      for (const fixture of group.fixtures) {
-        const localDate = getDateForTimestamp(fixture.fixture.date)
-        const isStaging = getFixturePresentationState(fixture) === 'upcoming'
-        
-        // Skip staging fixtures beyond the timezone-scoped cutoff
-        if (isStaging && localDate > cutoffDate) continue
-        
-        count++
-        const existing = groupMap.get(localDate)
-        if (existing) {
-          existing.push(fixture)
-        } else {
-          groupMap.set(localDate, [fixture])
-        }
+    for (const fixture of searchResults) {
+      const localDate = getDateForTimestamp(fixture.kickoff)
+      const isStaging = getFixturePresentationState(fixture) === 'upcoming'
+
+      // Skip staging fixtures beyond the timezone-scoped cutoff
+      if (isStaging && localDate > cutoffDate) continue
+
+      count++
+      const existing = groupMap.get(localDate)
+      if (existing) {
+        existing.push(fixture)
+      } else {
+        groupMap.set(localDate, [fixture])
       }
     }
     
@@ -332,8 +250,7 @@ export function FoundFootyBrowser({
   const openVideoModal = useCallback((info: VideoInfo) => {
     // Pause SSE connection when video opens
     onPauseStream?.()
-    const shareId = getShareId(info.url)
-    if (shareId) onOpenVideoRoute?.(info.eventId, shareId)
+    if (info.shareId) onOpenVideoRoute?.(info.eventId, info.shareId)
     setVideoModal(info)
   }, [onPauseStream, onOpenVideoRoute])
 
@@ -396,19 +313,19 @@ export function FoundFootyBrowser({
     const targetKey = `${initialVideo.navigationKey}:${initialVideo.eventId}:${initialVideo.shareId || ''}`
     if (autoOpenedTargetRef.current === targetKey) return
     const fixture = sharedTarget.fixture
-    const event = fixture.events.find(candidate => candidate._event_id === initialVideo.eventId)
+    const event = fixture.events.find(candidate => candidate.id === initialVideo.eventId)
     if (!event) return
     autoOpenedTargetRef.current = targetKey
 
     setExpandedCompetition(fixture.league.id)
-    setExpandedFixture(fixture._id)
-    setExpandedEvent(event._event_id)
+    setExpandedFixture(fixture.id)
+    setExpandedEvent(event.id)
 
-    if (!initialVideo.shareId) return
+    const shareId = initialVideo.shareId
+    if (!shareId) return
     const mediaState = sharedTarget.media?.state || 'unknown'
-    const videos = event._s3_videos || []
-    const matched = videos.find(video => getShareId(video.url) === initialVideo.shareId)
-    const url = matched?.url || `/api/found-footy/video/${initialVideo.shareId}`
+    const matched = event.videos.find(video => video.share_id === shareId)
+    const url = matched?.url || `/api/found-footy/video/${shareId}`
     let cancelled = false
     let secondFrame = 0
     const firstFrame = requestAnimationFrame(() => {
@@ -417,9 +334,10 @@ export function FoundFootyBrowser({
         if (mediaState === 'available') onPauseStream?.()
         setVideoModal({
           url,
-          title: generateEventTitle(fixture, event),
-          subtitle: generateEventSubtitle(event),
-          eventId: event._event_id,
+          shareId,
+          title: formatEventTitle(fixture, event),
+          subtitle: formatEventSubtitle(event),
+          eventId: event.id,
           mediaState,
         })
       })
@@ -442,7 +360,7 @@ export function FoundFootyBrowser({
   const currentFilteredFixtures = useMemo(
     () => orderFixturesForPresentation(allFixtures.filter(fixture => (
       dateIntent === 'live' && fixture.presentation_state === 'playing'
-    ) || getDateForTimestamp(fixture.fixture.date) === currentDate)),
+    ) || getDateForTimestamp(fixture.kickoff) === currentDate)),
     [allFixtures, currentDate, dateIntent, getDateForTimestamp],
   )
   
@@ -496,13 +414,7 @@ export function FoundFootyBrowser({
     ? lastFixturesRef.current 
     : currentFilteredFixtures
 
-  // Group fixtures by competition (league.id — country is unreliable, blank for UEFA comps).
-  // WITHIN a group, fixtures keep allDateFixtures' status-primary order (live -> finished ->
-  // upcoming). The GROUPS sort by league.id ASCENDING: API-Football numbers marquee comps low
-  // (2 CL, 3 EL, 39 PL, 140 La Liga), so the big ones float up — and it's STABLE, which matters
-  // because these are collapsible: the live badge signals action in place instead of sections
-  // reshuffling under you. liveCount follows the explicit playing presentation state, not the
-  // monitor's active transport bucket.
+  // Group by competition while preserving Found Footy's explicit priority.
   const competitionGroups = useMemo(() => {
     const groups = new Map<number, { league: Fixture['league']; fixtures: Fixture[] }>()
     for (const f of allDateFixtures) {
@@ -515,11 +427,9 @@ export function FoundFootyBrowser({
       .map(g => ({
         ...g,
         liveCount: g.fixtures.filter(f => getFixturePresentationState(f) === 'playing').length,
-        // A final can't be collapsed (see render). Match round EXACTLY "Final" so semis /
-        // quarters don't qualify. Finals are ~always their single fixture.
-        isFinal: g.fixtures.length > 0 && g.fixtures.every(f => (f.league?.round || '').trim().toLowerCase() === 'final'),
+        isFinal: g.fixtures.length > 0 && g.fixtures.every(f => f.league.round_kind === 'final'),
       }))
-      .sort((a, b) => a.league.id - b.league.id)
+      .sort((a, b) => a.league.priority - b.league.priority || a.league.id - b.league.id)
   }, [allDateFixtures])
 
   // Check if we have any fixtures for this date
@@ -715,23 +625,23 @@ export function FoundFootyBrowser({
                       const isPending = getFixturePresentationState(fixture) === 'upcoming'
                       return isPending ? (
                         <StagingFixtureItem
-                          key={fixture._id}
+                          key={fixture.id}
                           fixture={fixture}
                           formatKickoff={formatKickoff}
-                          searchTeamMatch={fixture._search?.teamMatch}
+                          searchTeamMatch={fixture.search_match.home_team || fixture.search_match.away_team}
                         />
                       ) : (
                         <FixtureItem
-                          key={fixture._id}
+                          key={fixture.id}
                           fixture={fixture}
                           formatKickoff={formatKickoff}
-                          isExpanded={expandedFixture === fixture._id}
+                          isExpanded={expandedFixture === fixture.id}
                           expandedEvent={expandedEvent}
-                          onToggle={() => toggleFixture(fixture._id)}
+                          onToggle={() => toggleFixture(fixture.id)}
                           onToggleEvent={toggleEvent}
                           onOpenVideo={openVideoModal}
-                          searchMatchedEventIds={fixture._search?.matchedEventIds}
-                          searchTeamMatch={fixture._search?.teamMatch}
+                          searchMatchedEventIds={fixture.search_match.events.map(match => match.event_id)}
+                          searchTeamMatch={fixture.search_match.home_team || fixture.search_match.away_team}
                         />
                       )
                     })}
@@ -815,19 +725,19 @@ export function FoundFootyBrowser({
 
                           return isPending ? (
                             <StagingFixtureItem
-                              key={fixture._id}
+                              key={fixture.id}
                               fixture={fixture}
                               formatKickoff={formatKickoff}
                               roundOnly
                             />
                           ) : (
                             <FixtureItem
-                              key={fixture._id}
+                              key={fixture.id}
                               fixture={fixture}
                               formatKickoff={formatKickoff}
-                              isExpanded={expandedFixture === fixture._id}
+                              isExpanded={expandedFixture === fixture.id}
                               expandedEvent={expandedEvent}
-                              onToggle={() => toggleFixture(fixture._id)}
+                              onToggle={() => toggleFixture(fixture.id)}
                               onToggleEvent={toggleEvent}
                               onOpenVideo={openVideoModal}
                               roundOnly
@@ -850,6 +760,7 @@ export function FoundFootyBrowser({
       {videoModal && (
         <MemoizedVideoModal 
           url={videoModal.url} 
+          shareId={videoModal.shareId}
           title={videoModal.title}
           subtitle={videoModal.subtitle}
           eventId={videoModal.eventId}
@@ -893,18 +804,18 @@ interface StagingFixtureItemProps {
 function StagingFixtureItem({ fixture, formatKickoff, searchTeamMatch, roundOnly }: StagingFixtureItemProps) {
   const [countdown, setCountdown] = useState<string>('')
 
-  const { teams, fixture: fixtureInfo, league } = fixture
-  const kickoffTime = formatKickoff(fixtureInfo.date)
+  const { home, away, league } = fixture
+  const kickoffTime = formatKickoff(fixture.kickoff)
   const competitionText = roundOnly
-    ? formatRound(league?.round)
-    : (league ? `${league.country} - ${league.name}${league.round ? ` (${league.round})` : ''}` : 'Unknown Competition')
+    ? formatRound(league)
+    : `${competitionLabel(league)}${league.round_label ? ` (${league.round_label})` : ''}`
   
   // Calculate and update countdown - synced to minute boundary
   useEffect(() => {
     let intervalId: NodeJS.Timeout | null = null
     
     const updateCountdown = () => {
-      setCountdown(formatKickoffCountdown(fixtureInfo.date))
+      setCountdown(formatKickoffCountdown(fixture.kickoff))
     }
     
     updateCountdown()
@@ -923,7 +834,7 @@ function StagingFixtureItem({ fixture, formatKickoff, searchTeamMatch, roundOnly
       clearTimeout(timeoutId)
       if (intervalId) clearInterval(intervalId)
     }
-  }, [fixtureInfo.date])
+  }, [fixture.kickoff])
 
   return (
     <div className={cn("border border-corpo-border", searchTeamMatch && "shadow-[inset_2px_0_0_0_hsl(var(--lavender))]")}>
@@ -940,15 +851,15 @@ function StagingFixtureItem({ fixture, formatKickoff, searchTeamMatch, roundOnly
         <span className="flex-1 flex flex-col min-w-0">
           <span className="flex items-center gap-2 min-w-0">
             <span className="truncate flex-1 min-w-0">
-              <span>{teams.home.name}</span>
+              <span>{home.name}</span>
               <span className="text-corpo-text/50 mx-2">vs</span>
-              <span>{teams.away.name}</span>
+              <span>{away.name}</span>
             </span>
             <span className="text-corpo-text/60 flex-shrink-0 font-light" title={fixture.status.long}>
               {formatFixtureIndicator(fixture)}
             </span>
           </span>
-          <FixtureMetadata competitionText={competitionText} date={fixtureInfo.date} kickoffTime={kickoffTime} countdown={countdown} />
+          <FixtureMetadata competitionText={competitionText} date={fixture.kickoff} kickoffTime={kickoffTime} countdown={countdown} />
         </span>
       </div>
     </div>
@@ -992,25 +903,25 @@ function FixtureItem({
   roundOnly
 }: FixtureItemProps) {
   
-  const { teams, goals, score, events, league } = fixture
-  const kickoffTime = formatKickoff(fixture.fixture.date)
+  const { home, away, penalty, events, league } = fixture
+  const kickoffTime = formatKickoff(fixture.kickoff)
   const competitionText = roundOnly
-    ? formatRound(league?.round)
-    : (league ? `${league.country} - ${league.name}${league.round ? ` (${league.round})` : ''}` : 'Unknown Competition')
+    ? formatRound(league)
+    : `${competitionLabel(league)}${league.round_label ? ` (${league.round_label})` : ''}`
   const isLive = getFixturePresentationState(fixture) === 'playing'
-  const hasScore = goals?.home != null && goals?.away != null
-  const showPenaltyScore = hasScore && score?.penalty != null
+  const hasScore = home.score != null && away.score != null
+  const showPenaltyScore = hasScore && penalty != null
   const isFinished = getFixturePresentationState(fixture) === 'finished'
-  const homeWins = isFinished && teams.home.winner === true
-  const awayWins = isFinished && teams.away.winner === true
+  const homeWins = isFinished && home.winner === true
+  const awayWins = isFinished && away.winner === true
 
   // Empty deferred fixtures have nothing to expand. This is data-driven; the
   // browser does not interpret provider status codes to decide interactivity.
   if (
     getFixturePresentationState(fixture) === 'deferred' &&
     events.length === 0 &&
-    (goals?.home == null || goals.home === 0) &&
-    (goals?.away == null || goals.away === 0)
+    (home.score == null || home.score === 0) &&
+    (away.score == null || away.score === 0)
   ) {
     return (
       <div className="border border-corpo-border">
@@ -1021,9 +932,9 @@ function FixtureItem({
           <span className="flex-1 flex flex-col min-w-0">
             <span className="flex items-center gap-2 min-w-0">
               <span className="truncate flex-1 min-w-0">
-                <span>{teams.home.name}</span>
+                <span>{home.name}</span>
                 <span className="text-corpo-text/50 mx-2">vs</span>
-                <span>{teams.away.name}</span>
+                <span>{away.name}</span>
               </span>
               <span
                 className="flex-shrink-0 text-sm uppercase tracking-wider text-corpo-text/40"
@@ -1032,24 +943,21 @@ function FixtureItem({
                 {formatFixtureIndicator(fixture)}
               </span>
             </span>
-            <FixtureMetadata competitionText={competitionText} date={fixture.fixture.date} kickoffTime={kickoffTime} />
+            <FixtureMetadata competitionText={competitionText} date={fixture.kickoff} kickoffTime={kickoffTime} />
           </span>
         </div>
       </div>
     )
   }
 
-  // Sort events by _first_seen descending (most recent first)
-  const sortedEvents = [...(events || [])].sort((a, b) => {
-    const aTime = a._first_seen ? new Date(a._first_seen).getTime() : 0
-    const bTime = b._first_seen ? new Date(b._first_seen).getTime() : 0
-    return bTime - aTime
-  })
+  // Found Footy supplies deterministic match-clock order. Reverse only a copy
+  // because this surface renders recent events first.
+  const sortedEvents = [...events].reverse()
   
   // Check if any event in this fixture is still scanning
-  const hasActiveScanning = sortedEvents.some(e => !e._download_complete)
-  const hasValidating = sortedEvents.some(e => !e._monitor_complete && !isUnknownPlayer(e.player))
-  const hasExtracting = sortedEvents.some(e => e._monitor_complete && !e._download_complete)
+  const hasValidating = sortedEvents.some(e => e.presentation_state === 'confirming')
+  const hasExtracting = sortedEvents.some(e => e.presentation_state === 'searching')
+  const hasActiveScanning = hasValidating || hasExtracting
 
   return (
     <div className={cn("border border-corpo-border", searchTeamMatch && "shadow-[inset_2px_0_0_0_hsl(var(--lavender))]")}>
@@ -1076,14 +984,14 @@ function FixtureItem({
         <span className="flex-1 flex flex-col min-w-0">
           <span className="flex items-center gap-2 min-w-0">
             <span className="truncate flex-1 min-w-0">
-              <span className={cn(homeWins && "text-lavender")}>{teams.home.name}</span>
+              <span className={cn(homeWins && "text-lavender")}>{home.name}</span>
               <span className="text-corpo-text/50 mx-2">
                 {showPenaltyScore
-                  ? `${goals.home} (${score.penalty!.home}) - (${score.penalty!.away}) ${goals.away}`
-                  : hasScore ? `${goals.home} - ${goals.away}` : 'vs'
+                  ? `${home.score} (${penalty!.home}) - (${penalty!.away}) ${away.score}`
+                  : hasScore ? `${home.score} - ${away.score}` : 'vs'
                 }
               </span>
-              <span className={cn(awayWins && "text-lavender")}>{teams.away.name}</span>
+              <span className={cn(awayWins && "text-lavender")}>{away.name}</span>
             </span>
 
             {/* One discovery icon at fixture level: extracting > validating. */}
@@ -1111,7 +1019,7 @@ function FixtureItem({
               {formatFixtureIndicator(fixture)}
             </span>
           </span>
-          <FixtureMetadata competitionText={competitionText} date={fixture.fixture.date} kickoffTime={kickoffTime} />
+          <FixtureMetadata competitionText={competitionText} date={fixture.kickoff} kickoffTime={kickoffTime} />
         </span>
       </button>
 
@@ -1120,19 +1028,19 @@ function FixtureItem({
         <div className="ml-4 border-l border-corpo-border">
           {sortedEvents.length === 0 ? (
             <div className="pl-4 pr-3 py-3 text-corpo-text/40 font-light" style={{ fontSize: 'var(--text-size-base)' }}>
-              No goals yet
+              No events yet
             </div>
           ) : (
             <div>
               {sortedEvents.map(event => (
                 <EventItem
-                  key={event._event_id}
+                  key={event.id}
                   event={event}
                   fixture={fixture}
-                  isExpanded={expandedEvent === event._event_id}
-                  onToggle={() => onToggleEvent(event._event_id)}
+                  isExpanded={expandedEvent === event.id}
+                  onToggle={() => onToggleEvent(event.id)}
                   onOpenVideo={onOpenVideo}
-                  isSearchMatch={searchMatchedEventIds?.includes(event._event_id)}
+                  isSearchMatch={searchMatchedEventIds?.includes(event.id)}
                 />
               ))}
             </div>
@@ -1161,7 +1069,7 @@ function HighlightedText({ text, className }: { text: string; className?: string
 }
 
 interface EventItemProps {
-  event: GoalEvent
+  event: FootyEvent
   fixture: Fixture
   isExpanded: boolean
   onToggle: () => void
@@ -1170,35 +1078,28 @@ interface EventItemProps {
 }
 
 function EventItem({ event, fixture, isExpanded, onToggle, onOpenVideo, isSearchMatch }: EventItemProps) {
-  const isRemoved = event._removed
+  const isRemoved = event.presentation_state === 'removed'
   
-  // Get videos - prefer ranked _s3_videos, fall back to legacy _s3_urls
-  const rankedVideos: (RankedVideo | { url: string; rank: number; perceptual_hash?: string })[] = event._s3_videos 
-    ? [...event._s3_videos].sort((a, b) => a.rank - b.rank)  // Sort by rank (1 = best)
-    : event._s3_urls?.map((url, idx) => ({ url, rank: idx + 1, perceptual_hash: undefined })) || []
+  const rankedVideos: FootyVideo[] = [...event.videos].sort((a, b) => a.rank - b.rank)
   
   const videoCount = rankedVideos.length
   
-  // Scanning states:
-  // - _monitor_complete = false: Debounce/validating (event just detected, waiting for stability)
-  // - _monitor_complete = true && _download_complete = false: Extracting clips from Twitter
-  // - Both true: All scanning complete
-  // - Unknown player: No debouncing, goes straight to extraction
-  const hasUnknownPlayer = isUnknownPlayer(event.player)
-  const isValidating = !isRemoved && !event._monitor_complete && !hasUnknownPlayer
-  const isExtracting = !isRemoved && event._monitor_complete === true && !event._download_complete
+  const hasUnknownPlayer = event.presentation_state === 'unidentified'
+  const isValidating = event.presentation_state === 'confirming'
+  const isExtracting = event.presentation_state === 'searching'
   const isStillScanning = isValidating || isExtracting
 
   // Use generated display strings for video modal
-  const videoTitle = generateEventTitle(fixture, event)
-  const videoSubtitle = generateEventSubtitle(event)
+  const videoTitle = formatEventTitle(fixture, event)
+  const videoSubtitle = formatEventSubtitle(event)
 
   // Create VideoInfo for a specific video
   const makeVideoInfo = (video: typeof rankedVideos[0]): VideoInfo => ({
     url: video.url,
+    shareId: video.share_id,
     title: videoTitle,
     subtitle: videoSubtitle,
-    eventId: event._event_id
+    eventId: event.id
   })
 
   return (
@@ -1226,20 +1127,20 @@ function EventItem({ event, fixture, isExpanded, onToggle, onOpenVideo, isSearch
         <div className="flex-1 min-w-0">
           {/* Title line: score at moment of goal (or carded team for a red card) */}
           <div className="flex items-center gap-2">
-            {event._kind === 'card' && (
+            {event.kind === 'red_card' && (
               <span
                 className="inline-block flex-shrink-0"
                 style={{ width: '10px', height: '14px', background: '#e5484d' }}
                 title="Red card"
               />
             )}
-            {event._kind === 'penalty-miss' && (
+            {event.kind === 'missed_penalty' && (
               <span className="inline-flex flex-shrink-0" title="Penalty missed">
                 <RiCloseFill className="w-3.5 h-3.5" style={{ color: '#e5484d' }} />
               </span>
             )}
             <span className="truncate">
-              <HighlightedText text={generateEventTitle(fixture, event)} />
+              <HighlightedText text={formatEventTitle(fixture, event)} />
             </span>
             {isRemoved && (
               <span className="text-corpo-text/40 flex-shrink-0 text-xs uppercase tracking-wider">
@@ -1264,7 +1165,7 @@ function EventItem({ event, fixture, isExpanded, onToggle, onOpenVideo, isSearch
           </div>
           {/* Subtitle line: time, player, assist - with <<highlighted>> scorer */}
           <div className="text-corpo-text/50 truncate text-sm">
-            <HighlightedText text={generateEventSubtitle(event)} />
+            <HighlightedText text={formatEventSubtitle(event)} />
           </div>
         </div>
         
@@ -1289,6 +1190,8 @@ function EventItem({ event, fixture, isExpanded, onToggle, onOpenVideo, isSearch
             */}
             {isRemoved ? (
               <span className="text-corpo-text/40">event removed</span>
+            ) : hasUnknownPlayer && videoCount === 0 ? (
+              <span className="text-corpo-text/40">player unidentified</span>
             ) : isValidating && videoCount === 0 ? (
               // State 1a: Validating - event just detected, checking if real
               <div className="flex items-center gap-2 text-lavender/70">
@@ -1370,6 +1273,7 @@ function ClipButton({ index, isBest, onClick }: ClipButtonProps) {
 
 interface VideoModalProps {
   url: string
+  shareId: string
   title: string
   subtitle: string
   eventId: string
@@ -1388,6 +1292,7 @@ type PlaybackStatus =
 
 const MemoizedVideoModal = memo(function VideoModal({
   url,
+  shareId,
   title,
   subtitle,
   eventId,
@@ -1573,10 +1478,9 @@ const MemoizedVideoModal = memo(function VideoModal({
     return () => document.removeEventListener('keydown', handleKeyDown)
   }, [onClose])
 
-  // Build a shareable URL from the clip's stable share_id (self-upgrades to the current best
-  // clip; 410 if VAR-removed, 404 if never minted). Falls back to event-only if absent.
+  // The producer supplies the durable share identity explicitly. It self-upgrades
+  // to the current best clip; 410 means removed and 404 means never minted.
   const getShareUrl = () => {
-    const shareId = getShareId(url)
     const baseUrl = window.location.origin
     return shareId
       ? `${baseUrl}/workspace/found-footy?v=${encodeURIComponent(eventId)}&s=${encodeURIComponent(shareId)}`

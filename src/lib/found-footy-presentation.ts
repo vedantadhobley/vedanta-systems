@@ -20,17 +20,17 @@ export function formatKickoffCountdown(kickoff: string, now = Date.now()): strin
 }
 
 function compareFixtureIdentity(a: Fixture, b: Fixture): number {
-  return a.fixture.date.localeCompare(b.fixture.date) || a._id - b._id
+  return a.kickoff.localeCompare(b.kickoff) || a.id - b.id
 }
 
 function sortByActivity<T extends Fixture>(fixtures: T[]): T[] {
   const withActivity = fixtures
-    .filter(fixture => fixture._last_activity)
+    .filter(fixture => fixture.last_activity_at)
     .sort((a, b) => (
-      Date.parse(b._last_activity!) - Date.parse(a._last_activity!) || compareFixtureIdentity(a, b)
+      Date.parse(b.last_activity_at!) - Date.parse(a.last_activity_at!) || compareFixtureIdentity(a, b)
     ))
   const withoutActivity = fixtures
-    .filter(fixture => !fixture._last_activity)
+    .filter(fixture => !fixture.last_activity_at)
     .sort(compareFixtureIdentity)
 
   return [...withActivity, ...withoutActivity]
@@ -42,7 +42,7 @@ function sortByKickoff<T extends Fixture>(fixtures: T[]): T[] {
 
 export function orderFixturesForPresentation<T extends Fixture>(fixtures: readonly T[]): T[] {
   const unique = new Map<number, T>()
-  for (const fixture of fixtures) unique.set(fixture._id, fixture)
+  for (const fixture of fixtures) unique.set(fixture.id, fixture)
 
   const grouped: Record<FixturePresentationState, T[]> = {
     playing: [],

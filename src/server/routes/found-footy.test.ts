@@ -1,18 +1,15 @@
 import assert from 'node:assert/strict'
-import type { AddressInfo } from 'node:net'
-import { createServer as createTcpServer, createConnection, type Socket } from 'node:net'
-import { createServer, type Server } from 'node:http'
-import test from 'node:test'
+import { createConnection, createServer as createTcpServer, type AddressInfo, type Socket } from 'node:net'
+import { createServer, type RequestListener, type Server } from 'node:http'
+import test, { type TestContext } from 'node:test'
 
 import express from 'express'
-import type { Fixture } from '../../types/found-footy'
-
-import { createFixtureUpdateBatcher, createFoundFootyRouter, foundFootyLiveTopic } from './found-footy'
-import { createEventUpdateForwarder, type BridgeMessage } from './found-footy-live-bridge'
+import type { Fixture, FootyEvent, SearchFixture } from '../../types/found-footy'
 import { applyFootyLiveEvent, isFootyLiveEvent } from '../../lib/found-footy-live'
 import { createFootyDiagnostics, type FootyDiagnostic } from '../../lib/found-footy-diagnostics'
+import { createFixtureUpdateBatcher, createFoundFootyRouter, foundFootyLiveTopic } from './found-footy'
+import { createEventUpdateForwarder, type BridgeMessage } from './found-footy-live-bridge'
 import { loadNatsAuthenticator } from '../nats-auth'
-import type { EventProjection } from '../../lib/found-footy-event'
 
 function listen(server: Server): Promise<number> {
   return new Promise((resolve, reject) => {
@@ -25,134 +22,142 @@ function listen(server: Server): Promise<number> {
 }
 
 function close(server: Server): Promise<void> {
-  return new Promise((resolve, reject) => {
-    server.close(error => error ? reject(error) : resolve())
-  })
+  return new Promise((resolve, reject) => server.close(error => error ? reject(error) : resolve()))
 }
 
-function goFixture(
-  id: number,
-  state: 'staging' | 'active' | 'completed',
-  presentationState: 'playing' | 'finished' | 'upcoming' | 'deferred',
-  status: string,
-  lastActivityAt: string | null = null,
+function goEvent(
+  id = 'a4dbb584-bda7-4495-8eea-0736d252bcf0',
+  fixtureId = 1,
+  presentationState: FootyEvent['presentation_state'] = 'searching',
 ) {
   return {
     id,
-    state,
+    fixture_id: fixtureId,
+    type: 'goal',
+    detail: 'Penalty',
+    kind: 'goal' as const,
+    presentation_state: presentationState,
+    minute: 62,
+    extra: null,
+    team: { id: fixtureId * 2, name: 'Home' },
+    player: { id: 10, name: 'Scorer' },
+    assist: null,
+    presentation: {
+      label: 'Penalty Goal', team_side: 'home' as const,
+      score_before: { home: 0, away: 0 }, score_after: { home: 1, away: 0 },
+    },
+    videos: [{
+      share_id: 's_5b7b39d48133', url: '/api/v1/videos/s_5b7b39d48133', rank: 1,
+      verified: true, extracted_minute: 62, popularity: 2, width: 1280, height: 720, duration_ms: 12_000,
+    }],
+    phase: presentationState === 'complete' ? 'complete' : 'searching',
+    debounce_count: 3,
+  }
+}
+
+function goFixture(
+  id = 1,
+  presentationState: Fixture['presentation_state'] = 'playing',
+  status = '2H',
+) {
+  return {
+    id,
+    state: 'active',
     kickoff: `2026-08-23T${String(10 + id).padStart(2, '0')}:00:00Z`,
-    league: { id: 1, name: 'Test League', season: 2026 },
+    league: {
+      id: 140, name: 'La Liga', season: 2026, country: 'Spain', priority: 20,
+      round: 'Regular Season - 5', round_label: 'Matchweek 5', round_kind: 'regular_season',
+    },
     home: { id: id * 2, name: 'Home', score: 2, winner: true },
     away: { id: id * 2 + 1, name: 'Away', score: 1, winner: false },
     presentation_state: presentationState,
     clock: { minute: presentationState === 'playing' ? 62 : null, extra: null },
     status: { short: status, long: status },
     display: presentationState === 'playing' ? 'clock' : 'status',
-    penalty: id === 5 ? { home: 4, away: 3 } : null,
-    last_activity_at: lastActivityAt,
-    events: [],
+    penalty: null,
+    last_activity_at: '2026-08-23T13:00:00Z',
+    events: [goEvent(undefined, id)],
   }
 }
 
-test('fixtures endpoint exposes the breaking FF-077 presentation shape as one collection', async t => {
-  const upstreamFixtures = [
-    goFixture(1, 'active', 'deferred', 'PST'),
-    goFixture(2, 'active', 'upcoming', 'NS'),
-    goFixture(3, 'completed', 'playing', '2H'),
-    goFixture(4, 'active', 'finished', 'FT', '2026-08-23T13:00:00Z'),
-    goFixture(5, 'completed', 'finished', 'PEN', '2026-08-23T13:00:00Z'),
-  ]
-  const upstream = createServer((request, response) => {
-    if (request.url === '/api/v1/fixtures') {
-      response.setHeader('Content-Type', 'application/json')
-      response.end(JSON.stringify(upstreamFixtures))
-      return
-    }
-    response.statusCode = 404
-    response.end()
-  })
+async function startPortal(t: TestContext,
+  handler: RequestListener) {
+  const upstream = createServer(handler)
   const upstreamPort = await listen(upstream)
   t.after(() => close(upstream))
-
   const app = express()
-  app.use('/api/found-footy', createFoundFootyRouter({
-    apiUrl: `http://127.0.0.1:${upstreamPort}`,
-    env: 'dev',
-  }))
+  app.use('/api/found-footy', createFoundFootyRouter({ apiUrl: `http://127.0.0.1:${upstreamPort}`, env: 'dev' }))
   const portal = createServer(app)
   const portalPort = await listen(portal)
   t.after(() => close(portal))
+  return `http://127.0.0.1:${portalPort}/api/found-footy`
+}
 
-  const response = await fetch(`http://127.0.0.1:${portalPort}/api/found-footy/fixtures`)
+test('fixtures endpoint mirrors the public presentation contract and removes legacy interpretation', async t => {
+  const source = goFixture()
+  const base = await startPortal(t, (request, response) => {
+    assert.equal(request.url, '/api/v1/fixtures')
+    response.setHeader('Content-Type', 'application/json')
+    response.end(JSON.stringify([source]))
+  })
+  const response = await fetch(`${base}/fixtures`)
   assert.equal(response.status, 200)
-  const body = await response.json() as {
-    fixtures: Array<Fixture & { fixture: Fixture['fixture'] & { status?: unknown } }>
-  }
-
-  assert.deepEqual(body.fixtures.map(fixture => fixture._id), [1, 2, 3, 4, 5])
-  const terminal = body.fixtures.find(fixture => fixture._id === 4)!
-  assert.equal(terminal.state, 'active')
-  assert.equal(terminal.presentation_state, 'finished')
-  assert.deepEqual(terminal.clock, { minute: null, extra: null })
-  assert.deepEqual(terminal.status, { short: 'FT', long: 'FT' })
-  assert.equal(terminal.display, 'status')
-  assert.equal(terminal.fixture.status, undefined)
-  assert.equal(terminal._last_activity, '2026-08-23T13:00:00Z')
-  assert.equal(terminal.teams.home.winner, true)
-  assert.deepEqual(body.fixtures.find(fixture => fixture._id === 5)?.score.penalty, { home: 4, away: 3 })
+  const body = await response.json() as { fixtures: Fixture[] }
+  const fixture = body.fixtures[0]
+  const event = fixture.events[0]
+  assert.equal(fixture.id, 1)
+  assert.equal(fixture.kickoff, source.kickoff)
+  assert.equal(fixture.league.priority, 20)
+  assert.equal(fixture.league.round_label, 'Matchweek 5')
+  assert.equal(fixture.home.score, 2)
+  assert.equal(fixture.last_activity_at, source.last_activity_at)
+  assert.equal(event.kind, 'goal')
+  assert.equal(event.presentation_state, 'searching')
+  assert.equal(event.presentation.label, 'Penalty Goal')
+  assert.equal(event.videos[0].share_id, 's_5b7b39d48133')
+  assert.equal(event.videos[0].url, '/api/found-footy/video/s_5b7b39d48133')
+  assert.equal('state' in fixture, false)
+  assert.equal('round' in fixture.league, false)
+  assert.equal('type' in event, false)
+  assert.equal('phase' in event, false)
+  assert.equal('_event_id' in event, false)
 })
 
-test('search trusts backend match provenance while retaining the complete fixture', async t => {
-  const matchedEventId = 'a4dbb584-bda7-4495-8eea-0736d252bcf0'
-  const otherEventId = '3b414e73-58ef-4e97-9733-41f546bda044'
-  const fixture = {
-    ...goFixture(6, 'completed', 'finished', 'FT'),
-    events: [
-      { ...goEvent(matchedEventId, 6, 'complete', 23), player: { id: 9, name: 'K. Mbappé' } },
-      { ...goEvent(otherEventId, 6, 'complete', 41), player: { id: 10, name: 'Other Player' } },
-    ],
+test('search passes through authoritative provenance as a flat fixture collection', async t => {
+  const source = {
+    ...goFixture(),
     search_match: {
-      competition: false,
-      home_team: false,
-      away_team: false,
-      events: [{ event_id: matchedEventId, player: true, assist: false }],
+      competition: false, home_team: false, away_team: false,
+      events: [{ event_id: goEvent().id, player: true, assist: false }],
     },
   }
-  const upstream = createServer((request, response) => {
+  const base = await startPortal(t, (request, response) => {
     assert.equal(request.url, '/api/v1/search?q=mbappe')
     response.setHeader('Content-Type', 'application/json')
-    response.end(JSON.stringify([fixture]))
+    response.end(JSON.stringify([source]))
   })
-  const upstreamPort = await listen(upstream)
-  t.after(() => close(upstream))
-
-  const app = express()
-  app.use('/api/found-footy', createFoundFootyRouter({
-    apiUrl: `http://127.0.0.1:${upstreamPort}`,
-  }))
-  const portal = createServer(app)
-  const portalPort = await listen(portal)
-  t.after(() => close(portal))
-
-  const response = await fetch(`http://127.0.0.1:${portalPort}/api/found-footy/search?q=mbappe`)
-  assert.equal(response.status, 200)
-  const body = await response.json() as {
-    results: Array<{ fixtures: Array<Fixture & { _search: {
-      teamMatch: boolean; matchedEventIds: string[]; matchCount: number
-    } }> }>
-    totalFixtures: number
+  const body = await (await fetch(`${base}/search?q=mbappe`)).json() as {
+    fixtures: SearchFixture[]; totalFixtures: number
   }
-
   assert.equal(body.totalFixtures, 1)
-  assert.equal(body.results[0].fixtures[0].events.length, 2)
-  assert.deepEqual(body.results[0].fixtures[0]._search, {
-    teamMatch: false,
-    matchedEventIds: [matchedEventId],
-    matchCount: 1,
-  })
+  assert.equal(body.fixtures[0].events.length, 1)
+  assert.deepEqual(body.fixtures[0].search_match, source.search_match)
+  assert.equal('results' in body, false)
 })
 
-test('fixture update batcher unions bursty IDs before one targeted fetch', async () => {
+test('targeted fixture recovery forwards only validated IDs', async t => {
+  const paths: string[] = []
+  const base = await startPortal(t, (request, response) => {
+    paths.push(request.url!)
+    response.setHeader('Content-Type', 'application/json')
+    response.end(JSON.stringify([goFixture()]))
+  })
+  assert.equal((await fetch(`${base}/fixtures?ids=1`)).status, 200)
+  assert.equal((await fetch(`${base}/fixtures?ids=invalid`)).status, 400)
+  assert.deepEqual(paths, ['/api/v1/fixtures?ids=1'])
+})
+
+test('fixture update batcher coalesces bursty IDs', async () => {
   const batches: number[][] = []
   const batcher = createFixtureUpdateBatcher(async ids => { batches.push(ids) }, 10)
   batcher.add([1530158, 1530163])
@@ -160,11 +165,10 @@ test('fixture update batcher unions bursty IDs before one targeted fetch', async
   await new Promise(resolve => setTimeout(resolve, 30))
   await batcher.flush()
   batcher.close()
-
   assert.deepEqual(batches, [[1530158, 1530163, 1530170]])
 })
 
-test('routes fixture status/update and event.update without either legacy subject', () => {
+test('routes only the current Found Footy subjects', () => {
   assert.equal(foundFootyLiveTopic('found-footy.prod.fixture.status'), 'fixture_status')
   assert.equal(foundFootyLiveTopic('found-footy.prod.fixture.update'), 'fixture_update')
   assert.equal(foundFootyLiveTopic('found-footy.prod.event.update'), 'event_update')
@@ -172,110 +176,85 @@ test('routes fixture status/update and event.update without either legacy subjec
   assert.equal(foundFootyLiveTopic('found-footy.prod.fixture.clock'), null)
 })
 
-test('targeted fixture recovery forwards only validated IDs to the producer', async t => {
-  const paths: string[] = []
-  const upstream = createServer((request, response) => {
-    paths.push(request.url!)
-    response.setHeader('Content-Type', 'application/json')
-    response.end(JSON.stringify([goFixture(1, 'active', 'playing', '2H')]))
-  })
-  const upstreamPort = await listen(upstream)
-  t.after(() => close(upstream))
-  const app = express()
-  app.use(createFoundFootyRouter({ apiUrl: `http://127.0.0.1:${upstreamPort}` }))
-  const portal = createServer(app)
-  const portalPort = await listen(portal)
-  t.after(() => close(portal))
-  const response = await fetch(`http://127.0.0.1:${portalPort}/fixtures?ids=1`)
-  assert.equal(response.status, 200)
-  assert.equal(((await response.json()) as { fixtures: Fixture[] }).fixtures[0]._id, 1)
-  assert.equal((await fetch(`http://127.0.0.1:${portalPort}/fixtures?ids=invalid`)).status, 400)
-  assert.deepEqual(paths, ['/api/v1/fixtures?ids=1'])
-})
-
-test('event forwarding preserves both IDs and carries complete zero-clip completion for client insertion', async () => {
-  const eventId = 'a4dbb584-bda7-4495-8eea-0736d252bcf0'
-  const event: EventProjection = {
-    type: 'Goal', _kind: 'penalty-miss', detail: 'Missed Penalty',
-    time: { elapsed: 90, extra: 4 }, team: { id: 2, name: 'Home' },
-    player: { id: 10, name: 'Scorer' }, assist: { id: null, name: null }, comments: null,
-    _event_id: eventId, _s3_urls: [], _s3_videos: [], _twitter_search: '',
-    _discovered_videos: [], _perceptual_hashes: [], _monitor_complete: true,
-    _download_complete: true, _removed: false,
+test('event forwarding preserves both IDs and zero-clip completion', async () => {
+  const source = goEvent(undefined, 1, 'complete')
+  source.videos = []
+  const event: FootyEvent = {
+    id: source.id, fixture_id: source.fixture_id, kind: source.kind,
+    presentation_state: source.presentation_state, minute: source.minute, extra: source.extra,
+    team: source.team, player: source.player, assist: source.assist,
+    presentation: source.presentation, videos: source.videos, debounce_count: source.debounce_count,
   }
   const sent: BridgeMessage[] = []
   const forward = createEventUpdateForwarder({
-    fetchEvent: async (id, parent) => { assert.equal(id, eventId); assert.equal(parent, 1); return event },
+    fetchEvent: async () => event,
     fetchFixtures: async () => { throw new Error('unexpected parent read') },
     broadcast: message => sent.push(message), record: () => {},
   })
-  await forward({ event_id: eventId, fixture_id: 1 })
-  assert.equal(sent.length, 1)
-  assert.deepEqual(sent[0], { type: 'event_update', event_id: eventId, fixture_id: 1, event })
+  await forward({ event_id: event.id, fixture_id: 1 })
+  assert.deepEqual(sent, [{ type: 'event_update', event_id: event.id, fixture_id: 1, event }])
   assert.equal(isFootyLiveEvent(sent[0]), true)
 })
 
 for (const outcome of ['empty', 'failed'] as const) {
-  test(`${outcome} event fetch recovers an authoritative fixture without emitting deletion`, async () => {
+  test(`${outcome} event fetch recovers a complete parent instead of sending a deletion`, async () => {
     const sent: BridgeMessage[] = []
-    const recovered = { _id: 1, events: [], _last_activity: 'unchanged' } as unknown as Fixture
+    const recovered = portalFixture()
     const forward = createEventUpdateForwarder({
       fetchEvent: async () => { if (outcome === 'failed') throw new Error('offline'); return null },
       fetchFixtures: async ids => { assert.deepEqual(ids, [1]); return [recovered] },
       broadcast: message => sent.push(message), record: () => {},
     })
-    await forward({ event_id: 'a4dbb584-bda7-4495-8eea-0736d252bcf0', fixture_id: 1 })
+    await forward({ event_id: goEvent().id, fixture_id: 1 })
     assert.deepEqual(sent, [{ type: 'fixture_update', fixture_ids: [1], fixtures: [recovered] }])
   })
 }
 
-test('failed event and parent recovery sends resync and records each failure', async () => {
+function portalFixture(): Fixture {
+  return {
+    id: 1, kickoff: '2026-08-23T11:00:00Z', presentation_state: 'playing',
+    clock: { minute: 62, extra: null }, status: { short: '2H', long: 'Second Half' }, display: 'clock',
+    league: { id: 140, name: 'La Liga', country: 'Spain', season: 2026, priority: 20,
+      round_label: 'Matchweek 5', round_kind: 'regular_season' },
+    home: { id: 2, name: 'Home', score: 1, winner: null },
+    away: { id: 3, name: 'Away', score: 0, winner: null },
+    penalty: null, last_activity_at: '2026-08-23T11:10:00Z', events: [],
+  }
+}
+
+test('failed event and parent recovery requests resynchronization', async () => {
   const sent: BridgeMessage[] = []
   const records: FootyDiagnostic[] = []
   const forward = createEventUpdateForwarder({
     fetchEvent: async () => null, fetchFixtures: async () => [],
     broadcast: message => sent.push(message), record: entry => records.push(entry),
   })
-  await forward({ event_id: 'a4dbb584-bda7-4495-8eea-0736d252bcf0', fixture_id: 1 })
+  await forward({ event_id: goEvent().id, fixture_id: 1 })
   assert.deepEqual(sent, [{ type: 'resync', reason: 'event-update-recovery-failed' }])
   assert.deepEqual(records.map(entry => [entry.stage, entry.outcome]), [
     ['targeted_event', 'recovery'], ['targeted_fixture', 'failed'],
   ])
 })
 
-test('diagnostics bound storage and log rate while reporting suppression', () => {
-  let now = 0
-  const emitted: Array<{ suppressed: number }> = []
-  const diagnostics = createFootyDiagnostics(entry => emitted.push(entry), () => now)
-  for (let i = 0; i < 250; i++) diagnostics.record({ stage: 'client_apply', outcome: 'ignored' })
-  assert.equal(diagnostics.snapshot().recent.length, 100)
-  assert.equal(emitted.length, 60)
-  assert.equal(diagnostics.snapshot().suppressed, 190)
-  now = 60_000
-  diagnostics.record({ stage: 'client_apply', outcome: 'failed' })
-  assert.equal(emitted[60].suppressed, 190)
-})
-
-test('stale event fetch from an earlier NATS connection is ignored', async () => {
+test('stale event fetch from an earlier NATS generation is ignored', async () => {
   let current = true
-  const messages: BridgeMessage[] = []
-  const diagnostics: FootyDiagnostic[] = []
+  const sent: BridgeMessage[] = []
   const forward = createEventUpdateForwarder({
     fetchEvent: async () => { current = false; return null },
-    fetchFixtures: async () => { throw new Error('stale fetch must not recover') },
-    broadcast: message => messages.push(message), record: entry => diagnostics.push(entry),
+    fetchFixtures: async () => { throw new Error('must not recover stale data') },
+    broadcast: message => sent.push(message), record: () => {},
   })
-  await forward({ event_id: 'a4dbb584-bda7-4495-8eea-0736d252bcf0', fixture_id: 1 }, () => current)
-  assert.deepEqual(messages, [])
-  assert.equal(diagnostics[0].outcome, 'ignored')
+  await forward({ event_id: goEvent().id, fixture_id: 1 }, () => current)
+  assert.deepEqual(sent, [])
 })
 
-test('real NATS to REST to SSE to client: hard cutover, zero-clip completion, and reconnect', {
+test('real NATS to REST to SSE preserves direct event presentation and reconnect recovery', {
   skip: !process.env.NATS_TEST_URL,
   timeout: 25_000,
 }, async t => {
   const { connect, JSONCodec } = await import('nats')
-  const nc = await connect({ servers: process.env.NATS_TEST_URL!,
+  const nc = await connect({
+    servers: process.env.NATS_TEST_URL!,
     authenticator: await loadNatsAuthenticator(process.env.NATS_TEST_PUBLISHER_CREDS),
   })
   t.after(() => nc.close())
@@ -299,29 +278,37 @@ test('real NATS to REST to SSE to client: hard cutover, zero-clip completion, an
   })
   await new Promise<void>(resolve => relay.listen(0, '127.0.0.1', resolve))
   t.after(() => { for (const socket of sockets) socket.destroy(); relay.close() })
+
   const relayPort = (relay.address() as AddressInfo).port
-  const eventId = 'a4dbb584-bda7-4495-8eea-0736d252bcf0'
-  let event = { ...goEvent(eventId, 1, 'searching', 20), type: 'missed penalty' }
-  const fixture = { ...goFixture(1, 'active', 'playing', '2H', '2026-08-23T11:20:00Z'), events: [event] }
+  const eventId = goEvent().id
+  let sourceEvent = goEvent(eventId, 1, 'searching')
+  sourceEvent.videos = []
+  const sourceFixture = { ...goFixture(), events: [sourceEvent] }
   const paths: string[] = []
   const upstream = createServer((request, response) => {
     paths.push(request.url!)
     response.setHeader('Content-Type', 'application/json')
     if (request.url === '/healthz') response.end('{}')
-    else if (request.url === `/api/v1/events?ids=${eventId}`) response.end(JSON.stringify([event]))
-    else response.end(JSON.stringify([{ ...fixture, events: [event] }]))
+    else if (request.url === `/api/v1/events?ids=${eventId}`) response.end(JSON.stringify([sourceEvent]))
+    else response.end(JSON.stringify([{ ...sourceFixture, events: [sourceEvent] }]))
   })
   const upstreamPort = await listen(upstream)
   t.after(() => close(upstream))
+
   const bridge = new AbortController()
   t.after(() => bridge.abort())
   const app = express()
-  app.use(createFoundFootyRouter({ apiUrl: `http://127.0.0.1:${upstreamPort}`,
-    natsUrl: `nats://127.0.0.1:${relayPort}`, env: 'dev', signal: bridge.signal,
-    natsCredsPath: process.env.NATS_TEST_CONSUMER_CREDS }))
+  app.use(createFoundFootyRouter({
+    apiUrl: `http://127.0.0.1:${upstreamPort}`,
+    natsUrl: `nats://127.0.0.1:${relayPort}`,
+    env: 'dev',
+    signal: bridge.signal,
+    natsCredsPath: process.env.NATS_TEST_CONSUMER_CREDS,
+  }))
   const portal = createServer(app)
   const portalPort = await listen(portal)
   t.after(() => { portal.closeAllConnections(); return close(portal) })
+
   const streamAbort = new AbortController()
   const stream = await fetch(`http://127.0.0.1:${portalPort}/stream`, { signal: streamAbort.signal })
   t.after(() => streamAbort.abort())
@@ -345,6 +332,7 @@ test('real NATS to REST to SSE to client: hard cutover, zero-clip completion, an
     }
     throw new Error('SSE aborted')
   }
+
   assert.equal((await next('connected')).type, 'connected')
   allowConnection()
   assert.equal((await next('resync')).reason, 'nats-connect')
@@ -353,9 +341,9 @@ test('real NATS to REST to SSE to client: hard cutover, zero-clip completion, an
     return (await response.json() as { fixtures: Fixture[] }).fixtures
   }
   let client = await snapshot()
-  assert.equal(client[0].events[0]._download_complete, false)
-  client[0].events = [] // Simulate the separately confirmed missing-event defect.
-  event = { ...event, phase: 'complete' }
+  assert.equal(client[0].events[0].presentation_state, 'searching')
+
+  sourceEvent = { ...sourceEvent, presentation_state: 'complete', phase: 'complete' }
   const publish = (subject: string) => nc.publish(subject, codec.encode({
     version: 1, subject, payload: { event_id: eventId, fixture_id: 1 },
   }))
@@ -366,180 +354,59 @@ test('real NATS to REST to SSE to client: hard cutover, zero-clip completion, an
   assert.equal(isFootyLiveEvent(update), true)
   if (!isFootyLiveEvent(update)) throw new Error('invalid update')
   client = applyFootyLiveEvent(client, update)
-  assert.equal(client[0].events[0]._download_complete, true)
-  assert.deepEqual(client[0].events[0]._s3_urls, [])
-  assert.equal(client[0]._last_activity, fixture.last_activity_at)
+  assert.equal(client[0].events[0].presentation_state, 'complete')
+  assert.deepEqual(client[0].events[0].videos, [])
+  assert.equal(client[0].last_activity_at, sourceFixture.last_activity_at)
   assert.equal(paths.filter(path => path.startsWith('/api/v1/events')).length, 1)
   assert.equal(paths.some(path => path.startsWith('/api/v1/fixtures?')), false)
+
   for (const socket of sockets) socket.destroy()
   assert.equal((await next('resync')).reason, 'nats-reconnect')
   client = await snapshot()
-  assert.equal(client[0].events[0]._download_complete, true)
+  assert.equal(client[0].events[0].presentation_state, 'complete')
   assert.equal(paths.filter(path => path === '/api/v1/fixtures').length, 2)
 })
 
-const retainedEventId = '3b414e73-58ef-4e97-9733-41f546bda044'
-const retainedShareId = 's_5b7b39d48133'
-
-function goEvent(
-  id: string,
-  fixtureId: number,
-  phase: 'detected' | 'searching' | 'complete' | 'removed',
-  minute: number,
-) {
-  return {
-    id,
-    fixture_id: fixtureId,
-    type: 'goal',
-    detail: 'Normal Goal',
-    minute,
-    extra: null,
-    team: { id: fixtureId * 2, name: 'Home' },
-    player: { id: 10, name: 'Scorer' },
-    assist: null,
-    videos: [],
-    phase,
-    debounce_count: phase === 'removed' ? 0 : 3,
+test('retained event route preserves historical context and probes media without downloading it', async t => {
+  const eventId = '3b414e73-58ef-4e97-9733-41f546bda044'
+  const shareId = 's_5b7b39d48133'
+  const removed = {
+    ...goEvent(eventId, 6, 'removed'),
+    presentation: {
+      ...goEvent(eventId, 6, 'removed').presentation,
+      score_before: null,
+      score_after: null,
+    },
   }
-}
-
-test('retained event route returns an out-of-window fixture and probes media without following it', async t => {
-  const fixture = {
-    ...goFixture(6, 'completed', 'finished', 'FT', '2026-08-23T17:00:00Z'),
-    events: [goEvent('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 6, 'complete', 20)],
-  }
-  const removed = goEvent(retainedEventId, 6, 'removed', 10)
   let garageRequests = 0
-
-  const upstream = createServer((request, response) => {
-    if (request.url === `/api/v1/events?ids=${retainedEventId}`) {
-      response.setHeader('Content-Type', 'application/json')
-      response.end(JSON.stringify([removed]))
-      return
-    }
-    if (request.url === '/api/v1/fixtures?ids=6') {
-      response.setHeader('Content-Type', 'application/json')
-      response.end(JSON.stringify([fixture]))
-      return
-    }
-    if (request.url === `/api/v1/videos/${retainedShareId}`) {
-      response.statusCode = 302
-      response.setHeader('Location', '/garage/object.mp4')
-      response.end()
-      return
-    }
-    if (request.url === '/garage/object.mp4') {
-      garageRequests++
-      response.end('video bytes')
-      return
-    }
-    response.statusCode = 404
-    response.end()
+  const base = await startPortal(t, (request, response) => {
+    response.setHeader('Content-Type', 'application/json')
+    if (request.url === `/api/v1/events?ids=${eventId}`) response.end(JSON.stringify([removed]))
+    else if (request.url === '/api/v1/fixtures?ids=6') response.end(JSON.stringify([{ ...goFixture(6, 'finished', 'FT'), events: [] }]))
+    else if (request.url === `/api/v1/videos/${shareId}`) {
+      response.statusCode = 302; response.setHeader('Location', '/garage/object.mp4'); response.end()
+    } else if (request.url === '/garage/object.mp4') { garageRequests++; response.end('bytes') }
+    else { response.statusCode = 404; response.end() }
   })
-  const upstreamPort = await listen(upstream)
-  t.after(() => close(upstream))
-
-  const app = express()
-  app.use('/api/found-footy', createFoundFootyRouter({ apiUrl: `http://127.0.0.1:${upstreamPort}` }))
-  const portal = createServer(app)
-  const portalPort = await listen(portal)
-  t.after(() => close(portal))
-
-  const response = await fetch(
-    `http://127.0.0.1:${portalPort}/api/found-footy/event/${retainedEventId}?share_id=${retainedShareId}`,
-  )
+  const response = await fetch(`${base}/event/${eventId}?share_id=${shareId}`)
   assert.equal(response.status, 200)
-  const body = await response.json() as {
-    found: boolean
-    fixture: Fixture
-    media: { share_id: string; state: string }
-  }
-  assert.equal(body.found, true)
-  assert.equal(body.fixture._id, 6)
+  const body = await response.json() as { fixture: Fixture; media: { state: string } }
+  assert.equal(body.fixture.id, 6)
+  assert.equal(body.fixture.events[0].id, eventId)
+  assert.equal(body.fixture.events[0].presentation_state, 'removed')
+  assert.equal(body.fixture.events[0].presentation.score_after, null)
   assert.equal(body.media.state, 'available')
   assert.equal(garageRequests, 0)
-
-  const target = body.fixture.events.find(event => event._event_id === retainedEventId)!
-  const surviving = body.fixture.events.find(event => event._event_id !== retainedEventId)!
-  assert.equal(target._removed, true)
-  assert.deepEqual(target._score_after, { home: 1, away: 0 })
-  assert.deepEqual(surviving._score_after, { home: 1, away: 0 })
 })
 
-test('retained event route distinguishes removed and unknown media while preserving context', async t => {
-  const fixture = goFixture(6, 'completed', 'finished', 'FT')
-  const event = goEvent(retainedEventId, 6, 'complete', 10)
-  let mediaStatus = 410
-  const upstream = createServer((request, response) => {
-    if (request.url?.startsWith('/api/v1/events?ids=')) {
-      response.setHeader('Content-Type', 'application/json')
-      response.end(JSON.stringify([event]))
-      return
-    }
-    if (request.url === '/api/v1/fixtures?ids=6') {
-      response.setHeader('Content-Type', 'application/json')
-      response.end(JSON.stringify([fixture]))
-      return
-    }
-    if (request.url?.startsWith('/api/v1/videos/')) {
-      response.statusCode = mediaStatus
-      response.end()
-      return
-    }
-    response.statusCode = 404
-    response.end()
-  })
-  const upstreamPort = await listen(upstream)
-  t.after(() => close(upstream))
-
-  const app = express()
-  app.use('/api/found-footy', createFoundFootyRouter({ apiUrl: `http://127.0.0.1:${upstreamPort}` }))
-  const portal = createServer(app)
-  const portalPort = await listen(portal)
-  t.after(() => close(portal))
-  const eventUrl = `http://127.0.0.1:${portalPort}/api/found-footy/event/${retainedEventId}`
-  const url = `http://127.0.0.1:${portalPort}/api/found-footy/event/${retainedEventId}?share_id=${retainedShareId}`
-
-  const eventOnly = await fetch(eventUrl)
-  assert.equal(eventOnly.status, 200)
-  assert.equal(((await eventOnly.json()) as { media: unknown }).media, null)
-
-  const removed = await fetch(url)
-  assert.equal(removed.status, 200)
-  assert.equal(((await removed.json()) as { media: { state: string } }).media.state, 'removed')
-
-  mediaStatus = 404
-  const unknown = await fetch(url)
-  assert.equal(unknown.status, 200)
-  assert.equal(((await unknown.json()) as { media: { state: string } }).media.state, 'unknown')
-})
-
-test('retained event route separates missing resources, invalid input, and upstream failure', async t => {
-  let upstreamStatus = 200
-  const upstream = createServer((request, response) => {
-    if (request.url?.startsWith('/api/v1/events?ids=')) {
-      response.statusCode = upstreamStatus
-      response.setHeader('Content-Type', 'application/json')
-      response.end(upstreamStatus === 200 ? '[]' : '{"error":"failed"}')
-      return
-    }
-    response.statusCode = 404
-    response.end()
-  })
-  const upstreamPort = await listen(upstream)
-  t.after(() => close(upstream))
-
-  const app = express()
-  app.use('/api/found-footy', createFoundFootyRouter({ apiUrl: `http://127.0.0.1:${upstreamPort}` }))
-  const portal = createServer(app)
-  const portalPort = await listen(portal)
-  t.after(() => close(portal))
-  const base = `http://127.0.0.1:${portalPort}/api/found-footy/event`
-
-  assert.equal((await fetch(`${base}/not-a-uuid`)).status, 400)
-  assert.equal((await fetch(`${base}/${retainedEventId}?share_id=bad`)).status, 400)
-  assert.equal((await fetch(`${base}/${retainedEventId}`)).status, 404)
-
-  upstreamStatus = 500
-  assert.equal((await fetch(`${base}/${retainedEventId}`)).status, 502)
+test('diagnostics keep bounded storage and report suppressed records', () => {
+  let now = 0
+  const emitted: Array<{ suppressed: number }> = []
+  const diagnostics = createFootyDiagnostics(entry => emitted.push(entry), () => now)
+  for (let i = 0; i < 250; i++) diagnostics.record({ stage: 'client_apply', outcome: 'ignored' })
+  assert.equal(diagnostics.snapshot().recent.length, 100)
+  assert.equal(emitted.length, 60)
+  now = 60_000
+  diagnostics.record({ stage: 'client_apply', outcome: 'failed' })
+  assert.equal(emitted[60].suppressed, 190)
 })

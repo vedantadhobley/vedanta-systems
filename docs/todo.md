@@ -59,6 +59,12 @@ visual redesign.
 - [x] Coordinate the FF-085/FF-086 hard cutover: production runs consumer
   `ca1f8e5`, Found Footy `3723ce2` (includes `dbc2a76`), and schemas `fcfb28f`.
   Independent release, REST, NATS subscription, and SSE checks passed.
+- [x] Consume Found Footy's additive public-presentation contract directly in
+  source. Remove the legacy underscore adapter, raw football interpretation,
+  score reconstruction, URL identity parsing, round parsing, and provider-ID
+  competition ordering. Preserve replacement-only `event.update`; recover a
+  missing event or parent through one complete targeted fixture replacement.
+  Producer `d256c7e` is live; record the consumer deployment separately.
 - [ ] Trace natural clip changes and zero-candidate completion through client
   application before closing FF-085/FF-086. Existing browser tabs must load
   the new bundle; reconnect alone does not update JavaScript. The
