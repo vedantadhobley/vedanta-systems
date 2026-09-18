@@ -197,6 +197,13 @@ Pattern A vs B is the central architectural call here — see
   The public-presentation consumer now preserves that shape directly; React
   only applies timezone grouping and visual highlighting.
   See [the API rollout record](./deploy/INFRA-NOTES.md#8-found-footy-search-provenance-rollout--2026-09-18).
+- **Found Footy public presentation consumer deployed (2026-09-18)**:
+  frontend/BFF `64dd22e` consumes producer `d256c7e` directly. The clean
+  browser resource omits processing state, legacy underscore fields, raw
+  football interpretation, reconstructed event scores, URL-derived share IDs,
+  provider round parsing, and provider-ID ordering. Missing event membership
+  still recovers through a complete targeted parent replacement. Existing tabs
+  need one reload. See [the rollout record](./deploy/INFRA-NOTES.md#9-found-footy-public-presentation-consumer-rollout--2026-09-18).
 - **Control feedback deployed (2026-09-13)**: frontend `3767bf9` snaps
   control state changes; the independent GitHub animation is unchanged. The API
   was not redeployed. Exact image, public checks, and rollback are in

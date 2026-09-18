@@ -15,9 +15,10 @@ natural event-to-React acceptance remains open. See
 
 **Presentation-contract state (2026-09-18):** Found Footy production runs
 `d256c7e`, including additive producer commits `921e187` and `41b7d5e`.
-Vedanta Systems now consumes that contract directly in source. Deployment is
-recorded separately from implementation so this statement never implies that
-an old browser bundle can understand the new consumer shape.
+Vedanta Systems consumer `64dd22e` is deployed and consumes that contract
+directly. Existing tabs still need one reload because reconnecting replaces
+data but cannot replace an already-loaded JavaScript bundle. See the
+[deployment record](../deploy/INFRA-NOTES.md#9-found-footy-public-presentation-consumer-rollout--2026-09-18).
 
 ## System path
 

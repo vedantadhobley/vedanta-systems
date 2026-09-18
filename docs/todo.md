@@ -64,7 +64,9 @@ visual redesign.
   score reconstruction, URL identity parsing, round parsing, and provider-ID
   competition ordering. Preserve replacement-only `event.update`; recover a
   missing event or parent through one complete targeted fixture replacement.
-  Producer `d256c7e` is live; record the consumer deployment separately.
+  Producer `d256c7e` and consumer `64dd22e` are live. Public REST shape, search
+  provenance, SSE connection, NATS subscription, and adjacent btop health
+  passed the [deployment checks](../deploy/INFRA-NOTES.md#9-found-footy-public-presentation-consumer-rollout--2026-09-18).
 - [ ] Trace natural clip changes and zero-candidate completion through client
   application before closing FF-085/FF-086. Existing browser tabs must load
   the new bundle; reconnect alone does not update JavaScript. The

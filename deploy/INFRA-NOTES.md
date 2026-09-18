@@ -289,3 +289,50 @@ Rollback image: `vedanta-systems-api:pre-search-provenance-20260918`,
 If rollback is authorized, retag it as `vedanta-systems-prod-api`, recreate
 only `api` with `--no-deps --no-build`, and repeat the public search and health
 checks.
+
+## 9. Found Footy public-presentation consumer rollout — 2026-09-18
+
+Deployed frontend/BFF
+`64dd22e72067ca589833ae97a4eb664dbb68f6f2` at 2026-09-18 22:44 UTC. It
+consumes Found Footy's additive public-presentation contract directly and
+removes the consumer's legacy football interpreter. Found Footy remained on
+`d256c7e736f3d92ec1e83517c1de4d11c8180964`.
+
+- Frontend image:
+  `sha256:ac4c5471190062b625c37cc61760e4dd344002b68ebf4f1bce292cadeacda1a4`.
+- API image:
+  `sha256:b4597f937d06775305d8b76084cef11ff012ef54f3a9e6795107578d38c84d28`.
+- Both image revision labels match the full source commit.
+- Public assets: `index-CalVWCXd.js` and `index-BAlnLF7q.css`.
+
+TypeScript, all 34 active focused Found Footy tests, changed-source lint, both
+production Docker builds, and `git diff --check` passed before deployment. The
+optional external-NATS test was skipped because `NATS_TEST_URL` was not set.
+The host build still cannot replace root-owned generated files; the
+authoritative Docker builds passed. Existing Node/dependency, bundle-size,
+repository-wide lint, and physical-device acceptance debt remain separate.
+
+Only `api` and `frontend` were recreated with `--no-deps --no-build`. Both
+started at 22:44 UTC with zero restarts. Found Footy, NATS, Control relays,
+databases, and application data were untouched. There was no database
+migration, shared-schema change, remote-node action, or upstream push.
+
+Public verification passed portal and Found Footy health, the browser route,
+immutable asset delivery, and both btop node health checks. The BFF connected
+to the Found Footy and btop NATS subjects. SSE delivered `connected` and a
+healthy state. The live fixture collection exposed only the direct fixture,
+league, event, and video projection: no legacy underscore adapter fields, raw
+event `type`/`detail`/`phase`, or raw league round remained. Search preserved
+producer `search_match`, and live videos retained explicit `share_id`.
+Existing tabs need one reload to load the new JavaScript.
+
+Rollback images:
+
+- `vedanta-systems-frontend:pre-public-presentation-20260918`,
+  `sha256:998bb4a6f9b5d96743b95696bac85c12d1245f2b8984ce5c816bef9cce8f2120`.
+- `vedanta-systems-api:pre-public-presentation-20260918`,
+  `sha256:e381eb5abb0521cff2d25f5f6ad01dbb2d10f6c0901054f037f9ae0f229e6543`.
+
+If rollback is authorized, retag both exact images as their production tags,
+recreate only `api` and `frontend` with `--no-deps --no-build`, reload existing
+tabs, and repeat public health, fixture-shape, search, SSE, and asset checks.
