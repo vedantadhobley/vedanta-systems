@@ -1062,3 +1062,10 @@ upcoming. Negative values mean whole minutes past the API's scheduled kickoff,
 not confirmed delay or elapsed playing time. Retain minute-boundary updates,
 hour/minute formatting, and `0m` rather than negative zero for sub-minute
 distances. The backend presentation state alone ends this countdown.
+
+## 2026-09-18 — pin scheduled kickoff to the fixture's right edge
+
+Render the upcoming countdown before scheduled kickoff: `11m · 21:30 EDT`.
+Kickoff remains the stable right-hand anchor when countdown text changes and
+when the backend removes the countdown at match start. Countdown width grows
+leftward; clock/status remains aligned with kickoff on the row above.

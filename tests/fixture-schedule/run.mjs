@@ -35,6 +35,7 @@ for (const [name, engine, viewport, touch] of [
       assert.match(await time.textContent(), /^14:00 EDT$|^18:00 UTC$/)
       const metadata = await time.evaluate(el => el.parentElement.textContent)
       assert.equal(metadata.includes(' · '), countdown, metadata)
+      assert.ok(metadata.endsWith(await time.textContent()), 'scheduled kickoff owns the right edge')
       const layout = await time.evaluate(el => {
         const metadata = el.parentElement.parentElement
         const title = metadata.previousElementSibling
@@ -44,12 +45,13 @@ for (const [name, engine, viewport, touch] of [
           return { x: rect.x, right: rect.right, y: rect.y, bottom: rect.bottom, width: rect.width }
         }
         return { metadata: box(metadata), title: box(title), fixture: box(fixture),
-          status: box(title.lastElementChild), schedule: box(el.parentElement),
+          status: box(title.lastElementChild), schedule: box(el.parentElement), kickoff: box(el),
           names: box(title.firstElementChild) }
       })
       assert.ok(layout.metadata.y >= layout.title.bottom - 1, 'kickoff stays below the match clock/status')
       assert.ok(Math.abs(layout.title.width - layout.metadata.width) < 1, 'schedule cannot narrow the title row')
-      assert.ok(Math.abs(layout.status.right - layout.schedule.right) < 1, 'both right-hand fields align')
+      assert.ok(Math.abs(layout.status.right - layout.kickoff.right) < 1, 'status and pinned kickoff align')
+      assert.ok(Math.abs(layout.schedule.right - layout.kickoff.right) < 1, 'countdown grows left from kickoff')
       assert.ok(layout.names.right <= layout.status.x, 'long names cannot overlap the indicator')
       assert.ok(layout.fixture.right <= viewport.width - 15, 'no horizontal overflow')
       return layout
@@ -61,13 +63,13 @@ for (const [name, engine, viewport, touch] of [
     // changes. Advancing wall time alone must never claim the match has started.
     await page.clock.fastForward(new Date('2026-09-16T18:00:00Z').getTime() - await page.evaluate(() => Date.now()))
     await check('Not Started', 'NS', true)
-    assert.match(await time.evaluate(el => el.parentElement.textContent), / · 0m$/)
+    assert.match(await time.evaluate(el => el.parentElement.textContent), /^0m · /)
     await page.clock.fastForward(60_000)
     await check('Not Started', 'NS', true)
-    assert.match(await time.evaluate(el => el.parentElement.textContent), / · −1m$/)
+    assert.match(await time.evaluate(el => el.parentElement.textContent), /^−1m · /)
     await page.clock.fastForward(60_000)
     await check('Not Started', 'NS', true)
-    assert.match(await time.evaluate(el => el.parentElement.textContent), / · −2m$/)
+    assert.match(await time.evaluate(el => el.parentElement.textContent), /^−2m · /)
     const playing = { state: 'active', presentation_state: 'playing', display: 'clock',
       status: { short: '1H', long: 'First Half' }, clock: { minute: 12, extra: null }, goals: { home: 1, away: 0 } }
     await render(playing)

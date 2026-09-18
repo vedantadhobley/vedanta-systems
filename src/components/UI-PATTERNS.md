@@ -121,6 +121,12 @@ it is removed when the backend changes the presentation state. Kickoff uses the
 API's fixture date and the existing Local/UTC formatter, not a locally inferred
 actual start time. A schedule change returned by the API updates the label.
 
+For upcoming fixtures the countdown sits to the left of kickoff, for example
+`11m · 21:30 EDT`. Kickoff is the stable right-hand anchor before and after the
+countdown disappears; countdown width grows left and cannot shift kickoff.
+This anchor-order correction is implemented in source/dev; production needs a
+separate frontend rollout.
+
 The countdown continues past zero instead of saying `Starting...`:
 `2m → 1m → 0m → −1m → −2m`. Negative values mean whole minutes past scheduled
 kickoff while the backend still says upcoming; they do not assert a confirmed

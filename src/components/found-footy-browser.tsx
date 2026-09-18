@@ -875,8 +875,8 @@ function FixtureMetadata({ competitionText, date, kickoffTime, countdown }: {
         <span className={cn("truncate flex-1 min-w-0", competitionText === 'Final' ? "text-lavender" : "text-corpo-text/40")}>{competitionText}</span>
       )}
       <span className="ml-auto text-corpo-text/40 flex-shrink-0 tabular-nums">
+        {countdown && <span data-fixture-countdown>{countdown} · </span>}
         <time dateTime={date} aria-label={`Scheduled kickoff ${kickoffTime}`}>{kickoffTime}</time>
-        {countdown && ` · ${countdown}`}
       </span>
     </span>
   )
