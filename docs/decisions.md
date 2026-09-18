@@ -1069,3 +1069,17 @@ Render the upcoming countdown before scheduled kickoff: `11m · 21:30 EDT`.
 Kickoff remains the stable right-hand anchor when countdown text changes and
 when the backend removes the countdown at match start. Countdown width grows
 leftward; clock/status remains aligned with kickoff on the row above.
+
+## 2026-09-18 — trust Found Footy search provenance
+
+Found Footy owns public-search normalization and now returns field-level match
+provenance with each complete fixture. The BFF must translate those supplied
+competition, team, player, and assist flags into presentation metadata without
+repeating text matching against display strings. React continues rendering the
+full fixture and highlighting the supplied event IDs.
+
+This fixes plain-keyboard searches such as `mbappe` returning `Mbappé` while
+failing to highlight his event. It does not change result scope, timezone
+grouping, or the browser's existing `_search` shape. Deploy the additive Found
+Footy response before this required consumer; no dual matcher or fallback is
+retained afterward.

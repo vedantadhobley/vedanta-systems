@@ -78,6 +78,23 @@ interface GoFixture {
   last_activity_at: string | null; events: GoEvent[]
 }
 
+interface GoSearchEventMatch {
+  event_id: string
+  player: boolean
+  assist: boolean
+}
+
+interface GoSearchMatch {
+  competition: boolean
+  home_team: boolean
+  away_team: boolean
+  events: GoSearchEventMatch[]
+}
+
+interface GoSearchFixture extends GoFixture {
+  search_match: GoSearchMatch
+}
+
 interface FixtureStatusEntry {
   fixture_id: number
   presentation_state: GoPresentationState
@@ -422,10 +439,10 @@ export function createFoundFootyRouter(config: FoundFootyConfig): Router {
     }
   })
 
-  // GET /search?q= - proxy Go's /api/v1/search (case-insensitive substring across competition,
-  // team, scorer, and assist names). Go returns a flat []fixtureDTO (same shape as /fixtures);
-  // we reshape, re-derive which part matched for the UI's highlight metadata (_search), and
-  // group by UTC date. The frontend re-buckets per timezone + applies its navigable cutoff.
+  // GET /search?q= - proxy Go's /api/v1/search (case- and accent-insensitive substring across
+  // competition, team, scorer, and assist names). Go returns complete fixtures plus authoritative
+  // field-level match provenance. This adapter reshapes that provenance for the existing UI; it
+  // never repeats text matching. The frontend re-buckets per timezone + applies its cutoff.
   router.get('/search', async (req: Request, res: Response) => {
     const q = ((req.query.q as string) || '').trim()
     // Frontend already gates <2 chars; guard here too, and never send an empty q (Go 400s it).
@@ -433,16 +450,15 @@ export function createFoundFootyRouter(config: FoundFootyConfig): Router {
       return res.json({ results: [], query: q, totalFixtures: 0 })
     }
     try {
-      const all = await goJson<GoFixture[]>(`/api/v1/search?q=${encodeURIComponent(q)}`)
-      const needle = q.toLowerCase()
-      const has = (s?: string | null) => !!s && s.toLowerCase().includes(needle)
+      const all = await goJson<GoSearchFixture[]>(`/api/v1/search?q=${encodeURIComponent(q)}`)
 
       const fixtures = all.map(g => {
-        const teamMatch = has(g.home.name) || has(g.away.name)
         const base = reshapeFixture(g)
-        const matchedEventIds = base.events
-          .filter(e => has(e.player?.name) || has(e.assist?.name))
-          .map(e => e._event_id)
+        const visibleEventIds = new Set(base.events.map(event => event._event_id))
+        const matchedEventIds = g.search_match.events
+          .map(event => event.event_id)
+          .filter(eventId => visibleEventIds.has(eventId))
+        const teamMatch = g.search_match.home_team || g.search_match.away_team
         const fixture: SearchFixture = {
           ...base,
           _search: { teamMatch, matchedEventIds, matchCount: matchedEventIds.length + (teamMatch ? 1 : 0) },

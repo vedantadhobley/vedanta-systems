@@ -102,6 +102,56 @@ test('fixtures endpoint exposes the breaking FF-077 presentation shape as one co
   assert.deepEqual(body.fixtures.find(fixture => fixture._id === 5)?.score.penalty, { home: 4, away: 3 })
 })
 
+test('search trusts backend match provenance while retaining the complete fixture', async t => {
+  const matchedEventId = 'a4dbb584-bda7-4495-8eea-0736d252bcf0'
+  const otherEventId = '3b414e73-58ef-4e97-9733-41f546bda044'
+  const fixture = {
+    ...goFixture(6, 'completed', 'finished', 'FT'),
+    events: [
+      { ...goEvent(matchedEventId, 6, 'complete', 23), player: { id: 9, name: 'K. Mbappé' } },
+      { ...goEvent(otherEventId, 6, 'complete', 41), player: { id: 10, name: 'Other Player' } },
+    ],
+    search_match: {
+      competition: false,
+      home_team: false,
+      away_team: false,
+      events: [{ event_id: matchedEventId, player: true, assist: false }],
+    },
+  }
+  const upstream = createServer((request, response) => {
+    assert.equal(request.url, '/api/v1/search?q=mbappe')
+    response.setHeader('Content-Type', 'application/json')
+    response.end(JSON.stringify([fixture]))
+  })
+  const upstreamPort = await listen(upstream)
+  t.after(() => close(upstream))
+
+  const app = express()
+  app.use('/api/found-footy', createFoundFootyRouter({
+    apiUrl: `http://127.0.0.1:${upstreamPort}`,
+  }))
+  const portal = createServer(app)
+  const portalPort = await listen(portal)
+  t.after(() => close(portal))
+
+  const response = await fetch(`http://127.0.0.1:${portalPort}/api/found-footy/search?q=mbappe`)
+  assert.equal(response.status, 200)
+  const body = await response.json() as {
+    results: Array<{ fixtures: Array<Fixture & { _search: {
+      teamMatch: boolean; matchedEventIds: string[]; matchCount: number
+    } }> }>
+    totalFixtures: number
+  }
+
+  assert.equal(body.totalFixtures, 1)
+  assert.equal(body.results[0].fixtures[0].events.length, 2)
+  assert.deepEqual(body.results[0].fixtures[0]._search, {
+    teamMatch: false,
+    matchedEventIds: [matchedEventId],
+    matchCount: 1,
+  })
+})
+
 test('fixture update batcher unions bursty IDs before one targeted fetch', async () => {
   const batches: number[][] = []
   const batcher = createFixtureUpdateBatcher(async ids => { batches.push(ids) }, 10)

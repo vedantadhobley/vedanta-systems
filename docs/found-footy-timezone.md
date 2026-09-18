@@ -89,9 +89,11 @@ amplification and naturally covers timezone edges.
 ### BFF: `/search?q=<query>` endpoint
 
 The BFF proxies the Found Footy Go search endpoint, which matches competition,
-team, scorer, and assist names. It reshapes the flat fixture results for the
-legacy frontend, derives highlight metadata, and groups results by **UTC date**.
-The BFF does not apply the user's navigation cutoff.
+team, scorer, and assist names and returns complete fixtures with authoritative
+field-level match provenance. The BFF reshapes that provenance into the legacy
+frontend's highlight metadata and groups results by **UTC date**. It does not
+repeat text normalization or matching, and it does not apply the user's
+navigation cutoff.
 
 ### Client: `filteredSearchResults`
 
