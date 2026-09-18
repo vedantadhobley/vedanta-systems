@@ -124,8 +124,8 @@ actual start time. A schedule change returned by the API updates the label.
 For upcoming fixtures the countdown sits to the left of kickoff, for example
 `11m · 21:30 EDT`. Kickoff is the stable right-hand anchor before and after the
 countdown disappears; countdown width grows left and cannot shift kickoff.
-This anchor-order correction is implemented in source/dev; production needs a
-separate frontend rollout.
+This anchor order is deployed in production; see the
+[release record](../../deploy/INFRA-NOTES.md#7-kickoff-anchor-rollout--2026-09-18).
 
 The countdown continues past zero instead of saying `Starting...`:
 `2m → 1m → 0m → −1m → −2m`. Negative values mean whole minutes past scheduled

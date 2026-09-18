@@ -2,7 +2,7 @@
 
 ## Cutover release
 
-The [2026-09-16 fixture-schedule rollout](../deploy/INFRA-NOTES.md#6-fixture-schedule-rollout--2026-09-16)
+The [2026-09-18 kickoff-anchor rollout](../deploy/INFRA-NOTES.md#7-kickoff-anchor-rollout--2026-09-18)
 supersedes the frontend image below. It leaves the API and btop transport
 unchanged. The following records the original btop cutover, not the latest
 frontend image.

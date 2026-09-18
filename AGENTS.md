@@ -187,9 +187,10 @@ Pattern A vs B is the central architectural call here — see
   handling, and quarterly-extensible primitives remain in @docs/todo.md.
 - **Spin-cycle**: route active. Project itself is scheduled for maintenance (out-of-band). vs-api spin-cycle route is gated on `SPIN_CYCLE_POSTGRES_URI` at startup but doesn't currently degrade gracefully if the upstream goes away mid-flight. Decide-during-maintenance is in @docs/todo.md.
 - **Legal Tender**: not surfaced. It must use Pattern B when it lands.
-- **Fixture schedule deployed (2026-09-16)**: frontend `47c2a1f` retains
-  kickoff across match states and counts past scheduled kickoff while upcoming.
-  The API is unchanged. See [the release record](./deploy/INFRA-NOTES.md#6-fixture-schedule-rollout--2026-09-16).
+- **Fixture schedule deployed (2026-09-18)**: frontend `cc4a67e` retains
+  kickoff across match states, counts past scheduled kickoff while upcoming,
+  and pins kickoff to the right of the countdown. The API is unchanged. See
+  [the latest release record](./deploy/INFRA-NOTES.md#7-kickoff-anchor-rollout--2026-09-18).
 - **Control feedback deployed (2026-09-13)**: frontend `3767bf9` snaps
   control state changes; the independent GitHub animation is unchanged. The API
   was not redeployed. Exact image, public checks, and rollback are in

@@ -219,3 +219,38 @@ Rollback image: `vedanta-systems-frontend:pre-fixture-schedule-20260916`,
 `sha256:0688a88dfcff3f07224475f29e30540264ab7476f8db9428b19dffae2344c781`.
 If rollback is authorized, retag it as `vedanta-systems-prod-frontend`, recreate
 only `frontend` with `--no-deps --no-build`, and repeat public checks.
+
+## 7. Kickoff-anchor rollout — 2026-09-18
+
+Deployed frontend `cc4a67e52fa120f8a6e46ba851539b6e1ad3c0f8` at
+2026-09-18 08:46 UTC. Upcoming fixtures now render countdown before kickoff,
+for example `9h 43m · 14:30 EDT`, so the kickoff element owns the stable
+right edge before and after the countdown disappears.
+
+- Image: `sha256:998bb4a6f9b5d96743b95696bac85c12d1245f2b8984ce5c816bef9cce8f2120`.
+- Tags: `vedanta-systems-prod-frontend` and `vedanta-systems-frontend:cc4a67e`;
+  the revision label matches the source commit above.
+- Public assets: `index-BDY4_aho.js` and unchanged `index-BAlnLF7q.css`.
+- The API image/revision remains unchanged.
+
+The 4 GiB/two-CPU temporary builder passed TypeScript and Vite with the
+production API URLs and 1536 MiB Node heap. Only `frontend` was recreated with
+`--no-deps --no-build`; the temporary builder was removed afterward.
+
+nginx validation, public home/Found Footy routes, new assets, portal/Found
+Footy health, and both btop health endpoints passed. On the same real upcoming
+fixture, public desktop Chromium and mobile-sized WebKit both rendered the
+countdown before kickoff and proved that kickoff, its metadata wrapper, and
+the status above share the same right edge. No page errors occurred.
+
+API, NATS, both telemetry relays, and the Found Footy API container matched
+the immediate pre-deployment identities and start times. Found Footy had been
+recreated independently before this rollout; this deployment did not touch it.
+The frontend has zero restarts and no OOM flag. No backend deployment, database
+migration, upstream push, or remote-node action occurred. Existing tabs need
+one reload to obtain the new bundle.
+
+Rollback image: `vedanta-systems-frontend:pre-kickoff-anchor-20260918`,
+`sha256:8cd8d28a4f43d6a42fb54fad8ceb83913e24cb45c82bff09a442c32564c2e147`.
+If rollback is authorized, retag it as `vedanta-systems-prod-frontend`, recreate
+only `frontend` with `--no-deps --no-build`, and repeat public checks.

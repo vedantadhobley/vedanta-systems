@@ -38,4 +38,5 @@ mount effect. No production data was changed to simulate a delayed kickoff.
 configurations, type-check, Found Footy regressions, and the production Vite
 build. The browser assertions compare the kickoff element itself—not its wider
 countdown wrapper—with the status and metadata right edges. This correction is
-verified in dev and is not yet deployed.
+also verified in production; see the
+[release record](../../deploy/INFRA-NOTES.md#7-kickoff-anchor-rollout--2026-09-18).
